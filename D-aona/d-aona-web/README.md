@@ -1,22 +1,20 @@
-# D-aôna — Maquette web complète (PRD v1.1 · Août 2026)
+# D-aôna — Application web (PRD v1.2 · 2026)
 
-Maquette interactive de la **version web** de D-aôna, la plateforme compétitive de
-jeux traditionnels malgaches (Fanorona, Katro…), strictement alignée sur le
-document `D-aona_PRD_v1_1.pdf`.
+Frontend **mono-fichier** de D-aôna, la plateforme compétitive de jeux
+traditionnels malgaches (Fanorona, Katro…). HTML/CSS/JS vanilla embarqué dans
+`index.html` — aucune dépendance, aucun build.
 
-## Lancer la maquette
+## Lancer l'application
 
-Ouvrez simplement **`index.html`** dans un navigateur (double-clic), ou servez le
-dossier :
+Le frontend est servi par le backend (`d-aona-server/server.js`) :
 
 ```bash
-cd d-aona-web && python3 -m http.server 8080
-# → http://localhost:8080
+cd d-aona-server && node server.js
+# → http://localhost:8080  (ou http://<ip-locale>:8080 pour les autres appareils)
 ```
 
-Aucune dépendance, aucun build — HTML/CSS/JS vanilla. Cliquez sur
-**« Entrer dans l'arène 🎮 »** pour explorer la démo (les données sont simulées
-et persistées en `localStorage`).
+Le client communique avec le serveur via l'API REST (`/api/*`) et le WebSocket
+(`/ws`) : auth, matchmaking, parties temps réel, amis, chat, wallet, tournois.
 
 ## Ce que couvre la maquette (cartographie PRD)
 
@@ -45,20 +43,16 @@ et persistées en `localStorage`).
 
 ```
 d-aona-web/
-├── index.html               Structure de l'app (SPA, 8 écrans)
-├── assets/
-│   ├── css/main.css         Design system PRD (#0A0A0F / #0F0F1A / #1D9E75 / #E59E27)
-│   ├── js/data.js           Données de démo (rangs, joueurs, tournois, skins…)
-│   ├── js/fanorona.js       Moteur Fanorona authentique + IA + rendu plateau
-│   ├── js/app.js            Router, wallet, tournois, classement, KYC, chat…
-│   └── bg/                  Fond du plateau (assemblé à partir d'assets générés IA)
+├── index.html               Application complète (SPA : design system, moteur
+│                            Fanorona, client API/WebSocket, toutes les vues)
+└── assets/board/            Image du plateau de Fanorona
 ```
 
-Le cadre du plateau (`assets/bg/fanorona.png` + `@2x`) a été assemblé
-programmatiquement : intérieur exactement `#0F0F1A`, bruit discret, aucun raccord visible.
+Le design system est embarqué dans `index.html` : **thème Jour (défaut) et
+thème Nuit OLED**, tokens motion/relief, écran « Bon retour » adaptatif
+desktop/mobile, barre d'onglets lumineuse.
 
-## Limites (maquette)
+## Limites
 
-- Aucune donnée réelle / aucun backend (Supabase, MVola… simulés).
-- L'« adversaire en ligne » et les autres joueurs sont simulés côté navigateur.
-- Les paiements sont des simulations à but démonstratif.
+- Les paiements (MVola, Orange Money…) restent des simulations à but démonstratif.
+- Le back-office admin affiche des données de démo.

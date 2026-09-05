@@ -2865,74 +2865,102 @@ function eloDelta(me, opp, result /* 1, 0.5, 0 */) {
 
 Object.assign(window, { rankFor, rankProgress, countdownParts, eloDelta });
 
-// ===== MOCK API =====
+// ===== REAL API (backend) =====
+/* =========================================================
+   D-aôna — Client API & WebSocket (connexion au backend)
+   ========================================================= */
+"use strict";
+
 const API = (() => {
-  const handlers = {};
-  let me = { id: 999, pseudo: "", elo: 1100, wins: 0, losses: 0, balance: 5000, bonus_lock: 0, kyc: false, bonus_used: false, withdrawn_today: 0, avatar: null, province: "Antananarivo", rank: 1 };
-  let token = null;
-  let friends = [];
-  let friendReqs = [];
-  let channels = {};
-  const players = (() => { const all = []; LEADERBOARD_POOL.forEach(p => all.push({ ...p, avatar: null })); OPPONENT_POOL.forEach(p => { if (!all.find(x => x.pseudo === p.pseudo)) all.push({ ...p, avatar: null }); }); return all; })();
+  const base = location.origin;
+  let token = localStorage.getItem("daona_token") || null;
+  let ws = null;
+  let wsReady = false;
+  let wsQueue = [];
+  const handlers = {};   // type -> [fn]
 
-  function respond(resolve, data) { setTimeout(() => resolve(data), 60 + Math.random() * 100); }
-  function fail(resolve, msg, code) { setTimeout(() => { const e = new Error(msg); e.status = code || 400; e.body = { error: msg }; throw e; }, 100); }
-
-  async function request(path, method, body) {
-    method = method || "GET";   // FIX — appel sans méthode = GET (recherche joueurs, profils, amis, chat)
-    const u = new URL(path, "http://m"); const p = u.pathname; const q = u.searchParams;
-    return new Promise((resolve, reject) => {
-      try {
-        if (p === "/api/auth" && method === "POST") {
-          me.pseudo = (body.pseudo || "").trim().slice(0, 14); if (!me.pseudo) { fail(resolve, "Pseudo requis"); return; }
-          token = "mock_" + Date.now(); me.rank = 1;
-          respond(resolve, { token, user: { ...me, badge: badgeFor(1) } }); return;
-        }
-        if (p === "/api/user") { respond(resolve, { user: { ...me, badge: badgeFor(me.rank) }, transactions: [] }); return; }
-        if (p === "/api/user/avatar" && method === "POST") { me.avatar = body.avatar || null; respond(resolve, { ok: true, avatar: me.avatar }); return; }
-        if (p === "/api/leaderboard") {
-          const ranked = players.map((pl, i) => { const b = badgeFor(i + 1); return { rank: i + 1, id: i, pseudo: pl.pseudo, elo: pl.elo, wins: pl.wins || 0, games: (pl.wins || 0) + (pl.losses || 0), province: pl.province || "Antananarivo", avatar: pl.avatar, me: pl.pseudo === me.pseudo, badge: { name: b.name, icon: b.icon, color: b.color } }; });
-          respond(resolve, { leaderboard: ranked }); return;
-        }
-        if (p === "/api/tournaments") { respond(resolve, { tournaments: TOURNAMENTS_SEED.map(t => ({ ...t, registered: [], registeredCount: 0, isRegistered: false, minRank: "Bronze", startsInSec: t.startsInSec })) }); return; }
-        if (p === "/api/skins") { respond(resolve, { skins: SKINS_CATALOG, owned: ["pions-classique", "pions-obsidienne"], equipped: { pions: "pions-classique", plateau: null, effet: null } }); return; }
-        if (p === "/api/config") { respond(resolve, { formats: FORMATS, ranks: RANKS, games: GAMES_CATALOG, provinces: PROVINCES, operators: [{ id: "mvola", name: "MVola", sub: "Telma", color: "#7ac142", txt: "M" }] }); return; }
-        if (p === "/api/friends" && method === "GET") { respond(resolve, { friends: friends.map(f => ({ ...f, online: true })), incoming: friendReqs.filter(r => r.toPseudo === me.pseudo), outgoing: friendReqs.filter(r => r.fromPseudo === me.pseudo) }); return; }
-        if (p === "/api/friends/request" && method === "POST") {
-          const target = players.find(p => p.pseudo === (body.pseudo || ""));
-          if (!target) { fail(resolve, "Joueur introuvable", 404); return; }
-          const req = { id: Date.now(), fromPseudo: me.pseudo, toPseudo: target.pseudo, status: "pending" };
-          friendReqs.push(req);
-          setTimeout(() => { req.status = "accepted"; if (!friends.find(f => f.pseudo === target.pseudo)) friends.push({ id: 0, pseudo: target.pseudo, elo: target.elo }); }, 400);
-          respond(resolve, { ok: true, requestId: req.id, status: "accepted" }); return;
-        }
-if (p === "/api/friends/respond" && method === "POST") {
-          const req = friendReqs.find(r => r.id === body.id);
-          if (!req) { fail(resolve, "Demande introuvable", 404); return; }
-          if (body.action === "accept") { req.status = "accepted"; const t = players.find(p => p.pseudo === req.fromPseudo); if (t && !friends.find(f => f.pseudo === t.pseudo)) friends.push({ id: 0, pseudo: t.pseudo, elo: t.elo }); respond(resolve, { ok: true, status: "accepted", friend: { id: 0, pseudo: t?.pseudo || "", elo: t?.elo || 0 } }); }
-          else { req.status = "declined"; respond(resolve, { ok: true, status: "declined" }); }
-          return;
-        }
-        if (p === "/api/chat/contacts") { respond(resolve, { contacts: friends.map(f => ({ id: f.id, pseudo: f.pseudo, last_at: new Date().toISOString() })), onlineUsers: friends.slice(0, 3) }); return; }
-        if (p.startsWith("/api/chat/") && method === "GET") { const other = decodeURIComponent(p.slice(10)); const msgs = (channels[me.pseudo] && channels[me.pseudo][other]) || []; respond(resolve, { messages: msgs.map(m => ({ ...m, direction: m.from === "me" ? "me" : "them" })) }); return; }
-        if (p === "/api/users/search" && method === "GET") { const qq = (q.get("q") || "").toLowerCase(); const results = players.filter(p => p.pseudo !== me.pseudo && p.pseudo.toLowerCase().includes(qq)).slice(0, 10); respond(resolve, { users: results.map(p => ({ ...p, isFriend: friends.some(f => f.pseudo === p.pseudo), requestSent: false })) }); return; }
-        if (/^\/api\/users\/\d+$/.test(p) && method === "GET") { const id = parseInt(p.split("/").pop()); const target = players[id] || players[0]; if (!target) { fail(resolve, "Joueur introuvable", 404); return; } const b = badgeFor(players.indexOf(target) + 1); const isFriend = friends.some(f => f.pseudo === target.pseudo); respond(resolve, { user: { id: players.indexOf(target), pseudo: target.pseudo, elo: target.elo, wins: target.wins || 0, losses: target.losses || 0, province: target.province || "Antananarivo", avatar: target.avatar, rank: players.indexOf(target) + 1, badge: { name: b.name, icon: b.icon, color: b.color }, isFriend, friendStatus: isFriend ? "friends" : "none", online: true }, games: [] }); return; }
-        if (p === "/api/games/history" || p === "/api/games/live") { respond(resolve, { games: [] }); return; }
-        if (p === "/api/kyc/verify") { me.kyc = true; respond(resolve, { ok: true }); return; }
-        if (p === "/api/deposit") { me.balance += body.amount || 0; respond(resolve, { balance: me.balance, bonusLock: me.bonus_lock }); return; }
-        if (p === "/api/withdraw") { me.balance -= (body.amount || 0) * 1.02; me.balance = Math.max(0, me.balance); respond(resolve, { balance: me.balance, bonusLock: me.bonus_lock }); return; }
-        if (p === "/api/tournaments/join" || p === "/api/skins/buy" || p === "/api/skins/equip") { respond(resolve, { ok: true }); return; }
-        respond(resolve, { ok: true, user: { ...me, badge: badgeFor(me.rank) }, transactions: [], games: [], contacts: [], friends: [], incoming: [], outgoing: [], tournaments: [], skins: [] });
-      } catch (e) { reject(e); }
-    });
+  /* ---------- REST ---------- */
+  async function request(path, method = "GET", body = null) {
+    const opts = { method, headers: { "Content-Type": "application/json" } };
+    if (token) opts.headers["Authorization"] = "Bearer " + token;
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(base + path, opts);
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok) {
+      const err = new Error((data && data.error) || ("Erreur " + res.status));
+      err.status = res.status;
+      err.body = data;
+      throw err;
+    }
+    return data;
   }
-  function send(msg) {}
-  function on(type, fn) { (handlers[type] = handlers[type] || []).push(fn); }
-  function off(type, fn) { handlers[type] = (handlers[type] || []).filter(f => f !== fn); }
-  function setToken(t) { token = t; }
+
+  /* ---------- WebSocket ---------- */
+  function connect(force = false) {
+    if (!force && ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+    wsReady = false;
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    ws = new WebSocket(proto + "//" + location.host + "/ws");
+    ws.onopen = () => {
+      wsReady = true;
+      // 1. Envoyer l'authentification d'abord
+      if (token) {
+        try { ws.send(JSON.stringify({ type: "auth", token })); } catch (e) {}
+      }
+      // 2. Vider la file d'attente (le serveur traite auth en premier)
+      const pending = wsQueue;
+      wsQueue = [];
+      pending.forEach((m) => { try { ws.send(JSON.stringify(m)); } catch (e) {} });
+      emit("open");
+    };
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        emit(msg.type, msg);
+      } catch (e) { /* ignore */ }
+    };
+    ws.onclose = () => {
+      wsReady = false;
+      ws = null;
+      emit("close");
+      setTimeout(() => { if (!ws) connect(); }, 3000);
+    };
+    ws.onerror = () => { try { ws.close(); } catch (e) {} };
+  }
+
+  function send(msg) {
+    if (!wsReady) { wsQueue.push(msg); connect(); return; }
+    try { ws.send(JSON.stringify(msg)); } catch (e) {}
+  }
+
+  function on(type, fn) {
+    (handlers[type] = handlers[type] || []).push(fn);
+  }
+  function off(type, fn) {
+    handlers[type] = (handlers[type] || []).filter((f) => f !== fn);
+  }
+  function emit(type, msg) {
+    (handlers[type] || []).forEach((fn) => { try { fn(msg); } catch (e) { console.error(e); } });
+  }
+
+  /* ---------- Helpers auth ---------- */
+  function setToken(t) {
+    const changed = token !== t;
+    token = t;
+    if (t) localStorage.setItem("daona_token", t);
+    else localStorage.removeItem("daona_token");
+    if (changed && t) connect(true);   // nouvelle auth → reconnexion forcée
+  }
   function getToken() { return token; }
-  return { request, send, on, off, setToken, getToken, connect: () => {}, isConnected: () => true };
+
+  return {
+    request, connect, send, on, off, setToken, getToken,
+    isConnected: () => wsReady,
+  };
 })();
+
 window.API = API;
 // ===== FANORONA ENGINE =====
 /* =========================================================

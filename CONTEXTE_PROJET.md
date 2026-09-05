@@ -61,17 +61,12 @@
 | [CONFIGURER.bat](d-aona-server/CONFIGURER.bat) / [setup_firewall.ps1](d-aona-server/setup_firewall.ps1) | Config pare-feu (port 8080) |
 | `d-aona.db` | ⛔ Base SQLite (données → **exclue** du journal) |
 
-### Frontend `D-aona/d-aona-web/`
+### Frontend `D-aona/d-aona-web/` (PRD v1.2 — mono-fichier)
 | Fichier | Rôle |
 |---|---|
-| [index.html](D-aona/d-aona-web/index.html) | Structure SPA (8 écrans) |
-| [README.md](D-aona/d-aona-web/README.md) | Doc maquette (cartographie PRD) |
-| [assets/css/main.css](D-aona/d-aona-web/assets/css/main.css) | Design system PRD (#0A0A0F / #0F0F1A / #1D9E75 / #E59E27) |
-| [assets/js/app.js](D-aona/d-aona-web/assets/js/app.js) | Router, wallet, tournois, classement, KYC, chat… |
-| [assets/js/fanorona.js](D-aona/d-aona-web/assets/js/fanorona.js) | Moteur Fanorona + IA + rendu plateau |
-| [assets/js/api.js](D-aona/d-aona-web/assets/js/api.js) | Couche appel API |
-| [assets/js/data.js](D-aona/d-aona-web/assets/js/data.js) | Données / constantes front |
-| [assets/bg/](D-aona/d-aona-web/assets/bg/) | Fond du plateau (`fanorona.png`, `@2x`) |
+| [index.html](D-aona/d-aona-web/index.html) | Application complète : design system (thèmes Jour/Nuit OLED), moteur Fanorona, client API/WebSocket, toutes les vues |
+| [README.md](D-aona/d-aona-web/README.md) | Doc frontend (cartographie PRD) |
+| [assets/board/](D-aona/d-aona-web/assets/board/) | Image du plateau de Fanorona |
 
 ### 📂 Dossiers exclus du suivi
 `node_modules/`, `.git/`, `.claude/`, `.agents/` (copies de skills), `graphify-out/` (graphe généré), `*.log`, `*.db`, `cloudflared.exe` (retéléchargé par `LIEN_REMOTE.bat`), `maj_state.json`.
