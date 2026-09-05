@@ -88,30 +88,12 @@ node d-aona-server\check_db.js
 
 ---
 
-## 🔁 Boucle de tests (test et retest)
+## 🔍 Vérification rapide
 
-Une boucle vérifie **tout** en continu (toutes les 90 s) :
-- serveur local, IP LAN, hotspot, tunnel public
-- API REST complète
-- matchmaking WebSocket + partie temps réel
-- partie complète avec coups/captures + écriture DB
-
-Relancer manuellement :
-```
-node d-aona-server\TEST_LOOP.js 90
-```
-Résultats : `d-aona-server\test_loop.log`
-
-Tests individuels disponibles :
-| Fichier | Ce qu'il teste |
+| Action | Commande |
 |---|---|
-| `test_api.js` | API REST (auth, user, tournois, skins, wallet, dépôt…) |
-| `test_ws.js` | Matchmaking WebSocket + fin de partie |
-| `test_full_game.js` | Partie réelle avec coups/captures + Elo en DB |
-| `test_tunnel_ws.js` | Jeu multijoueur à travers le tunnel Internet |
-| `test-tools\test_frontend.js` | Interface web complète (Playwright) |
-| `diag.js` | Diagnostic réseau |
-| `check_db.js` | État de toutes les tables |
+| Vérifier l'état de la base | `node d-aona-server\check_db.js` |
+| Diagnostic réseau | `node d-aona-server\diag.js` |
 
 ---
 

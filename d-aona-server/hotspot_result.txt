@@ -1,4 +1,0 @@
-﻿OK: StartTethering Status=Success
-SSID=D-aona-Game
-PASS=fanorona2026
-ETAT=On (1=On)

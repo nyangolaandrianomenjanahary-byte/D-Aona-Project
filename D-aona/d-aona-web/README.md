@@ -52,23 +52,10 @@ d-aona-web/
 │   ├── js/fanorona.js       Moteur Fanorona authentique + IA + rendu plateau
 │   ├── js/app.js            Router, wallet, tournois, classement, KYC, chat…
 │   └── bg/                  Fond du plateau (assemblé à partir d'assets générés IA)
-└── setup/                   Assets sources (8 coins/bords) + script d'assemblage
 ```
 
-Le cadre du plateau (`assets/bg/fanorona.png` + `@2x`) est assemblé
-programmatiquement à partir de 8 assets pixel-art générés (4 coins, 4 bords) :
-intérieur exactement `#0F0F1A`, bruit discret, aucun raccord visible.
-
-## Vérifications effectuées
-
-- ✅ Syntaxe JS (`node --check`) sur les 3 fichiers
-- ✅ Tests fonctionnels automatisés (jsdom) : auth, navigation, KYC, dépôt,
-  inscription tournoi (+ bonus), **partie Fanorona complète jusqu'au résultat**,
-  classement, skins, chat, retrait — 35/35
-- ✅ Tests de flux avancés : simulation de tournoi + équilibre du modèle de
-  cashprice, matchmaking + Elo après abandon, défis avec mise, remboursement —
-  18/18
-- ✅ Captures d'écran réelles (Chromium headless) desktop 1360px & mobile 390px
+Le cadre du plateau (`assets/bg/fanorona.png` + `@2x`) a été assemblé
+programmatiquement : intérieur exactement `#0F0F1A`, bruit discret, aucun raccord visible.
 
 ## Limites (maquette)
 

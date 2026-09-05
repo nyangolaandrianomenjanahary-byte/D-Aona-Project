@@ -1,3 +1,0 @@
-=== TEST DÉCONNEXION / DÉLAI DE GRÂCE ===
-✓ Partie démarrée: GS-EEDQWS5T
-✗ abandon prématuré en 3 s : {"reason":"abandon","winner":2}

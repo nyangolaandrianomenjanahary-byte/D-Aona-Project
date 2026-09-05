@@ -1,6 +1,0 @@
-=== TEST DÉCONNEXION / DÉLAI DE GRÂCE ===
-✓ Partie démarrée: GS-C4N2N4OY
-✓ Pas d'abandon pendant la coupure (3 s < grâce 20 s)
-✓ Aucun game_end ; type reçu: game_state
-  [game_end reçu à 5s] {"reason":"abandon","winner":1,"atSec":5}
-=== TEST DÉCONNEXION / GRÂCE OK (pas d'abandon intempestif) ===

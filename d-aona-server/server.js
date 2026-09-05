@@ -1008,4 +1008,3 @@ function start() {
 }
 
 start();
-module.exports = { start, seedDatabase, gameLoop, handleWsMessage, createGameSession, simulateTournament };
