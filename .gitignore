@@ -1,0 +1,39 @@
+# ===== D-aôna — .gitignore =====
+
+# Dépendances
+node_modules/
+
+# Bases de données (contenu clients → jamais sur GitHub)
+*.db
+*.sqlite
+
+# Journaux / logs d'exécution
+*.log
+
+# Binaires
+*.exe
+
+# État généré (journal projet)
+maj_state.json
+
+# Copie locale d'outils / agents (skills) — pas du code de l'app
+.agents/
+.claude/
+agent/
+skills-lock.json
+
+# Fichier placeholder
+File path here
+
+# Sorties de tests / debug générées (txt)
+**/*_result.txt
+**/*_res.txt
+test-tools/*.txt
+d-aona-server/*.txt
+debug_outputs/*.txt
+
+# Captures de test
+d-aona-server/shots/
+
+# Graphe de connaissances généré par graphify (régénérable via `py -m graphify update .`)
+graphify-out/

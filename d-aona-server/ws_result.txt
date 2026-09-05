@@ -1,0 +1,15 @@
+=== TEST WEBSOCKET (matchmaking + jeu) ===
+✓ 2 joueurs connectés et authentifiés WS
+J1 - recherche de match…
+✓ J1 - match trouvé vs GraceA_3995 (Elo 1100), acceptation…
+✓ J1 - partie démarrée (session GS-EEDQWS5T), joueur 1, adversaire: GraceA_3995
+J2 - recherche de match…
+✓ J2 - match trouvé vs FullB_6969 (Elo 1100), acceptation…
+✓ J2 - partie démarrée (session GS-R0673H8A), joueur 1, adversaire: FullB_6969
+✓ J1 - résignation envoyée
+✓ J1 - fin de partie: raison=abandon, gagnant=2, coups=0
+
+=== TEST WS RÉUSSI ===
+Matchmaking: OK
+Jeu en ligne temps réel: OK
+Résignation + fin serveur: OK
