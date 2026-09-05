@@ -55,6 +55,11 @@ function init() {
     results_json TEXT,
     created_at  TEXT DEFAULT (datetime('now'))
   );`);
+  // Migration : durée d'un match + intervalle entre matchs (en minutes). Version finale :
+  // starts_at du match i = heure_début + index*(durée+intervalle). Pour le test d'aujourd'hui
+  // (interval_min=0), aucun intervalle et lancement libre dès les confirmations.
+  try { db.exec("ALTER TABLE tournaments ADD COLUMN match_duration_min INTEGER DEFAULT 5"); } catch (e) {}
+  try { db.exec("ALTER TABLE tournaments ADD COLUMN interval_min INTEGER DEFAULT 5"); } catch (e) {}
   db.exec(`CREATE TABLE IF NOT EXISTS tournament_registrations (
     tournament_id INTEGER NOT NULL,
     user_id       INTEGER NOT NULL,
@@ -322,17 +327,23 @@ const Tournament = {
       /* Tournoi de TEST — 8 joueurs, entrée libre (Bronze = rang le plus bas → aucune condition
          d'Elo, de classement ni de badge), cache d'inscription 5000 Ar, dispo tout de suite.
          Le bracket se génère automatiquement dès que 8 joueurs réels se sont inscrits. */
-      { id: 5, name: "Tournoi Test — 8 joueurs ⚔️", game: "Fanorona", format: "rapide",
-        entry: 5000, max_players: 8, status: "inscriptions", min_rank: "Bronze",
-        sponsor: null, starts_at: new Date(now+15*60000).toISOString() },
+      /* Tournoi de TEST — 4 joueurs, entrée libre (Bronze = rang le plus bas → aucune condition
+         d'Elo, de classement ni de badge), cache d'inscription 5000 Ar, dispo tout de suite.
+         Mode test : interval_min=0 → aucun intervalle entre matchs, lancement libre dès
+         que les 2 joueurs d'un match ont confirmé (indépendant des autres matchs). */
+      { id: 5, name: "Tournoi Test ⚔️", game: "Fanorona", format: "rapide",
+        entry: 5000, max_players: 4, status: "inscriptions", min_rank: "Bronze",
+        sponsor: null, starts_at: new Date(now+15*60000).toISOString(),
+        match_duration_min: 5, interval_min: 0 },
     ];
     db.exec("BEGIN");
     const stmt = db.prepare(
-      "INSERT INTO tournaments (id,name,game,format,entry,max_players,status,min_rank,sponsor,starts_at,results_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+      "INSERT INTO tournaments (id,name,game,format,entry,max_players,status,min_rank,sponsor,starts_at,results_json,match_duration_min,interval_min) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
     );
     for (const r of seedData) stmt.run(
       r.id, r.name, r.game, r.format, r.entry, r.max_players, r.status,
-      r.min_rank, r.sponsor, r.starts_at, r.results_json || null
+      r.min_rank, r.sponsor, r.starts_at, r.results_json || null,
+      r.match_duration_min ?? 5, r.interval_min ?? 5
     );
     db.exec("COMMIT");
   },

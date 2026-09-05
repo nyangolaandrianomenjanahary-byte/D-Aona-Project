@@ -4188,8 +4188,8 @@ const App = (() => {
               <div class="row"><span>Début</span><span class="countdown" data-cd="${nextT.id}">${countdownParts(nextT.startsInSec)}</span></div>
             </div>
             <div class="progress"><i style="width:${(nextT.registered.length / nextT.maxPlayers) * 100}%"></i></div>
-            <button class="btn primary block" style="margin-top:12px;" onclick="App.tournamentDetail('${nextT.id}')">
-              ${S.myRegs[nextT.id] ? "Voir mon inscription" : "S'inscrire — " + fmtAr(nextT.entry)}
+            <button class="btn primary block" style="margin-top:12px;" onclick="App.openTournament('${nextT.id}')">
+              ${S.myRegs[nextT.id] ? "Voir mon inscription & bracket" : "S'inscrire — " + fmtAr(nextT.entry)}
             </button>
           </div>` : ""}
           <div class="panel">
@@ -6022,6 +6022,23 @@ const App = (() => {
             ? `<div class="panel" style="padding:12px; border-color:var(--amber); text-align:center;"><div style="font-size:28px;">👑</div><b>${champion.winner_pseudo}</b></div>`
             : `<div class="panel bracket-empty" style="border-style:dashed;">?</div>`}</div>`;
           return html + "</div>";
+        })()}
+        ${(() => {
+          // Historique du tournoi : matchs terminés / forfaits + progression
+          const done = d.matches.filter((m) => m.status === "termine" || m.status === "forfait");
+          if (!done.length) return `<div class="panel-title" style="margin-top:18px;">📜 Historique</div><div class="panel pad-lg"><p class="muted small">Aucun match terminé pour le moment.</p></div>`;
+          return `
+        <div class="panel-title" style="margin-top:18px;">📜 Historique du tournoi</div>
+        <div class="panel pad-lg">
+          ${done.map((m) => {
+            const label = m.status === "forfait" ? `Forfait — ${m.winner_pseudo} gagne` : `Terminé — ${m.winner_pseudo} gagne`;
+            const score = m.score1 !== null ? ` (${m.score1}-${m.score2})` : "";
+            return `<div class="feed-item">
+              <span class="feed-ic" style="background:var(--green-soft);">🏁</span>
+              <div style="flex:1;"><div class="t1">${m.p1_pseudo || "—"} <b>vs</b> ${m.p2_pseudo || "—"}</div><div class="t2">${fmtMatchDate(m.starts_at)} · ${label}${score}</div></div>
+            </div>`;
+          }).join("")}
+        </div>`;
         })()}
         `;
     } catch (e) { root.innerHTML = `<div class="panel pad-lg"><p class="muted">${e.message}</p></div>`; }

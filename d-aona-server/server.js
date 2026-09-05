@@ -982,7 +982,16 @@ function generateBracket(tournamentId) {
   while (players.length < size) players.push(null); // bye
   const rounds = Math.log2(size);
   const startBase = t.starts_at ? new Date(t.starts_at) : new Date(Date.now() + 3600000);
+  // Timing : en version finale, starts_at du match i = heure_début + index*(durée+intervalle).
+  // En mode test (interval_min === 0) : tous les matchs démarrent "maintenant" avec une deadline
+  // lointaine → lancement libre, indépendamment des autres matchs (règle du test d'aujourd'hui).
+  const isTest = !!(t.interval_min === 0);
+  const matchDurMs = (t.match_duration_min || 5) * 60000;
+  const intervalMs = (t.interval_min || 5) * 60000;
+  const TEST_DEADLINE_LONG = 2 * 60 * 60000; // 2 h (mode test)
   const matchIds = {};
+  // Index global croissant dans l'ordre (round, slot) pour l'espacement temporel en version finale
+  let globalIndex = 0;
   for (let round = 1; round <= rounds; round++) {
     const count = size / Math.pow(2, round);
     for (let slot = 0; slot < count; slot++) {
@@ -991,12 +1000,20 @@ function generateBracket(tournamentId) {
         p1 = players[slot * 2] ? players[slot * 2].id : null;
         p2 = players[slot * 2 + 1] ? players[slot * 2 + 1].id : null;
       }
-      const startsAt = new Date(startBase.getTime() + (round - 1) * 3600000 + slot * 1800000);
-      const confirmDeadline = new Date(startsAt.getTime() - CONFIRM_CLOSE_MIN * 60000);
+      let startsAt, confirmDeadline;
+      if (isTest) {
+        startsAt = new Date(Date.now());
+        confirmDeadline = new Date(Date.now() + TEST_DEADLINE_LONG);
+      } else {
+        // Version finale : Match1 heure_début, puis chaque match espacé de durée+intervalle.
+        startsAt = new Date(startBase.getTime() + globalIndex * (matchDurMs + intervalMs));
+        confirmDeadline = new Date(startsAt.getTime() - CONFIRM_CLOSE_MIN * 60000);
+      }
       matchIds[`${round}-${slot}`] = TournamentMatch.create(tournamentId, round, slot, {
         p1_id: p1, p2_id: p2, starts_at: startsAt.toISOString(),
         confirm_deadline: confirmDeadline.toISOString(), status: "a_venir",
       });
+      globalIndex++;
     }
   }
   for (let round = 1; round < rounds; round++) {
@@ -1068,10 +1085,30 @@ function processTournamentMatches() {
     broadcast({ type: "tournament_update", tournamentId: m.tournament_id });
   }
 
+  // 1.5 Mode test (interval_min === 0) : lancer le match immédiatement dès que les 2 joueurs
+  //     ont confirmé, indépendamment de la deadline et des autres matchs. (Règle du test.)
+  const testReady = db.prepare(`
+    SELECT m.*, t.status as t_status FROM tournament_matches m
+    JOIN tournaments t ON t.id = m.tournament_id
+    WHERE t.interval_min = 0 AND m.status = 'confirmation'
+      AND m.confirmed_p1 = 1 AND m.confirmed_p2 = 1
+  `).all();
+  for (const m of testReady) {
+    TournamentMatch.setStatus(m.id, "en_cours");
+    const sid = createGameSession(m.p1_id, m.p2_id, "tournoi", Tournament.get(m.tournament_id)?.format || "rapide", 0);
+    const gs = sessions.get(sid);
+    if (gs) gs.tournamentMatchId = m.id;
+    for (const uid of [m.p1_id, m.p2_id])
+      notify(uid, "match_lance", { text: `🎮 Votre match de tournoi commence !`, tournamentId: m.tournament_id, matchId: m.id, sessionId: sid });
+    broadcast({ type: "tournament_update", tournamentId: m.tournament_id });
+  }
+
   // 2. Fermeture : forfaits auto ou lancement du match
   const toClose = db.prepare(`
-    SELECT * FROM tournament_matches
-    WHERE status = 'confirmation' AND confirm_deadline IS NOT NULL AND confirm_deadline < ?
+    SELECT m.* FROM tournament_matches m
+    JOIN tournaments t ON t.id = m.tournament_id
+    WHERE (t.interval_min != 0 OR t.interval_min IS NULL)
+      AND m.status = 'confirmation' AND m.confirm_deadline IS NOT NULL AND m.confirm_deadline < ?
   `).all(nowD.toISOString());
   for (const m of toClose) {
     const p1ok = !!m.confirmed_p1, p2ok = !!m.confirmed_p2;
