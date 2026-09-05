@@ -319,6 +319,12 @@ const Tournament = {
         entry: 2000, max_players: 8, status: "termine", min_rank: "Bronze",
         sponsor: null, starts_at: new Date(now-3*86400000).toISOString(),
         results_json: JSON.stringify({first:"SolofoGM",second:"ZoFighter",third:"KantoV"}) },
+      /* Tournoi de TEST — 8 joueurs, entrée libre (Bronze = rang le plus bas → aucune condition
+         d'Elo, de classement ni de badge), cache d'inscription 5000 Ar, dispo tout de suite.
+         Le bracket se génère automatiquement dès que 8 joueurs réels se sont inscrits. */
+      { id: 5, name: "Tournoi Test — 8 joueurs ⚔️", game: "Fanorona", format: "rapide",
+        entry: 5000, max_players: 8, status: "inscriptions", min_rank: "Bronze",
+        sponsor: null, starts_at: new Date(now+15*60000).toISOString() },
     ];
     db.exec("BEGIN");
     const stmt = db.prepare(
