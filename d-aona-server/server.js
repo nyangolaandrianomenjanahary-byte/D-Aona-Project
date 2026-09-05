@@ -12,7 +12,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const WebSocket = require("ws");
 
-const { db, User, GameRecord, Tournament, Wallet, Chat, Skins, Challenge, GameSessionStore, Friend, FriendRequest, applyInactivityDecay } = require("./db");
+const { db, User, GameRecord, Tournament, Wallet, Chat, Skins, Challenge, GameSessionStore, Friend, FriendRequest, Notification, TournamentMatch, applyInactivityDecay } = require("./db");
 const { GameSession, computeEloDelta, legalMoves, checkWin, countPieces, initialGrid } = require("./game");
 const DATA = require("./data");
 
@@ -460,6 +460,94 @@ function handleRest(req, res, url, userId) {
       Wallet.spend(user.id, amount, `Retrait ${payload.operator || "MVola"}`);
       const nBal = Wallet.getBalance(user.id);
       return respond(res, { ok: true, balance: nBal.balance, bonusLock: nBal.bonus_lock });
+    }
+
+    // ---------- Notifications centralisées ----------
+
+    // GET /api/notifications — historique trié (récent → ancien) + compteur non lus
+    if (method === "GET" && pathname === "/api/notifications") {
+      return respond(res, {
+        notifications: Notification.list(user.id),
+        unread: Notification.unreadCount(user.id),
+      });
+    }
+
+    // POST /api/notifications/:id/read — marquer une notification comme lue
+    if (method === "POST" && /^\/api\/notifications\/\d+\/read$/.test(pathname)) {
+      const id = parseInt(pathname.split("/")[3]);
+      Notification.markRead(id, user.id);
+      return respond(res, { ok: true, unread: Notification.unreadCount(user.id) });
+    }
+
+    // POST /api/notifications/read-all — tout marquer comme lu
+    if (method === "POST" && pathname === "/api/notifications/read-all") {
+      Notification.markAllRead(user.id);
+      return respond(res, { ok: true, unread: 0 });
+    }
+
+    // ---------- Tournois : détail, bracket, confirmation, mes tournois ----------
+
+    // GET /api/tournaments/my — tournois où le joueur est inscrit (accueil)
+    if (method === "GET" && pathname === "/api/tournaments/my") {
+      const regs = db.prepare(`
+        SELECT t.* FROM tournaments t
+        JOIN tournament_registrations r ON r.tournament_id = t.id
+        WHERE r.user_id = ? ORDER BY t.starts_at ASC
+      `).all(user.id);
+      const mine = regs.map((t) => {
+        const matches = TournamentMatch.listByTournament(t.id);
+        const myMatches = matches.filter((m) => m.p1_id === user.id || m.p2_id === user.id);
+        const played = myMatches.filter((m) => m.status === "termine" || m.status === "forfait").length;
+        const next = myMatches.find((m) => m.status === "a_venir" || m.status === "confirmation");
+        const won = myMatches.filter((m) => m.winner_id === user.id).length;
+        return {
+          id: t.id, name: t.name, status: t.status, format: t.format, starts_at: t.starts_at,
+          max_players: t.max_players,
+          matchesPlayed: played, matchesTotal: myMatches.length, matchesWon: won,
+          nextMatch: next ? {
+            id: next.id, round: next.round, starts_at: next.starts_at,
+            opponent: next.p1_id === user.id ? next.p2_pseudo : next.p1_pseudo,
+            status: next.status,
+            confirmed: next.p1_id === user.id ? !!next.confirmed_p1 : !!next.confirmed_p2,
+            confirm_deadline: next.confirm_deadline,
+          } : null,
+        };
+      });
+      return respond(res, { tournaments: mine });
+    }
+
+    // GET /api/tournaments/:id — détail complet + bracket
+    if (method === "GET" && /^\/api\/tournaments\/\d+$/.test(pathname)) {
+      const id = parseInt(pathname.split("/")[3]);
+      const t = Tournament.get(id);
+      if (!t) return respond(res, { error: "Tournoi introuvable" }, 404);
+      const regs = Tournament.getRegistrations(id);
+      const matches = TournamentMatch.listByTournament(id);
+      return respond(res, {
+        tournament: { ...t, participants: regs.length, registeredCount: regs.length },
+        registrations: regs,
+        matches,
+        meRegistered: regs.some((r) => r.id === user.id),
+      });
+    }
+
+    // POST /api/tournaments/:id/confirm — confirmation de présence au prochain match
+    if (method === "POST" && /^\/api\/tournaments\/\d+\/confirm$/.test(pathname)) {
+      const tid = parseInt(pathname.split("/")[3]);
+      const matches = TournamentMatch.listByTournament(tid);
+      const myNext = matches.find((m) => (m.p1_id === user.id || m.p2_id === user.id) && (m.status === "confirmation" || m.status === "a_venir"));
+      if (!myNext) return respond(res, { error: "Aucun match à confirmer" }, 404);
+      // Vérifier fenêtre de confirmation
+      if (myNext.confirm_deadline) {
+        const nowD = new Date();
+        const deadline = new Date(myNext.confirm_deadline);
+        if (nowD > deadline) return respond(res, { error: "Fenêtre de confirmation fermée — forfait automatique" }, 400);
+      }
+      const which = myNext.p1_id === user.id ? 1 : 2;
+      TournamentMatch.confirm(myNext.id, which);
+      Notification.create(user.id, "confirmation", { text: `Présence confirmée pour le match #${myNext.id}`, tournamentId: tid });
+      sendUser(user.id, { type: "tournament_update", tournamentId: tid });
+      return respond(res, { ok: true, match: TournamentMatch.get(myNext.id) });
     }
 
     respond(res, { error: "Route non trouvee" }, 404);

@@ -152,6 +152,41 @@ function init() {
   try { db.exec("ALTER TABLE users ADD COLUMN last_decay TEXT"); } catch (e) {}
   // Migration : photo de profil (chemin fichier sur le serveur)
   try { db.exec("ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT NULL"); } catch (e) {}
+  // Migration : colonne region (ancienne, remplacée par province)
+  try { db.exec("ALTER TABLE users ADD COLUMN region TEXT DEFAULT NULL"); } catch (e) {}
+
+  // ---------- Notifications centralisées (PRD — onglet Notifications) ----------
+  db.exec(`CREATE TABLE IF NOT EXISTS notifications (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,
+    type        TEXT NOT NULL,
+    payload_json TEXT,
+    read        INTEGER DEFAULT 0,
+    created_at  TEXT DEFAULT (datetime('now'))
+  );`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read, created_at);");
+
+  // ---------- Bracket de tournoi réel (élimination directe) ----------
+  db.exec(`CREATE TABLE IF NOT EXISTS tournament_matches (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id INTEGER NOT NULL,
+    round        INTEGER NOT NULL,
+    slot         INTEGER NOT NULL,
+    p1_id        INTEGER,
+    p2_id        INTEGER,
+    score1       INTEGER,
+    score2       INTEGER,
+    winner_id    INTEGER,
+    status       TEXT DEFAULT 'a_venir',
+    starts_at    TEXT,
+    confirm_deadline TEXT,
+    confirmed_p1 INTEGER DEFAULT 0,
+    confirmed_p2 INTEGER DEFAULT 0,
+    next_match_id INTEGER,
+    created_at   TEXT DEFAULT (datetime('now')),
+    UNIQUE(tournament_id, round, slot)
+  );`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_tm_tournament ON tournament_matches(tournament_id, round, slot);");
 }
 init();
 
@@ -514,7 +549,89 @@ const GameSessionStore = {
   },
 };
 
+/* ---------- Notifications centralisées ---------- */
+const Notification = {
+  create(userId, type, payload = {}) {
+    const r = db.prepare("INSERT INTO notifications (user_id, type, payload_json) VALUES (?,?,?)")
+      .run(userId, type, JSON.stringify(payload));
+    return r.lastInsertRowid;
+  },
+  list(userId, limit = 100) {
+    return db.prepare(`
+      SELECT id, type, payload_json, read, created_at
+      FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?
+    `).all(userId, limit).map((r) => ({ ...r, read: !!r.read, payload: safeParse(r.payload_json) }));
+  },
+  unreadCount(userId) {
+    const row = db.prepare("SELECT COUNT(*) as c FROM notifications WHERE user_id = ? AND read = 0").get(userId);
+    return row ? row.c : 0;
+  },
+  markRead(id, userId) {
+    db.prepare("UPDATE notifications SET read = 1 WHERE id = ? AND user_id = ?").run(id, userId);
+  },
+  markAllRead(userId) {
+    db.prepare("UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0").run(userId);
+  },
+};
+
+/* ---------- Bracket de tournoi (élimination directe) ---------- */
+const TournamentMatch = {
+  create(tournamentId, round, slot, data = {}) {
+    const r = db.prepare(`
+      INSERT INTO tournament_matches
+        (tournament_id, round, slot, p1_id, p2_id, score1, score2, winner_id, status, starts_at, confirm_deadline, next_match_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    `).run(
+      tournamentId, round, slot,
+      data.p1_id ?? null, data.p2_id ?? null,
+      data.score1 ?? null, data.score2 ?? null, data.winner_id ?? null,
+      data.status ?? 'a_venir', data.starts_at ?? null, data.confirm_deadline ?? null, data.next_match_id ?? null
+    );
+    return r.lastInsertRowid;
+  },
+  get(id) { return db.prepare("SELECT * FROM tournament_matches WHERE id = ?").get(id); },
+  listByTournament(tournamentId) {
+    return db.prepare(`
+      SELECT m.*, u1.pseudo as p1_pseudo, u2.pseudo as p2_pseudo, uw.pseudo as winner_pseudo
+      FROM tournament_matches m
+      LEFT JOIN users u1 ON m.p1_id = u1.id
+      LEFT JOIN users u2 ON m.p2_id = u2.id
+      LEFT JOIN users uw ON m.winner_id = uw.id
+      WHERE m.tournament_id = ? ORDER BY m.round ASC, m.slot ASC
+    `).all(tournamentId);
+  },
+  setPlayers(id, p1Id, p2Id) {
+    db.prepare("UPDATE tournament_matches SET p1_id = ?, p2_id = ? WHERE id = ?").run(p1Id, p2Id, id);
+  },
+  setPlayer(id, which, userId) {
+    const col = which === 1 ? "p1_id" : "p2_id";
+    db.prepare(`UPDATE tournament_matches SET ${col} = ? WHERE id = ?`).run(userId, id);
+  },
+  confirm(id, which) {
+    const col = which === 1 ? "confirmed_p1" : "confirmed_p2";
+    db.prepare(`UPDATE tournament_matches SET ${col} = 1, status = 'confirmation' WHERE id = ?`).run(id);
+  },
+  setStatus(id, status) {
+    db.prepare("UPDATE tournament_matches SET status = ? WHERE id = ?").run(status, id);
+  },
+  setResult(id, score1, score2, winnerId) {
+    db.prepare("UPDATE tournament_matches SET score1 = ?, score2 = ?, winner_id = ?, status = 'termine' WHERE id = ?")
+      .run(score1, score2, winnerId, id);
+  },
+  setNext(id, nextMatchId) {
+    db.prepare("UPDATE tournament_matches SET next_match_id = ? WHERE id = ?").run(nextMatchId, id);
+  },
+  setForfeit(id, winnerId) {
+    db.prepare("UPDATE tournament_matches SET status = 'forfait', winner_id = ? WHERE id = ?").run(winnerId, id);
+  },
+};
+
+function safeParse(json) {
+  try { return json ? JSON.parse(json) : {}; } catch (e) { return {}; }
+}
+
 module.exports = {
   db, now, applyInactivityDecay, INACTIVITY,
   User, GameRecord, Tournament, Wallet, Chat, Skins, Challenge, GameSessionStore, Friend, FriendRequest,
+  Notification, TournamentMatch,
 };
