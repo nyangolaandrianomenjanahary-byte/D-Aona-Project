@@ -225,6 +225,13 @@ function handleRest(req, res, url, userId) {
       Wallet.spend(user.id, t.entry, `Mise entree - ${t.name}`);
       const bal = Wallet.getBalance(user.id);
       sendUser(user.id, { type: "wallet_update", balance: bal.balance, bonusLock: bal.bonus_lock });
+      Notification.create(user.id, "inscription", { text: `✅ Inscription confirmée au tournoi « ${t.name} »`, tournamentId: t.id, startsAt: t.starts_at });
+      // Si le tournoi vient d'être complété → générer le bracket et notifier
+      const newCount = db.prepare("SELECT COUNT(*) as c FROM tournament_registrations WHERE tournament_id = ?").get(t.id).c;
+      if (newCount >= t.max_players) {
+        db.prepare("UPDATE tournaments SET status = 'en_cours' WHERE id = ? AND status = 'inscriptions'").run(t.id);
+        generateBracket(t.id);
+      }
       broadcast({ type: "tournament_update" });
       return respond(res, { ok: true });
     }
@@ -815,6 +822,7 @@ function createGameSession(p1Id, p2Id, mode, formatId, wager) {
       state: gs.getState(), opponent: p1Obj, mode, format, wager });
   }
   broadcast({ type: "live_update" });
+  return sessionId;
 }
 
 function scheduleAiMove(sessionId) {
@@ -893,6 +901,20 @@ function handleGameEnd(session, winner, reason) {
   // Finish game session
   GameSessionStore.setStatus(session.sessionId, "finished", session.moves, winnerId);
 
+  // Si cette partie est un match de tournoi → enregistrer le résultat dans le bracket
+  if (session.tournamentMatchId && winnerId) {
+    const tm = TournamentMatch.get(session.tournamentMatchId);
+    if (tm && tm.status === "en_cours") {
+      TournamentMatch.setResult(tm.id, winner === 1 ? 1 : 0, winner === 2 ? 1 : 0, winnerId);
+      const loserId = winnerId === tm.p1_id ? tm.p2_id : tm.p1_id;
+      const winnerU = User.getById(winnerId);
+      if (loserId) notify(loserId, "defaite", { text: `Match perdu contre ${winnerU ? winnerU.pseudo : ""} — ${matchDateLabel(tm.starts_at)}.`, tournamentId: tm.tournament_id, matchId: tm.id });
+      notify(winnerId, "victoire", { text: `✅ Match remporté ! Vous avancez dans le bracket.`, tournamentId: tm.tournament_id, matchId: tm.id });
+      advanceWinner(TournamentMatch.get(tm.id));
+      broadcast({ type: "tournament_update", tournamentId: tm.tournament_id });
+    }
+  }
+
   // Send results
   const result1 = {
     winner, reason, mode: session.mode, format: session.format, moves: session.moves.length,
@@ -926,6 +948,167 @@ function handleGameEnd(session, winner, reason) {
   sessions.delete(session.sessionId);
   GameSessionStore.delete(session.sessionId);
   broadcast({ type: "live_update" });
+}
+
+/* ---------- Moteur de tournoi réel (élimination directe) ---------- */
+/* Fenêtre de confirmation : s'ouvre 20 min avant le match, se ferme 5 min avant.
+   Passé confirm_deadline sans confirmation → forfait automatique. */
+const CONFIRM_OPEN_MIN = 20;
+const CONFIRM_CLOSE_MIN = 5;
+
+function notify(userId, type, payload) {
+  Notification.create(userId, type, payload);
+  sendUser(userId, { type: "notification", notifType: type, payload, unread: Notification.unreadCount(userId) });
+}
+
+function matchDateLabel(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleDateString("fr-FR") + " " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+
+/* Génère le bracket complet (1er tour → finale), seedé par Elo décroissant. */
+function generateBracket(tournamentId) {
+  const t = Tournament.get(tournamentId);
+  if (!t) return;
+  if (TournamentMatch.listByTournament(tournamentId).length) return; // déjà généré
+  // Re-lire les inscrits DIRECTEMENT en base (fraîcheur garantie après la transaction courante)
+  const regs = db.prepare(`
+    SELECT u.id, u.pseudo, u.elo FROM tournament_registrations r
+    JOIN users u ON u.id = r.user_id WHERE r.tournament_id = ?
+  `).all(tournamentId);
+  if (!regs.length) return; // pas de joueurs → pas de bracket (on attendra les inscrits)
+  const players = regs.map((r) => ({ id: r.id, elo: r.elo || 1100 }));
+  players.sort((a, b) => b.elo - a.elo);
+  let size = 2;
+  while (size < players.length) size *= 2;
+  while (players.length < size) players.push(null); // bye
+  const rounds = Math.log2(size);
+  const startBase = t.starts_at ? new Date(t.starts_at) : new Date(Date.now() + 3600000);
+  const matchIds = {};
+  for (let round = 1; round <= rounds; round++) {
+    const count = size / Math.pow(2, round);
+    for (let slot = 0; slot < count; slot++) {
+      let p1 = null, p2 = null;
+      if (round === 1) {
+        p1 = players[slot * 2] ? players[slot * 2].id : null;
+        p2 = players[slot * 2 + 1] ? players[slot * 2 + 1].id : null;
+      }
+      const startsAt = new Date(startBase.getTime() + (round - 1) * 3600000 + slot * 1800000);
+      const confirmDeadline = new Date(startsAt.getTime() - CONFIRM_CLOSE_MIN * 60000);
+      matchIds[`${round}-${slot}`] = TournamentMatch.create(tournamentId, round, slot, {
+        p1_id: p1, p2_id: p2, starts_at: startsAt.toISOString(),
+        confirm_deadline: confirmDeadline.toISOString(), status: "a_venir",
+      });
+    }
+  }
+  for (let round = 1; round < rounds; round++) {
+    const count = size / Math.pow(2, round);
+    for (let slot = 0; slot < count; slot++)
+      TournamentMatch.setNext(matchIds[`${round}-${slot}`], matchIds[`${round + 1}-${Math.floor(slot / 2)}`]);
+  }
+  for (const r of regs)
+    notify(r.id, "tournoi_debut", { text: `🏆 Le tournoi « ${t.name} » commence ! Consultez votre bracket.`, tournamentId, startsAt: t.starts_at });
+}
+
+/* Avance le vainqueur vers le match suivant, met à jour statuts + notifs. */
+function advanceWinner(match) {
+  if (!match.winner_id) return;
+  if (match.next_match_id) {
+    const next = TournamentMatch.get(match.next_match_id);
+    if (next) {
+      TournamentMatch.setPlayer(next.id, match.slot % 2 === 0 ? 1 : 2, match.winner_id);
+      const updated = TournamentMatch.get(next.id);
+      if (updated.p1_id && updated.p2_id) {
+        TournamentMatch.setStatus(next.id, "a_venir");
+        for (const uid of [updated.p1_id, updated.p2_id]) {
+          const opp = User.getById(uid === updated.p1_id ? updated.p2_id : updated.p1_id);
+          notify(uid, "prochain_match", {
+            text: `⚔️ Prochain match contre ${opp ? opp.pseudo : "?"} — ${matchDateLabel(next.starts_at)}`,
+            tournamentId: match.tournament_id, matchId: next.id, startsAt: next.starts_at,
+          });
+        }
+        broadcast({ type: "tournament_update", tournamentId: match.tournament_id });
+      }
+    }
+  } else {
+    db.prepare("UPDATE tournaments SET status = 'termine' WHERE id = ?").run(match.tournament_id);
+    notify(match.winner_id, "tournoi_gagne", { text: `👑 Vous remportez le tournoi !`, tournamentId: match.tournament_id });
+    broadcast({ type: "tournament_update", tournamentId: match.tournament_id });
+  }
+}
+
+/* Boucle matchs de tournoi (gameLoop) : ouvre confirmations 20 min avant,
+   déclare forfaits auto à confirm_deadline, lance le match si les 2 confirment. */
+function processTournamentMatches() {
+  const nowD = new Date();
+  // 0. Démarrer les tournois dont la date est atteinte (génère le bracket)
+  const toStart = db.prepare(`
+    SELECT * FROM tournaments WHERE status = 'inscriptions' AND starts_at IS NOT NULL AND starts_at <= ?
+  `).all(nowD.toISOString());
+  for (const t of toStart) {
+    const cnt = db.prepare("SELECT COUNT(*) as c FROM tournament_registrations WHERE tournament_id = ?").get(t.id).c;
+    if (!cnt) continue; // personne d'inscrit → on attend
+    db.prepare("UPDATE tournaments SET status = 'en_cours' WHERE id = ?").run(t.id);
+    generateBracket(t.id);
+    broadcast({ type: "tournament_update", tournamentId: t.id });
+  }
+  // 1. Ouverture des fenêtres de confirmation
+  const toOpen = db.prepare(`
+    SELECT * FROM tournament_matches
+    WHERE status = 'a_venir' AND p1_id IS NOT NULL AND p2_id IS NOT NULL
+      AND starts_at IS NOT NULL AND starts_at <= ?
+  `).all(new Date(nowD.getTime() + CONFIRM_OPEN_MIN * 60000).toISOString());
+  for (const m of toOpen) {
+    TournamentMatch.setStatus(m.id, "confirmation");
+    for (const uid of [m.p1_id, m.p2_id]) {
+      const opp = User.getById(uid === m.p1_id ? m.p2_id : m.p1_id);
+      notify(uid, "confirmation_requise", {
+        text: `⏰ Confirmation requise : match vs ${opp ? opp.pseudo : "?"} à ${matchDateLabel(m.starts_at)}. Confirmez avant ${matchDateLabel(m.confirm_deadline)} sous peine de forfait.`,
+        tournamentId: m.tournament_id, matchId: m.id, startsAt: m.starts_at, confirmDeadline: m.confirm_deadline,
+      });
+    }
+    broadcast({ type: "tournament_update", tournamentId: m.tournament_id });
+  }
+
+  // 2. Fermeture : forfaits auto ou lancement du match
+  const toClose = db.prepare(`
+    SELECT * FROM tournament_matches
+    WHERE status = 'confirmation' AND confirm_deadline IS NOT NULL AND confirm_deadline < ?
+  `).all(nowD.toISOString());
+  for (const m of toClose) {
+    const p1ok = !!m.confirmed_p1, p2ok = !!m.confirmed_p2;
+    if (p1ok && p2ok) {
+      TournamentMatch.setStatus(m.id, "en_cours");
+      // Créer la session de jeu réelle liée à ce match de tournoi
+      const sid = createGameSession(m.p1_id, m.p2_id, "tournoi", Tournament.get(m.tournament_id)?.format || "rapide", 0);
+      const gs = sessions.get(sid);
+      if (gs) gs.tournamentMatchId = m.id;
+      for (const uid of [m.p1_id, m.p2_id])
+        notify(uid, "match_lance", { text: `🎮 Votre match de tournoi commence !`, tournamentId: m.tournament_id, matchId: m.id, sessionId: sid });
+      broadcast({ type: "tournament_update", tournamentId: m.tournament_id });
+      continue;
+    }
+    let winnerId;
+    if (p1ok) winnerId = m.p1_id;
+    else if (p2ok) winnerId = m.p2_id;
+    else {
+      const u1 = User.getById(m.p1_id), u2 = User.getById(m.p2_id);
+      winnerId = (u1 && u2 && u2.elo > u1.elo) ? m.p2_id : m.p1_id;
+    }
+    TournamentMatch.setForfeit(m.id, winnerId);
+    const winner = User.getById(winnerId);
+    const loserId = winnerId === m.p1_id ? m.p2_id : m.p1_id;
+    if (loserId) notify(loserId, "forfait", {
+      text: `❌ Forfait : présence non confirmée à temps. ${winner ? winner.pseudo : ""} avance.`,
+      tournamentId: m.tournament_id, matchId: m.id,
+    });
+    if (winnerId) notify(winnerId, "forfait_adverse", {
+      text: `✅ Victoire par forfait — adversaire absent. Vous avancez.`,
+      tournamentId: m.tournament_id, matchId: m.id,
+    });
+    advanceWinner(TournamentMatch.get(m.id));
+  }
 }
 
 /* ---------- Tournament simulation ---------- */
@@ -989,6 +1172,8 @@ function gameLoop() {
       dispatchGameState(session);
     }
   }
+  // Traitement des matchs de tournoi (confirmations + forfaits automatiques)
+  try { processTournamentMatches(); } catch (e) { console.error("tournament loop", e); }
   // Expire challenges
   const expired = db.prepare("SELECT * FROM challenges WHERE status='pending' AND expires_at < datetime('now')").all();
   for (const c of expired) {

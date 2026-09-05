@@ -1,0 +1,10 @@
+﻿const { db } = require("./db");
+db.prepare("DELETE FROM tournament_matches").run();
+db.prepare("DELETE FROM tournament_registrations").run();
+db.prepare("DELETE FROM notifications").run();
+db.prepare("UPDATE tournaments SET status='inscriptions'").run();
+db.prepare("UPDATE tournaments SET starts_at = datetime('now', '+1 day') WHERE id = 1").run();
+db.prepare("UPDATE tournaments SET starts_at = datetime('now', '+3 days') WHERE id = 2").run();
+db.prepare("UPDATE tournaments SET starts_at = datetime('now', '+7 days') WHERE id = 3").run();
+db.prepare("UPDATE tournaments SET starts_at = datetime('now', '+14 days') WHERE id = 4").run();
+console.log("OK :", db.prepare("SELECT id,status FROM tournaments").all().map(t=>t.id+":"+t.status).join(", "));

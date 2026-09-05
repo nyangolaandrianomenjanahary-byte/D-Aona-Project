@@ -222,7 +222,8 @@ const User = {
     const keys = Object.keys(fields);
     if (!keys.length || !id) return;
     const set = keys.map((k) => `${k} = ?`).join(", ");
-    const vals = [...keys.map((k) => fields[k]), id];
+    // SQLite ne lie que number/string/null — convertir les booléens en 0/1
+    const vals = [...keys.map((k) => (typeof fields[k] === "boolean" ? (fields[k] ? 1 : 0) : fields[k])), id];
     db.prepare(`UPDATE users SET ${set} WHERE id = ?`).run(...vals);
   },
   listAll() {
