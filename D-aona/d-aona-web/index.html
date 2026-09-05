@@ -2340,6 +2340,14 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
     <div id="friends-root"></div>
   </section>
 
+  <section class="screen" id="screen-notifications">
+    <div id="notifications-root"></div>
+  </section>
+
+  <section class="screen" id="screen-tournament">
+    <div id="tournament-root"></div>
+  </section>
+
 </main>
 
 <!-- ==================== NAVIGATION — light tab bar (pastille lumineuse animée) ==================== -->
@@ -2368,6 +2376,11 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   <button class="lgtab__tab" role="tab" aria-selected="false" data-route="wallet" data-acc="#E5A83B">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="14" rx="3"/><path d="M2 10h20M16 15h2"/></svg>
     <span>Wallet</span>
+  </button>
+  <button class="lgtab__tab" role="tab" aria-selected="false" data-route="notifications" data-acc="#F5C25E" id="tab-notifications" style="position:relative;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    <span>Notifs</span>
+    <span id="notif-badge" style="position:absolute;top:6px;right:14px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;line-height:1;">0</span>
   </button>
   <button class="lgtab__tab" role="tab" aria-selected="false" data-route="profile" data-acc="#A78BFA">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-5.5 8-5.5s6.5 1.5 8 5.5"/></svg>
@@ -3617,6 +3630,7 @@ const App = (() => {
     settings: { notifPush: true, notifTournoi: true, son: false },
     contacts: [], onlineUsers: [], chatThreads: {}, defis: [], friends: [],
     friendRequests: { incoming: [], outgoing: [] },
+    notifications: [], notifUnread: 0, myTournaments: [],
     currentSession: null, playerNum: 1, matchmaking: false, formats: FORMATS,
   });
 
@@ -3822,7 +3836,7 @@ const App = (() => {
   }
 
   async function loadAll() {
-    await Promise.allSettled([refreshUser(), refreshTournaments(), refreshLeaderboard(), refreshSkins(), refreshGames(), refreshContacts(), refreshFriends()]);
+    await Promise.allSettled([refreshUser(), refreshTournaments(), refreshLeaderboard(), refreshSkins(), refreshGames(), refreshContacts(), refreshFriends(), refreshNotifications(), refreshMyTournaments()]);
     applySkins();
     if (currentRoute() !== "board") route();
   }
@@ -4151,6 +4165,7 @@ const App = (() => {
                 </div>`).join("") || '<p class="muted">Aucune partie pour le moment.</p>'}
             </div>
           </div>
+          ${myTournamentsHtml()}
         </div>
         <div class="side-stack">
           ${nextT ? `
@@ -4573,7 +4588,7 @@ const App = (() => {
         <div class="progress"><i style="width:${(t.registered.length / t.maxPlayers) * 100}%"></i></div>
         <div class="small muted" style="text-align:right;">${t.registered.length}/${t.maxPlayers} joueurs ${S.myRegs[t.id] ? '· <span class="pos">✓ inscrit</span>' : ""}</div>
         <div class="tn-foot">
-          <button class="btn" onclick="App.tournamentDetail('${t.id}')">Détail & bracket</button>
+          <button class="btn" onclick="App.openTournament('${t.id}')">Détail & bracket</button>
           ${S.myRegs[t.id]
             ? `<button class="btn warn" onclick="App.simulateTournament('${t.id}')">▶ Simuler</button>`
             : `<button class="btn primary ${full || !rankOk ? "disabled" : ""}" onclick="App.joinTournament('${t.id}')">S'inscrire</button>`}
@@ -4750,9 +4765,9 @@ const App = (() => {
         <tr><td>🥇 1re place</td><td>${fmtAr(t.entry)}</td><td>50% = ${fmtAr(net * 0.5)}</td><td class="pos">${fmtAr(t.entry + net * 0.5)}</td></tr>
         <tr><td>🥈 2e place</td><td>${fmtAr(t.entry)}</td><td>25% = ${fmtAr(net * 0.25)}</td><td>${fmtAr(t.entry + net * 0.25)}</td></tr>
         <tr><td>🥉 3e place</td><td>${fmtAr(t.entry)}</td><td>0%</td><td>${fmtAr(t.entry)}</td></tr>
-        <tr><td>🏦 D-aôna (commission)</td><td>—</td><td>25% = ${fmtAr(net * 0.25)}</td><td class="amber">${fmtAr(net * 0.25)}</td></tr>
       </table>
       <div class="m-foot">
+        <button class="btn" onclick="App.openTournament('${t.id}')">Voir le bracket</button>
         ${t.status !== "termine" && !S.myRegs[t.id]
           ? `<button class="btn primary" onclick="App.joinTournament('${t.id}')">S'inscrire — ${fmtAr(t.entry)}</button>` : ""}
         ${t.status !== "termine" && S.myRegs[t.id]
@@ -5667,6 +5682,19 @@ const App = (() => {
     });
     API.on("spectate_state", onSpectateState);
     API.on("spectate_end", onSpectateEnd);
+    API.on("notification", async (msg) => {
+      // Notification serveur → mettre à jour badge + historique, et rafraîchir l'UI concernée
+      S.notifUnread = msg.unread != null ? msg.unread : S.notifUnread + 1;
+      updateNotifBadge();
+      await refreshNotifications();
+      if (currentRoute() === "notifications") renderNotifications();
+      // Les types liés aux tournois rafraîchissent aussi l'accueil / la page tournoi
+      if (["inscription", "tournoi_debut", "confirmation_requise", "prochain_match", "match_lance", "victoire", "defaite", "forfait", "forfait_adverse", "tournoi_gagne"].includes(msg.notifType)) {
+        await refreshMyTournaments();
+        if (currentRoute() === "home") renderHome();
+        if (currentRoute() === "tournament") renderTournamentScreen(currentTournamentId);
+      }
+    });
     API.on("live_update", () => { if (currentRoute() === "match") loadLiveGames(); });
     API.on("tournament_sim_step", (msg) => {
       const el = document.getElementById("tn-progress");
@@ -5848,9 +5876,184 @@ const App = (() => {
     };
   }
 
+  /* ------------------ NOTIFICATIONS ------------------ */
+  async function refreshNotifications() {
+    try {
+      const d = await API.request("/api/notifications");
+      S.notifications = d.notifications || [];
+      S.notifUnread = d.unread || 0;
+      updateNotifBadge();
+    } catch (e) { console.error("refreshNotifications", e); }
+  }
+  function updateNotifBadge() {
+    const b = document.getElementById("notif-badge");
+    if (!b) return;
+    b.textContent = S.notifUnread > 99 ? "99+" : S.notifUnread;
+    b.style.display = S.notifUnread > 0 ? "inline-flex" : "none";
+  }
+  const NOTIF_ICONS = { inscription: "✅", tournoi_debut: "🏆", confirmation_requise: "⏰", confirmation: "✅", prochain_match: "⚔️", match_lance: "🎮", victoire: "🏆", defaite: "💥", forfait: "❌", forfait_adverse: "✅", tournoi_gagne: "👑", defi: "⚔️" };
+  function renderNotifications() {
+    const list = S.notifications || [];
+    document.getElementById("notifications-root").innerHTML = `
+      <div class="panel" style="border-left:3px solid var(--brand); display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div><b style="color:var(--text-strong);">Notifications</b>
+        <p class="small muted" style="margin-top:2px;">Défis, tournois et matchs — ${S.notifUnread} non lue(s).</p></div>
+        ${list.length ? `<button class="btn ghost mini-btn" onclick="App.readAllNotifications()">Tout marquer lu</button>` : ""}
+      </div>
+      <div class="panel pad-lg" style="margin-top:12px;">
+        ${list.length ? list.map((n) => {
+          const d = new Date(n.created_at + (n.created_at.includes("Z") ? "" : "Z"));
+          const date = d.toLocaleDateString("fr-FR") + " · " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+          const link = n.payload && n.payload.tournamentId ? `onclick="App.openTournament(${n.payload.tournamentId})" style="cursor:pointer;"` : "";
+          return `<div class="feed-item" ${link} style="${n.read ? "opacity:.62;" : ""}border-left:3px solid ${n.read ? "var(--line)" : "var(--brand)"};">
+            <span class="feed-ic" style="background:var(--green-soft);">${NOTIF_ICONS[n.type] || "🔔"}</span>
+            <div style="flex:1;"><div class="t1">${(n.payload && n.payload.text) || n.type}</div><div class="t2">${date}${n.read ? "" : ' · <b style="color:var(--brand);">Non lu</b>'}</div></div>
+            ${n.read ? "" : `<button class="btn ghost mini-btn" onclick="event.stopPropagation(); App.readNotification(${n.id})">Marquer lu</button>`}
+          </div>`;
+        }).join("") : '<p class="muted">Aucune notification pour le moment.</p>'}
+      </div>`;
+  }
+  async function readNotification(id) {
+    try {
+      const d = await API.request(`/api/notifications/${id}/read`, "POST", {});
+      S.notifUnread = d.unread; updateNotifBadge();
+      const n = S.notifications.find((x) => x.id === id); if (n) n.read = true;
+      if (currentRoute() === "notifications") renderNotifications();
+    } catch (e) { toast(e.message, "error"); }
+  }
+  async function readAllNotifications() {
+    try {
+      await API.request("/api/notifications/read-all", "POST", {});
+      S.notifUnread = 0; S.notifications.forEach((n) => n.read = true);
+      updateNotifBadge(); renderNotifications();
+    } catch (e) { toast(e.message, "error"); }
+  }
+
+  /* ------------------ MES TOURNOIS (accueil) ------------------ */
+  async function refreshMyTournaments() {
+    try { const d = await API.request("/api/tournaments/my"); S.myTournaments = d.tournaments || []; }
+    catch (e) { console.error("refreshMyTournaments", e); }
+  }
+  function fmtMatchDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleDateString("fr-FR") + " " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  }
+  function myTournamentsHtml() {
+    const list = S.myTournaments || [];
+    if (!list.length) return "";
+    return `
+      <div style="margin-top:16px;">
+        <div class="panel-title">🏆 Mes tournois en cours</div>
+        ${list.map((t) => {
+          const nm = t.nextMatch;
+          return `<div class="panel" style="margin-bottom:8px; cursor:pointer;" onclick="App.openTournament(${t.id})">
+            <div class="tn-head"><h3>${t.name}</h3><span class="pill ${t.status === "en_cours" ? "green" : "amber"}">${t.status === "en_cours" ? "En cours" : t.status === "inscriptions" ? "Inscriptions" : "Terminé"}</span></div>
+            <div class="tn-rows" style="margin-top:6px;">
+              <div class="row"><span>Matchs joués</span><span>${t.matchesPlayed}${t.matchesTotal ? "/" + t.matchesTotal : ""} · ${t.matchesWon} gagné(s)</span></div>
+              ${nm ? `
+                <div class="row"><span>Prochain match</span><span>${fmtMatchDate(nm.starts_at)}</span></div>
+                <div class="row"><span>Adversaire</span><span><b>${nm.opponent || "à déterminer"}</b></span></div>
+                <div class="row"><span>Confirmation</span><span>${nm.confirmed ? '<span class="pos">✓ Confirmée</span>' : nm.status === "confirmation" ? '<span class="neg">⚠️ Requise !</span>' : '<span class="muted">Pas encore ouverte</span>'}</span></div>
+                ${!nm.confirmed && nm.status === "confirmation" ? `<button class="btn primary block" style="margin-top:8px;" onclick="event.stopPropagation(); App.confirmPresence(${t.id})">Confirmer ma présence</button>` : ""}
+              ` : '<div class="row"><span>Prochain match</span><span class="muted">—</span></div>'}
+            </div>
+          </div>`;
+        }).join("")}
+      </div>`;
+  }
+  async function confirmPresence(tournamentId) {
+    try {
+      await API.request(`/api/tournaments/${tournamentId}/confirm`, "POST", {});
+      toast("Présence confirmée ✅ — rendez-vous au match !");
+      await refreshMyTournaments(); await refreshNotifications();
+      if (currentRoute() === "home") renderHome();
+      if (currentRoute() === "tournament") renderTournamentScreen(currentTournamentId);
+    } catch (e) { toast(e.message, "error"); }
+  }
+
+  /* ------------------ PAGE TOURNOI (détail + bracket interactif) ------------------ */
+  let currentTournamentId = null;
+  const MATCH_STATUS = { a_venir: ["À venir", "muted"], confirmation: ["Confirmation requise", "amber"], en_cours: ["En cours", "green"], termine: ["Terminé", ""], forfait: ["Forfait", "neg"] };
+  function openTournament(id) { currentTournamentId = parseInt(id); location.hash = "#/tournament?id=" + currentTournamentId; }
+  async function renderTournamentScreen(id) {
+    const root = document.getElementById("tournament-root");
+    if (!id) { root.innerHTML = '<div class="panel pad-lg"><p class="muted">Tournoi introuvable.</p></div>'; return; }
+    root.innerHTML = '<div class="panel pad-lg"><p class="muted">Chargement du tournoi…</p></div>';
+    try {
+      const d = await API.request("/api/tournaments/" + id);
+      const t = d.tournament;
+      const rounds = {};
+      for (const m of d.matches) (rounds[m.round] = rounds[m.round] || []).push(m);
+      const maxRound = Math.max(0, ...d.matches.map((m) => m.round));
+      const nameFor = (r) => { const nb = (rounds[r] || []).length; return nb === 1 ? "Finale" : nb === 2 ? "Demi-finales" : nb === 4 ? "Quarts" : "1er tour"; };
+      const champion = d.matches.find((m) => m.round === maxRound && m.winner_pseudo);
+      const myNext = d.matches.find((m) => (m.p1_id === S.id || m.p2_id === S.id) && (m.status === "confirmation" || m.status === "a_venir"));
+      root.innerHTML = `
+        <button class="btn ghost mini-btn" style="margin-bottom:10px;" onclick="App.go('match')">← Tournois</button>
+        <div class="panel" style="border-left:3px solid var(--amber);">
+          <div class="tn-head"><h3>${t.name}</h3><span class="pill ${t.status === "en_cours" ? "green" : "amber"}">${t.status === "en_cours" ? "En cours" : t.status === "inscriptions" ? "Inscriptions" : "Terminé"}</span></div>
+          <div class="tn-rows" style="margin-top:8px;">
+            <div class="row"><span>Début</span><span>${fmtMatchDate(t.starts_at)}</span></div>
+            <div class="row"><span>Participants</span><span>${t.participants}/${t.max_players}</span></div>
+            <div class="row"><span>Format</span><span>${t.format}</span></div>
+            ${t.sponsor ? `<div class="row"><span>Sponsor</span><span>🎖️ ${t.sponsor}</span></div>` : ""}
+          </div>
+        </div>
+        ${myNext ? `<div class="panel" style="margin-top:12px; border-left:3px solid var(--brand);">
+          <b style="color:var(--text-strong);">Votre prochain match</b>
+          <div class="tn-rows" style="margin-top:6px;">
+            <div class="row"><span>Adversaire</span><span><b>${myNext.p1_id === S.id ? myNext.p2_pseudo : myNext.p1_pseudo}</b></span></div>
+            <div class="row"><span>Date · heure</span><span>${fmtMatchDate(myNext.starts_at)}</span></div>
+            <div class="row"><span>Statut</span><span class="${MATCH_STATUS[myNext.status][1]}">${MATCH_STATUS[myNext.status][0]}</span></div>
+          </div>
+          ${myNext.status === "confirmation" ? `<button class="btn primary block" style="margin-top:10px;" onclick="App.confirmPresence(${t.id})">Confirmer ma présence (avant ${fmtMatchDate(myNext.confirm_deadline)})</button>` : ""}
+        </div>` : ""}
+        <div class="panel-title" style="margin-top:18px;">Bracket — élimination directe</div>
+        <div class="bracket">
+          ${Object.keys(rounds).sort((a, b) => a - b).map((r) => `
+            <div class="bracket-col" style="display:flex; flex-direction:column; justify-content:space-around;">
+              <div class="panel-title" style="font-size:12px;">${nameFor(+r)}</div>
+              ${rounds[r].map((m) => {
+                const st = MATCH_STATUS[m.status] || [m.status, ""];
+                const isMe = m.p1_id === S.id || m.p2_id === S.id;
+                return `<div class="panel" style="padding:8px 10px; margin-bottom:10px; min-width:170px; cursor:pointer; ${isMe ? "border-color:var(--brand);" : ""}" onclick="App.matchDetail(${m.id}, ${t.id})">
+                  <div class="small ${m.winner_id === m.p1_id ? "pos" : ""}" style="font-weight:600;">${m.p1_pseudo || "—"} ${m.winner_id === m.p1_id ? "🏆" : ""}</div>
+                  <div class="small ${m.winner_id === m.p2_id ? "pos" : ""}" style="font-weight:600;">${m.p2_pseudo || "—"} ${m.winner_id === m.p2_id ? "🏆" : ""}</div>
+                  <div class="small ${st[1]}" style="margin-top:4px; font-size:11px;">${st[0]}${m.score1 !== null ? ` · ${m.score1}-${m.score2}` : ""}</div>
+                </div>`;
+              }).join("")}
+            </div>`).join("")}
+          ${champion ? `<div class="bracket-col" style="display:flex; flex-direction:column; justify-content:center;"><div class="panel-title" style="font-size:12px;">Vainqueur</div><div class="panel" style="padding:12px; border-color:var(--amber); text-align:center;"><div style="font-size:28px;">👑</div><b>${champion.winner_pseudo}</b></div></div>` : ""}
+        </div>`;
+    } catch (e) { root.innerHTML = `<div class="panel pad-lg"><p class="muted">${e.message}</p></div>`; }
+  }
+  async function matchDetail(matchId, tournamentId) {
+    try {
+      const d = await API.request("/api/tournaments/" + tournamentId);
+      const m = d.matches.find((x) => x.id === matchId);
+      if (!m) return;
+      const st = MATCH_STATUS[m.status] || [m.status, ""];
+      const next = m.next_match_id ? d.matches.find((x) => x.id === m.next_match_id) : null;
+      const isMe = m.p1_id === S.id || m.p2_id === S.id;
+      showModal(`
+        <button class="btn ghost mini-btn m-close" onclick="App.closeModal()">✕</button>
+        <h2>Match — ${d.tournament.name}</h2>
+        <div class="panel pad-lg" style="margin-top:10px;">
+          <div class="row"><span>${m.p1_pseudo || "—"}</span><b class="${m.winner_id === m.p1_id ? "pos" : ""}">${m.score1 !== null ? m.score1 : ""} ${m.winner_id === m.p1_id ? "🏆" : ""}</b></div>
+          <div class="row"><span>${m.p2_pseudo || "—"}</span><b class="${m.winner_id === m.p2_id ? "pos" : ""}">${m.score2 !== null ? m.score2 : ""} ${m.winner_id === m.p2_id ? "🏆" : ""}</b></div>
+          <div class="row" style="margin-top:8px;"><span class="muted small">Statut</span><span class="small ${st[1]}">${st[0]}</span></div>
+          <div class="row"><span class="muted small">Date · heure</span><span class="small">${fmtMatchDate(m.starts_at)}</span></div>
+          ${next ? `<div class="row"><span class="muted small">Match suivant</span><span class="small">${fmtMatchDate(next.starts_at)}</span></div>` : ""}
+        </div>
+        ${isMe && m.status === "confirmation" ? `<div class="m-foot"><button class="btn primary block" onclick="App.closeModal(); App.confirmPresence(${tournamentId})">Confirmer ma présence (avant ${fmtMatchDate(m.confirm_deadline)})</button></div>` : ""}
+      `, "lg");
+    } catch (e) { toast(e.message, "error"); }
+  }
+
   /* ------------------ ROUTER ------------------ */
-  const ROUTES = ["home", "play", "board", "match", "ranks", "wallet", "profile", "chat", "friends"];
-  const TAB_ROUTES = ["home", "play", "match", "ranks", "wallet", "profile"];   // ordre de la barre d'onglets
+  const ROUTES = ["home", "play", "board", "match", "ranks", "wallet", "profile", "chat", "friends", "notifications", "tournament"];
+  const TAB_ROUTES = ["home", "play", "match", "ranks", "wallet", "notifications", "profile"];   // ordre de la barre d'onglets
   let mainTab = null;
   function route() {
     const raw = (location.hash.replace("#/", "") || "home");
@@ -5858,13 +6061,14 @@ const App = (() => {
     const r = ROUTES.includes(h) ? h : "home";
     document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === "screen-" + r));
     // Barre d'onglets lumineuse : déplace la pastille vers l'écran courant.
-    // Le plateau (« board ») n'a pas d'onglet dédié : il se rattache à « Jeux »
+    // Le plateau (« board ») se rattache à « Jeux », le détail tournoi à « Match »,
     // afin que la pastille reflète toujours l'écran réellement affiché.
-    const ti = TAB_ROUTES.indexOf(r === "board" ? "play" : r);
+    const tabKey = r === "board" ? "play" : r === "tournament" ? "match" : r;
+    const ti = TAB_ROUTES.indexOf(tabKey);
     if (mainTab && ti >= 0) mainTab.select(ti);
     // Profil d'un autre joueur : #/profile?id=<ID joueur>
     const viewId = query ? parseInt(new URLSearchParams(query).get("id")) : null;
-    const renderers = { home: renderHome, play: renderPlay, match: renderMatch, ranks: renderRanks, wallet: renderWallet, profile: viewId && viewId !== S.id ? () => renderPublicProfile(viewId) : async () => { await refreshUser(); renderProfile(); }, chat: renderChat, friends: renderFriends, board: () => {} };
+    const renderers = { home: renderHome, play: renderPlay, match: renderMatch, ranks: renderRanks, wallet: renderWallet, profile: viewId && viewId !== S.id ? () => renderPublicProfile(viewId) : async () => { await refreshUser(); renderProfile(); }, chat: renderChat, friends: renderFriends, notifications: renderNotifications, tournament: () => renderTournamentScreen(viewId), board: () => {} };
     renderers[r] && renderers[r]();
     // Quitter le plateau alors qu'on regarde un match → arrêter le spectate
     if (r !== "board" && spectatingId) stopSpectating();
@@ -6030,6 +6234,8 @@ const App = (() => {
     acceptDefi, refuseDefi, challengeUser, openChat,
     openChatPopup, openProfileById, openProfileByPseudo,
     spectate, stopSpectating,
+    readNotification, readAllNotifications, confirmPresence,
+    openTournament, matchDetail, renderNotifications, renderTournamentScreen,
     logout,
     state: () => S,
   };

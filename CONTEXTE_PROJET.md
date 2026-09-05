@@ -48,8 +48,8 @@
 ### Backend `d-aona-server/`
 | Fichier | Rôle |
 |---|---|
-| [server.js](d-aona-server/server.js) | 🧠 **Cœur** : API REST, WebSocket, matchmaking, serveur HTTP/WS |
-| [db.js](d-aona-server/db.js) | Couche SQLite : schéma + accès (users, games, tournois, wallet…) |
+| [server.js](d-aona-server/server.js) | 🧠 **Cœur** : API REST, WebSocket, matchmaking, moteur tournoi (bracket, confirmations, forfaits auto), notifications |
+| [db.js](d-aona-server/db.js) | Couche SQLite : schéma + accès (users, games, tournois, wallet, notifications, bracket…) |
 | [game.js](d-aona-server/game.js) | Moteur de partie Fanorona côté serveur (règles, captures, Elo) |
 | [data.js](d-aona-server/data.js) | Données / constantes de référence |
 | [check_db.js](d-aona-server/check_db.js) | Vérifier l'état des tables de la base |
