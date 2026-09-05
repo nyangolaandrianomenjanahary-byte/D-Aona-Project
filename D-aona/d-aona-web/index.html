@@ -5857,8 +5857,10 @@ const App = (() => {
     const [h, query] = raw.split("?");
     const r = ROUTES.includes(h) ? h : "home";
     document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === "screen-" + r));
-    // Barre d'onglets lumineuse : déplace la pastille vers l'écran courant
-    const ti = TAB_ROUTES.indexOf(r);
+    // Barre d'onglets lumineuse : déplace la pastille vers l'écran courant.
+    // Le plateau (« board ») n'a pas d'onglet dédié : il se rattache à « Jeux »
+    // afin que la pastille reflète toujours l'écran réellement affiché.
+    const ti = TAB_ROUTES.indexOf(r === "board" ? "play" : r);
     if (mainTab && ti >= 0) mainTab.select(ti);
     // Profil d'un autre joueur : #/profile?id=<ID joueur>
     const viewId = query ? parseInt(new URLSearchParams(query).get("id")) : null;
