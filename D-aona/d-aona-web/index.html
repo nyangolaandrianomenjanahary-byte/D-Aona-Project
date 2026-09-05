@@ -238,6 +238,13 @@ body::after {
   border-radius: 50%; background: var(--amber);
   box-shadow: 0 0 0 2.5px var(--panel);
 }
+.icon-btn[data-count]:not([data-count=""])::after {
+  content: attr(data-count);
+  position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 9px; background: var(--red); color: #fff;
+  font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 2px var(--panel);
+}
 .avatar {
   width: 36px; height: 36px; border-radius: 50%; flex: none;
   background: linear-gradient(135deg, #2b2b45, #191926);
@@ -1126,7 +1133,10 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
 .progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--amber), #f5c25e); border-radius: 6px; }
 
 /* bracket */
-.bracket { display: flex; gap: 26px; overflow-x: auto; padding: 14px 4px; }
+.bracket { display: flex; gap: 26px; overflow-x: auto; padding: 14px 4px; align-items: stretch; }
+.bracket-col { display: flex; flex-direction: column; justify-content: space-around; min-width: 190px; }
+.bracket-empty { padding: 26px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+.bracket-col-head { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; text-align: center; }
 .br-round { display: flex; flex-direction: column; justify-content: space-around; gap: 12px; min-width: 190px; }
 .br-round h5 { text-align: center; color: var(--muted); font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; margin-bottom: 6px; }
 .br-match { background: var(--panel-2); border: .5px solid var(--line); border-radius: 7px; overflow: hidden; }
@@ -2376,11 +2386,6 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   <button class="lgtab__tab" role="tab" aria-selected="false" data-route="wallet" data-acc="#E5A83B">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="14" rx="3"/><path d="M2 10h20M16 15h2"/></svg>
     <span>Wallet</span>
-  </button>
-  <button class="lgtab__tab" role="tab" aria-selected="false" data-route="notifications" data-acc="#F5C25E" id="tab-notifications" style="position:relative;">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-    <span>Notifs</span>
-    <span id="notif-badge" style="position:absolute;top:6px;right:14px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;line-height:1;">0</span>
   </button>
   <button class="lgtab__tab" role="tab" aria-selected="false" data-route="profile" data-acc="#A78BFA">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-5.5 8-5.5s6.5 1.5 8 5.5"/></svg>
@@ -3874,11 +3879,16 @@ const App = (() => {
     bar.classList.toggle("show", show);
   }
   function resumeGame() {
-    // Après une coupure, resynchroniser l'état avant de réafficher le plateau.
+    // Reprendre ramène DIRECTEMENT au plateau du match en cours (pas la liste des jeux).
+    go("board");
+  }
+
+  /* Renderer du plateau : resynchronise l'état autoritaire à chaque affichage,
+     pour que « Reprendre » ré-affiche le match en cours sans action manuelle. */
+  function renderBoard() {
     if (S.currentSession && API.isConnected()) {
       API.send({ type: "sync_game", sessionId: S.currentSession });
     }
-    go("board");
     updateResumeBanner();
   }
 
@@ -4589,9 +4599,8 @@ const App = (() => {
         <div class="small muted" style="text-align:right;">${t.registered.length}/${t.maxPlayers} joueurs ${S.myRegs[t.id] ? '· <span class="pos">✓ inscrit</span>' : ""}</div>
         <div class="tn-foot">
           <button class="btn" onclick="App.openTournament('${t.id}')">Détail & bracket</button>
-          ${S.myRegs[t.id]
-            ? `<button class="btn warn" onclick="App.simulateTournament('${t.id}')">▶ Simuler</button>`
-            : `<button class="btn primary ${full || !rankOk ? "disabled" : ""}" onclick="App.joinTournament('${t.id}')">S'inscrire</button>`}
+          ${!S.myRegs[t.id]
+            ? `<button class="btn primary ${full || !rankOk ? "disabled" : ""}" onclick="App.joinTournament('${t.id}')">S'inscrire</button>` : ""}
         </div>
       </div>`;
     };
@@ -4770,8 +4779,6 @@ const App = (() => {
         <button class="btn" onclick="App.openTournament('${t.id}')">Voir le bracket</button>
         ${t.status !== "termine" && !S.myRegs[t.id]
           ? `<button class="btn primary" onclick="App.joinTournament('${t.id}')">S'inscrire — ${fmtAr(t.entry)}</button>` : ""}
-        ${t.status !== "termine" && S.myRegs[t.id]
-          ? `<button class="btn warn" onclick="App.simulateTournament('${t.id}')">▶ Simuler ce tournoi</button>` : ""}
         <button class="btn ghost" onclick="App.closeModal()">Fermer</button>
       </div>
     `, "lg");
@@ -4793,17 +4800,6 @@ const App = (() => {
         renderMatch(); updateTopbar();
       } catch (e) { toast(e.message, "error"); }
     });
-  }
-
-  function simulateTournament(id) {
-    API.send({ type: "simulate_tournament", tournamentId: parseInt(id) });
-    closeModal();
-    showModal(`
-      <h2>Tournoi en cours…</h2>
-      <p class="m-sub">Simulation — arbitrage serveur.</p>
-      <div class="mm-spinner"><div class="mm-orbit"><i></i><i></i><i></i></div>
-      <p class="mono small amber" id="tn-progress">Démarrage…</p></div>
-    `, "", true);
   }
 
   /* ------------------ CLASSEMENT ------------------ */
@@ -5696,25 +5692,6 @@ const App = (() => {
       }
     });
     API.on("live_update", () => { if (currentRoute() === "match") loadLiveGames(); });
-    API.on("tournament_sim_step", (msg) => {
-      const el = document.getElementById("tn-progress");
-      if (el) el.textContent = msg.step;
-    });
-    API.on("tournament_sim_result", (msg) => {
-      const place = msg.place, gained = msg.gained || 0;
-      closeModal();
-      showModal(`
-        <div class="result-banner">
-          <div class="rb-ico">${place === 1 ? "🥇" : place === 2 ? "🥈" : place === 3 ? "🥉" : "🏁"}</div>
-          <h2>${place === 1 ? "Champion du tournoi !" : place === 2 ? "Vice-champion !" : place === 3 ? "3e place — mise remboursée" : "Éliminé"}</h2>
-          <p class="muted small">${msg.results ? msg.results.first : ""} · ${msg.results ? msg.results.second : ""} · ${msg.results ? msg.results.third : ""}</p>
-        </div>
-        ${gained ? `<p class="small" style="text-align:center; margin-top:10px;">Crédité : <b class="mono pos">${fmtAr(gained)}</b> ✓</p>` : ""}
-        <div class="m-foot"><button class="btn primary" onclick="App.closeModal(); App.go('match');">OK</button></div>
-      `);
-      refreshTournaments(); refreshUser();
-      if (currentRoute() === "match") renderMatch();
-    });
     API.on("error", (msg) => {
       toast(msg.message || "Erreur", "error");
       // Un coup rejeté laisse G.busy à true côté client → débloquer le plateau immédiatement.
@@ -5886,10 +5863,11 @@ const App = (() => {
     } catch (e) { console.error("refreshNotifications", e); }
   }
   function updateNotifBadge() {
-    const b = document.getElementById("notif-badge");
-    if (!b) return;
-    b.textContent = S.notifUnread > 99 ? "99+" : S.notifUnread;
-    b.style.display = S.notifUnread > 0 ? "inline-flex" : "none";
+    // Badge sur le bouton Notifications du header (pas d'onglet dans la TabBar)
+    const dot = document.getElementById("notif-dot");
+    if (dot) dot.classList.toggle("hidden", !(S.notifUnread > 0));
+    const btn = document.getElementById("btn-notif");
+    if (btn) btn.setAttribute("data-count", S.notifUnread > 0 ? S.notifUnread : "");
   }
   const NOTIF_ICONS = { inscription: "✅", tournoi_debut: "🏆", confirmation_requise: "⏰", confirmation: "✅", prochain_match: "⚔️", match_lance: "🎮", victoire: "🏆", defaite: "💥", forfait: "❌", forfait_adverse: "✅", tournoi_gagne: "👑", defi: "⚔️" };
   function renderNotifications() {
@@ -6010,22 +5988,42 @@ const App = (() => {
           ${myNext.status === "confirmation" ? `<button class="btn primary block" style="margin-top:10px;" onclick="App.confirmPresence(${t.id})">Confirmer ma présence (avant ${fmtMatchDate(myNext.confirm_deadline)})</button>` : ""}
         </div>` : ""}
         <div class="panel-title" style="margin-top:18px;">Bracket — élimination directe</div>
-        <div class="bracket">
-          ${Object.keys(rounds).sort((a, b) => a - b).map((r) => `
-            <div class="bracket-col" style="display:flex; flex-direction:column; justify-content:space-around;">
-              <div class="panel-title" style="font-size:12px;">${nameFor(+r)}</div>
-              ${rounds[r].map((m) => {
+        ${(() => {
+          // Squelette du bracket dérivé de max_players (ex: 8 joueurs → 4 quarts, 2 demis, 1 finale).
+          // Toujours affiché, même sans joueur inscrit : les cases restent vides (conforme maquette).
+          const size = Math.max(2, t.max_players || 8);
+          const roundsCount = Math.round(Math.log2(size));
+          const statusOf = { a_venir: "À venir", confirmation: "Confirmation", en_cours: "En cours", termine: "Terminé", forfait: "Forfait" };
+          let html = '<div class="bracket">';
+          for (let r = 1; r <= roundsCount; r++) {
+            const count = size / Math.pow(2, r);
+            const real = (rounds[r] || []);
+            const label = count === 1 ? "Finale" : count === 2 ? "Demi-finales" : count === 4 ? "Quarts de finale" : count === 8 ? "8es de finale" : "Tour " + r;
+            html += `<div class="bracket-col"><div class="bracket-col-head">${label}</div>`;
+            for (let s = 0; s < count; s++) {
+              const m = real[s];
+              if (m) {
                 const st = MATCH_STATUS[m.status] || [m.status, ""];
                 const isMe = m.p1_id === S.id || m.p2_id === S.id;
-                return `<div class="panel" style="padding:8px 10px; margin-bottom:10px; min-width:170px; cursor:pointer; ${isMe ? "border-color:var(--brand);" : ""}" onclick="App.matchDetail(${m.id}, ${t.id})">
+                html += `<div class="panel" style="padding:8px 10px; margin-bottom:10px; cursor:pointer; ${isMe ? "border-color:var(--brand);" : ""}" onclick="App.matchDetail(${m.id}, ${t.id})">
                   <div class="small ${m.winner_id === m.p1_id ? "pos" : ""}" style="font-weight:600;">${m.p1_pseudo || "—"} ${m.winner_id === m.p1_id ? "🏆" : ""}</div>
                   <div class="small ${m.winner_id === m.p2_id ? "pos" : ""}" style="font-weight:600;">${m.p2_pseudo || "—"} ${m.winner_id === m.p2_id ? "🏆" : ""}</div>
                   <div class="small ${st[1]}" style="margin-top:4px; font-size:11px;">${st[0]}${m.score1 !== null ? ` · ${m.score1}-${m.score2}` : ""}</div>
                 </div>`;
-              }).join("")}
-            </div>`).join("")}
-          ${champion ? `<div class="bracket-col" style="display:flex; flex-direction:column; justify-content:center;"><div class="panel-title" style="font-size:12px;">Vainqueur</div><div class="panel" style="padding:12px; border-color:var(--amber); text-align:center;"><div style="font-size:28px;">👑</div><b>${champion.winner_pseudo}</b></div></div>` : ""}
-        </div>`;
+              } else {
+                // Case vide (aucun joueur inscrit pour l'instant)
+                html += `<div class="panel bracket-empty" style="margin-bottom:10px; border-style:dashed;">— vs —</div>`;
+              }
+            }
+            html += `</div>`;
+          }
+          // Colonne Vainqueur : toujours présente, vide tant qu'il n'y a pas de champion
+          html += `<div class="bracket-col" style="justify-content:center;"><div class="bracket-col-head">Vainqueur</div>${champion
+            ? `<div class="panel" style="padding:12px; border-color:var(--amber); text-align:center;"><div style="font-size:28px;">👑</div><b>${champion.winner_pseudo}</b></div>`
+            : `<div class="panel bracket-empty" style="border-style:dashed;">?</div>`}</div>`;
+          return html + "</div>";
+        })()}
+        `;
     } catch (e) { root.innerHTML = `<div class="panel pad-lg"><p class="muted">${e.message}</p></div>`; }
   }
   async function matchDetail(matchId, tournamentId) {
@@ -6053,7 +6051,7 @@ const App = (() => {
 
   /* ------------------ ROUTER ------------------ */
   const ROUTES = ["home", "play", "board", "match", "ranks", "wallet", "profile", "chat", "friends", "notifications", "tournament"];
-  const TAB_ROUTES = ["home", "play", "match", "ranks", "wallet", "notifications", "profile"];   // ordre de la barre d'onglets
+  const TAB_ROUTES = ["home", "play", "match", "ranks", "wallet", "profile"];   // ordre de la barre d'onglets (notifications = via header)
   let mainTab = null;
   function route() {
     const raw = (location.hash.replace("#/", "") || "home");
@@ -6068,7 +6066,7 @@ const App = (() => {
     if (mainTab && ti >= 0) mainTab.select(ti);
     // Profil d'un autre joueur : #/profile?id=<ID joueur>
     const viewId = query ? parseInt(new URLSearchParams(query).get("id")) : null;
-    const renderers = { home: renderHome, play: renderPlay, match: renderMatch, ranks: renderRanks, wallet: renderWallet, profile: viewId && viewId !== S.id ? () => renderPublicProfile(viewId) : async () => { await refreshUser(); renderProfile(); }, chat: renderChat, friends: renderFriends, notifications: renderNotifications, tournament: () => renderTournamentScreen(viewId), board: () => {} };
+    const renderers = { home: renderHome, play: renderPlay, match: renderMatch, ranks: renderRanks, wallet: renderWallet, profile: viewId && viewId !== S.id ? () => renderPublicProfile(viewId) : async () => { await refreshUser(); renderProfile(); }, chat: renderChat, friends: renderFriends, notifications: renderNotifications, tournament: () => renderTournamentScreen(viewId), board: renderBoard };
     renderers[r] && renderers[r]();
     // Quitter le plateau alors qu'on regarde un match → arrêter le spectate
     if (r !== "board" && spectatingId) stopSpectating();
@@ -6089,6 +6087,7 @@ const App = (() => {
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => mainTab.measure());
     document.getElementById("logo").onclick = () => go("home");
     document.getElementById("resume-bar").onclick = resumeGame;
+    document.getElementById("btn-notif").onclick = () => { go("notifications"); };
     document.getElementById("tb-wallet").onclick = () => go("wallet");
     document.getElementById("tb-avatar").onclick = () => go("profile");
     document.getElementById("tb-kyc").onclick = () => { if (!S.kyc) kycRequired(() => {}); else toast("Identité vérifiée ✓"); };
@@ -6228,7 +6227,7 @@ const App = (() => {
   /* API publique */
   return {
     go, toast, miniToast, depositFlow, withdrawFlow, kycRequired,
-    joinTournament, tournamentDetail, simulateTournament,
+    joinTournament, tournamentDetail,
     buySkin, equipSkin, rulesModal, tossModal, openChooseSide, pickSide, supportModal,
     copyLink, onGameEnd: onLocalGameEnd, closeModal,
     acceptDefi, refuseDefi, challengeUser, openChat,

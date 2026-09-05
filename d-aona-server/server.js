@@ -761,9 +761,6 @@ function handleWsMessage(ws, msg) {
       sendUser(ch.from_id, { type: "challenge_status", challengeId: msg.challengeId, status: "rejected" });
       break;
     }
-    case "simulate_tournament":
-      simulateTournament(conn.userId, parseInt(msg.tournamentId));
-      break;
     case "ping":
       send(ws, { type: "pong" });
       break;
@@ -1109,52 +1106,6 @@ function processTournamentMatches() {
     });
     advanceWinner(TournamentMatch.get(m.id));
   }
-}
-
-/* ---------- Tournament simulation ---------- */
-function simulateTournament(userId, tournamentId) {
-  const t = Tournament.get(tournamentId);
-  if (!t) return;
-  const regs = Tournament.getRegistrations(tournamentId);
-  const botList = ["KantoV","ZoFighter","NadiaBe","BemaT","DeraMG","FenoAria","LovaTms","Sariaka","Faniry_","TokyRabe"];
-  while (regs.length < t.max_players) {
-    const bp = botList.find((b) => !regs.some((r) => r.pseudo === b));
-    if (!bp) break;
-    const bu = User.getByPseudo(bp);
-    regs.push({ id: bu?.id || 999, pseudo: bp, elo: bu?.elo || 1000 });
-  }
-
-  const ws = userSockets.get(userId);
-  const steps = ["Quarts de finale...", "Demi-finales...", "Finale...", "Distribution du cashprice..."];
-  steps.forEach((s, i) => {
-    setTimeout(() => { if (ws && ws.readyState === WebSocket.OPEN) send(ws, { type: "tournament_sim_step", tournamentId, step: s }); }, 900 + i * 1050);
-  });
-
-  setTimeout(() => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const userRecord = User.getById(userId);
-    const mePseudo = userRecord ? userRecord.pseudo : null;
-    const others = regs.filter((r) => r.pseudo !== mePseudo);
-    const r1 = Math.random() < 0.55, r2 = r1 && Math.random() < 0.55, r3 = r2 && Math.random() < 0.55;
-    let place = r3 ? 1 : r2 ? 2 : (r1 && Math.random() < 0.5 ? 3 : 0);
-    const pool = [...others];
-    const pick = () => pool.splice(Math.floor(Math.random() * pool.length), 1)[0]?.pseudo || "—";
-    const results = {
-      first: place === 1 ? mePseudo : pick(),
-      second: place === 2 ? mePseudo : pick(),
-      third: place === 3 ? mePseudo : pick(),
-    };
-    Tournament.setResults(tournamentId, results);
-    const net = t.entry * t.max_players - 3 * t.entry;
-    let gained = 0;
-    if (place === 1) { gained = Math.round(t.entry + net * 0.5); Wallet.credit(userId, gained, `Cashprice 1re place - ${t.name}`); }
-    else if (place === 2) { gained = Math.round(t.entry + net * 0.25); Wallet.credit(userId, gained, `Cashprice 2e place - ${t.name}`); }
-    else if (place === 3) { gained = t.entry; Wallet.credit(userId, gained, `Remboursement mise (3e place) - ${t.name}`); }
-    const bal = Wallet.getBalance(userId);
-    if (bal) sendUser(userId, { type: "wallet_update", balance: bal.balance, bonusLock: bal.bonus_lock });
-    broadcast({ type: "tournament_update" });
-    send(ws, { type: "tournament_sim_result", tournamentId, results, place, gained });
-  }, 900 + steps.length * 1050 + 700);
 }
 
 /* ---------- Game loop ---------- */
