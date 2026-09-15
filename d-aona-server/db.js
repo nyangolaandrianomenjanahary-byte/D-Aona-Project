@@ -5,8 +5,19 @@
 
 const { DatabaseSync } = require("node:sqlite");
 const path = require("node:path");
-const DB_PATH = path.join(__dirname, "d-aona.db");
+/* Chemin de la base. Par défaut : d-aona.db à côté de ce fichier (comportement
+   historique, inchangé). D_AONA_DB_PATH permet de pointer ailleurs — utilisé par
+   les campagnes de tests (test_scenarios.js / test_e2e.js) pour travailler sur
+   une copie jetable de la base, sans jamais écrire dans les données réelles. */
+const DB_PATH = process.env.D_AONA_DB_PATH
+  ? path.resolve(process.env.D_AONA_DB_PATH)
+  : path.join(__dirname, "d-aona.db");
 const db = new DatabaseSync(DB_PATH);
+
+/* SQLite n'applique PAS les clés étrangères par défaut : sans cette
+   activation, les contraintes REFERENCES et ON DELETE CASCADE des
+   nouvelles tables (auth_credentials, sessions) seraient décoratives. */
+db.exec("PRAGMA foreign_keys = ON;");
 
 /* ---------- Schéma ---------- */
 function init() {
@@ -195,6 +206,15 @@ function init() {
 }
 init();
 
+/* ---------- Migrations versionnées ----------
+   Le schéma hérité ci-dessus est conservé tel quel (il utilise des
+   ALTER TABLE tolérants aux relances). Toute NOUVELLE évolution du schéma
+   passe en revanche par un fichier versionné dans migrations/, appliqué
+   ici au démarrage : la base ne peut plus être modifiée « à la main ».
+   Une migration en échec interrompt le démarrage plutôt que de laisser
+   tourner le serveur sur un schéma incohérent. */
+require("./migrate").runMigrations(db);
+
 /* ---------- Helpers ---------- */
 function now() { return new Date().toISOString(); }
 
@@ -365,12 +385,16 @@ const Wallet = {
     if (locked) db.prepare("UPDATE users SET bonus_lock = bonus_lock + ? WHERE id = ?").run(amount, userId);
     this.addTransaction(userId, "in", label, amount);
   },
+  /* Dépense : le montant sort du solde UNE SEULE fois, et la part verrouillée
+     (bonus de bienvenue, non retirable) est consommée d'abord. L'ancienne
+     version débitait `balance` ici ET dans addTransaction : chaque retrait,
+     achat, entrée de tournoi ou mise de défi était facturé deux fois, ce qui
+     faisait passer les soldes en négatif. */
   spend(userId, amount, label) {
     const bal = this.getBalance(userId);
     if (!bal) return;
     const fromBonus = Math.min(bal.bonus_lock, amount);
-    db.prepare("UPDATE users SET bonus_lock = bonus_lock - ?, balance = balance - ? WHERE id = ?")
-      .run(fromBonus, amount, userId);
+    db.prepare("UPDATE users SET bonus_lock = bonus_lock - ? WHERE id = ?").run(fromBonus, userId);
     this.addTransaction(userId, "out", label, amount);
   },
   getTransactions(userId, limit = 50) {

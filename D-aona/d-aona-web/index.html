@@ -1027,14 +1027,36 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
    ce qui surcharge le display:none natif → la boîte invisible bloquait les clics du plateau. */
 .capture-choice[hidden], .chain-bar[hidden], .lastmove[hidden] { display: none !important; }
 
+/* Bandeau « Prise en chaîne » — posé SOUS le plateau (le JS bascule `hidden`).
+   Historique : il était en position absolue dans #board-stage (bottom 3.4%) ; sur
+   téléphone cette surcouche masquait les pions du bas et absorbait les taps.
+   Il occupe désormais une ligne à part entière, même largeur que le plateau,
+   juste au-dessus de la barre du joueur actif : rien n'est recouvert, le bouton
+   « Terminer la prise » tombe dans la zone du pouce. */
 .chain-bar {
-  position: absolute; left: 50%; bottom: 3.4%; transform: translateX(-50%); z-index: 9;
-  display: flex; align-items: center; gap: 10px;
-  background: rgba(15, 15, 26, .92); border: .5px solid rgba(229, 158, 39, .5);
-  border-radius: 999px; padding: 8px 14px; font-size: 12.5px; white-space: nowrap;
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 12px;
+  width: min(100%, 700px); margin: 0 auto 10px; padding: 8px 10px 8px 16px;
+  border: .5px solid rgba(229, 158, 39, .5); border-radius: 999px;
+  background: linear-gradient(135deg, rgba(229, 158, 39, .16), rgba(229, 158, 39, .05)), var(--panel-2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .28);
+  font-size: 12.5px; color: var(--text); text-align: center;
+  animation: resume-pop .28s ease;
 }
+.chain-bar .cb-msg { display: inline-flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 5px; }
 .chain-bar b { color: var(--amber); }
-.chain-bar button { background: var(--amber-soft); border: .5px solid rgba(229,158,39,.5); color: var(--amber); border-radius: 999px; padding: 5px 11px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.chain-bar .cb-sub { color: var(--muted); }
+.chain-bar button { flex: none; background: var(--amber-soft); border: .5px solid rgba(229,158,39,.5); color: var(--amber); border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+/* hover réservé aux dispositifs à pointeur précis (pas de hover collant au tap) */
+@media (hover: hover) {
+  .chain-bar button:hover { background: rgba(229, 158, 39, .28); }
+}
+/* Mobile : message puis bouton empilé pleine largeur → cible tactile confortable
+   et aucune troncature, sans jamais rogner le plateau. */
+@media (max-width: 480px) {
+  .chain-bar { flex-direction: column; gap: 7px; padding: 9px 12px; border-radius: 14px; }
+  .chain-bar .cb-msg { display: block; }
+  .chain-bar button { width: 100%; padding: 9px 12px; }
+}
 
 .scorebar { height: 6px; border-radius: 6px; background: var(--panel-3); position: relative; overflow: hidden; }
 .scorebar .fill { position: absolute; top: 0; left: 0; bottom: 0; background: linear-gradient(90deg, var(--brand), var(--brand-2)); transition: width .5s; }
@@ -1046,6 +1068,27 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
 .board-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .board-actions .btn { width: 100%; justify-content: center; padding-left: 6px; padding-right: 6px; }
 .board-actions .btn.danger { grid-column: 1 / -1; }
+/* --- Bascule « Aides au déplacement » (partie contre l'IA uniquement) ---
+   Le bouton occupe toute la largeur, comme « Abandonner ». */
+.board-actions .help-toggle { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.help-toggle .help-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex: none;
+  background: rgba(54, 201, 154, .9); box-shadow: 0 0 8px rgba(54, 201, 154, .7);
+  transition: background .18s ease, box-shadow .18s ease;
+}
+.help-toggle .help-state {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(54, 201, 154, .16); color: var(--brand-2);
+  border: .5px solid rgba(54, 201, 154, .45);
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+.help-toggle[aria-pressed="false"] .help-dot { background: rgba(139, 150, 168, .75); box-shadow: none; }
+.help-toggle[aria-pressed="false"] .help-state {
+  background: rgba(139, 150, 168, .12); color: var(--muted); border-color: rgba(139, 150, 168, .35);
+}
+/* `hidden` doit battre le display:flex du bouton (sinon il resterait visible — cf. supra) */
+.board-actions .help-toggle[hidden] { display: none !important; }
 
 /* ============ Défis ============ */
 .defis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 14px; }
@@ -1449,6 +1492,9 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   overflow: hidden auto;
 }
 .auth.hidden { display: none; }
+/* L'écran de connexion/inscription est toujours sombre : on le déclare au navigateur pour que
+   l'auto-remplissage, les listes déroulantes et les barres de défilement natifs restent sombres. */
+.auth { color-scheme: dark; }
 
 /* --- Fond : dégradé sombre + halos (orbes flous animés) --- */
 .wb-bg {
@@ -1578,9 +1624,50 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   font: inherit; font-size: 15.5px; caret-color: #2ee59d;
 }
 .wb-field input::placeholder { color: rgba(255,255,255,.5); }
-.wb-field input:-webkit-autofill {
-  -webkit-text-fill-color: #fff;
-  -webkit-box-shadow: 0 0 0 1000px #12243f inset;
+/* --- Auto-remplissage navigateur : le champ garde EXACTEMENT l'aspect d'une saisie manuelle ---
+   Les navigateurs peignent un fond opaque par-dessus le verre. On ne le recouvre plus d'un aplat
+   (l'ancien #12243f créait le rectangle bleu marine de travers) : on le neutralise.
+     • transition très longue → le fond natif ne se peint jamais (Blink / WebKit) ;
+     • background-color: transparent !important → annulation directe (Firefox / Gecko) ;
+     • texte et curseur conservent les couleurs D-aôna ;
+     • color-scheme: dark sur .auth → même un highlight résiduel reste sombre. */
+.wb-field input:is(:-webkit-autofill, :autofill, :-moz-autofill) {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  caret-color: #2ee59d;
+  background-color: transparent !important;
+  -webkit-box-shadow: none !important;
+  box-shadow: none !important;
+  transition: background-color 999999s ease 0s, color 999999s ease 0s;
+}
+/* Mêmes déclarations pour Chromium / WebKit (y compris les variantes :hover/:focus/:active,
+   nécessaires dans certains moteurs pour battre le style interne d'auto-remplissage). */
+.wb-field input:-webkit-autofill,
+.wb-field input:-webkit-autofill:hover,
+.wb-field input:-webkit-autofill:focus,
+.wb-field input:-webkit-autofill:active {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  caret-color: #2ee59d;
+  background-color: transparent !important;
+  -webkit-box-shadow: none !important;
+  box-shadow: none !important;
+  transition: background-color 999999s ease 0s, color 999999s ease 0s;
+}
+/* Ceinture + bretelles sur la pseudo-classe standard (Firefox 86+, Chrome 111+, Safari 15.4+) */
+.wb-field input:autofill {
+  background-color: transparent !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  -webkit-box-shadow: none !important;
+  box-shadow: none !important;
+  transition: background-color 999999s ease 0s, color 999999s ease 0s;
+}
+/* Champs « classiques » de l'app : on conserve leur fond (--panel-2), seul le texte est préservé */
+input:is(:-webkit-autofill, :autofill, :-moz-autofill),
+select:is(:-webkit-autofill, :autofill, :-moz-autofill),
+textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
+  -webkit-text-fill-color: currentColor !important;
   transition: background-color 999999s ease 0s;
 }
 /* focus_glow : bordure accent lumineuse au focus */
@@ -1680,6 +1767,137 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   font-size: 11px; line-height: 1.55; color: rgba(255,255,255,.42);
 }
 
+/* --- Inscription en 2 étapes : progression + navigation --- */
+.wb-steps { margin: -4px 0 18px; }
+.wb-steps-bar { display: flex; gap: 6px; }
+.wb-steps-bar i {
+  flex: 1; height: 4px; border-radius: 999px; background: rgba(255, 255, 255, .14);
+  transition: background .3s ease, box-shadow .3s ease;
+}
+.wb-steps-bar i.on {
+  background: linear-gradient(135deg, #2fe09a, #1ec27f);
+  box-shadow: 0 0 14px -3px rgba(46, 229, 157, .75);
+}
+.wb-steps-label {
+  margin-top: 9px; font-size: 11px; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: rgba(255, 255, 255, .5);
+}
+.wb-steps-label b { color: #31e0a0; font-weight: 800; }
+.wb-steps-label.fade { animation: wbFadeSlide .3s ease; }
+.wb-step { display: flex; flex-direction: column; }
+/* --- Transition fluide entre les 2 étapes : la sortante s'efface en glissant, l'entrante arrive de l'autre côté --- */
+.wb-step-out-fwd { animation: wbStepOutFwd .15s ease forwards; }
+.wb-step-out-back { animation: wbStepOutBack .15s ease forwards; }
+.wb-step-in-fwd { animation: wbStepInFwd .34s cubic-bezier(.22,.61,.36,1) both; }
+.wb-step-in-back { animation: wbStepInBack .34s cubic-bezier(.22,.61,.36,1) both; }
+@keyframes wbStepOutFwd { to { opacity: 0; transform: translateX(-14px); } }
+@keyframes wbStepOutBack { to { opacity: 0; transform: translateX(14px); } }
+@keyframes wbStepInFwd { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes wbStepInBack { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+.wb-stepnav { display: flex; gap: 10px; }
+.wb-stepnav .wb-btn { width: auto; flex: 1; margin-top: 24px; }
+.wb-btn.ghost {
+  flex: 0 0 38%; border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .05); color: #e8eef7; box-shadow: none; font-size: 15px;
+}
+.wb-btn.ghost:hover { filter: none; background: rgba(255, 255, 255, .1); }
+@media (max-width: 920px) {
+  .wb-stepnav .wb-btn { margin-top: 20px; }
+  .wb-btn.ghost { flex: 0 0 34%; font-size: 14.5px; }
+}
+
+/* --- Création de mot de passe : jauge de robustesse + conditions (logique de la maquette, style D-aôna) --- */
+.wb-strength { margin-top: 12px; }
+.wb-meter { display: flex; align-items: center; gap: 6px; }
+.wb-seg {
+  flex: 1; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, .14);
+  transition: background-color .3s ease, box-shadow .3s ease;
+}
+.wb-seg.on { animation: wbSegPop .28s ease; }
+.wb-strength[data-level="1"] .wb-seg.on { background: #ef4444; box-shadow: 0 0 12px -3px rgba(239, 68, 68, .85); }
+.wb-strength[data-level="2"] .wb-seg.on { background: #f59e0b; box-shadow: 0 0 12px -3px rgba(245, 158, 11, .85); }
+.wb-strength[data-level="3"] .wb-seg.on { background: #a3e635; box-shadow: 0 0 12px -3px rgba(163, 230, 53, .85); }
+.wb-strength[data-level="4"] .wb-seg.on {
+  background: linear-gradient(135deg, #2fe09a, #1ec27f);
+  box-shadow: 0 0 15px -3px rgba(46, 229, 157, .85);
+}
+.wb-strength-label {
+  flex: none; max-width: 0; margin-left: 0; opacity: 0; overflow: hidden; white-space: nowrap;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: rgba(255, 255, 255, .45);
+  transition: max-width .35s ease, opacity .3s ease, margin-left .35s ease, color .3s ease;
+}
+.wb-strength-label.show { max-width: 96px; margin-left: 10px; opacity: 1; }
+.wb-strength-label.fade { animation: wbFadeSlide .3s ease; }
+.wb-strength[data-level="1"] .wb-strength-label { color: #ff9d9d; }
+.wb-strength[data-level="2"] .wb-strength-label { color: #ffc466; }
+.wb-strength[data-level="3"] .wb-strength-label { color: #b7e57f; }
+.wb-strength[data-level="4"] .wb-strength-label { color: #31e0a0; }
+
+/* Conditions : panneau replié par défaut, déplié pendant la saisie tant que tout n'est pas conforme */
+.wb-rules {
+  list-style: none; margin-top: 0; padding: 0; overflow: hidden; max-height: 0; opacity: 0;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 7px 14px;
+  transition: max-height .4s ease, opacity .3s ease, margin-top .4s ease;
+}
+.wb-strength.open .wb-rules { max-height: 260px; margin-top: 12px; opacity: 1; }
+.wb-rule { display: flex; align-items: flex-start; gap: 9px; font-size: 12.5px; line-height: 1.35; color: rgba(255, 255, 255, .5); transition: color .25s ease; }
+.wb-rule-box {
+  width: 16px; height: 16px; flex: none; margin-top: 1px; border-radius: 5px;
+  border: 1.5px solid rgba(255, 255, 255, .18);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .25s ease, border-color .25s ease;
+}
+.wb-rule-box svg { width: 10px; height: 10px; display: block; }
+.wb-rule-box path {
+  fill: none; stroke: #06301d; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 20; stroke-dashoffset: 20;
+  transition: stroke-dashoffset .3s ease .06s;
+}
+.wb-rule.ok { color: #fff; }
+.wb-rule.ok .wb-rule-box {
+  background: linear-gradient(135deg, #2fe09a, #1ec27f); border-color: transparent;
+  animation: wbSegPop .3s ease;
+}
+.wb-rule.ok .wb-rule-box path { stroke-dashoffset: 0; }
+
+/* Mot de passe validé : halo vert sur le champ + message qui se pose */
+.wb-field.valid {
+  border-color: rgba(46, 229, 157, .7);
+  box-shadow: 0 0 0 1px rgba(46, 229, 157, .22), 0 0 26px -8px rgba(46, 229, 157, .5);
+}
+.wb-valid {
+  display: flex; align-items: center; gap: 7px; margin: 12px 2px 0;
+  font-size: 12.5px; font-weight: 600; color: #31e0a0;
+  opacity: 0; transform: translateY(4px); visibility: hidden; pointer-events: none;
+  transition: opacity .4s ease, transform .4s ease, visibility .4s linear;
+}
+.wb-strength.valid .wb-valid { opacity: 1; transform: none; visibility: visible; }
+/* --- Badge de correspondance de la confirmation (vert = identiques, rouge = différentes) --- */
+.wb-badge {
+  width: 20px; height: 20px; flex: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transform: scale(.4);
+  transition: opacity .2s ease, transform .25s ease, background .2s ease;
+}
+.wb-badge svg { width: 10px; height: 10px; }
+.wb-badge path { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.wb-badge .i-x { display: none; }
+.wb-badge.match { opacity: 1; transform: none; background: rgba(46, 229, 157, .18); color: #31e0a0; }
+.wb-badge.mismatch { opacity: 1; transform: none; background: rgba(239, 68, 68, .16); color: #ff9d9d; }
+.wb-badge.mismatch .i-x { display: block; }
+.wb-badge.mismatch .i-v { display: none; }
+/* --- « Créer mon compte » : estompé tant que le formulaire n'est pas prêt --- */
+#su-enter.not-ready { opacity: .55; box-shadow: none; }
+#su-enter.not-ready:hover, #su-enter.not-ready:active { filter: none; transform: none; }
+@keyframes wbSegPop { 0% { transform: scale(.6); } 60% { transform: scale(1.1); } 100% { transform: scale(1); } }
+@keyframes wbFadeSlide { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: none; } }
+@media (max-width: 920px) {
+  .wb-rules { grid-template-columns: 1fr; }
+  .wb-strength-label { font-size: 10px; }
+  .wb-strength-label.show { max-width: 84px; }
+}
+
 /* --- Vues Inscription / Complétion Google --- */
 .wb-shell { margin: auto; }   /* centré si court, défile si long (inscription) */
 .wb-view-title { margin: 0 0 16px; font-size: 21px; font-weight: 800; color: #fff; letter-spacing: -.01em; }
@@ -1721,6 +1939,9 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
 @media (prefers-reduced-motion: reduce) {
   .wb-viewport, .wb-orb, .wb-mini { animation: none; }
   .wb-field, .wb-btn, .wb-social, .wb-link, .wb-toggle-pass { transition: none; }
+  .wb-seg, .wb-strength-label, .wb-rule-box, .wb-rule-box path, .wb-valid, .wb-rules, .wb-badge,
+  .wb-step-out-fwd, .wb-step-out-back, .wb-step-in-fwd, .wb-step-in-back,
+  .wb-steps-label { animation: none; transition: none; }
 }
 
 /* ============ Admin ============ */
@@ -2021,6 +2242,13 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
             <button class="wb-link" type="button" id="wb-signup">S'inscrire</button>
           </p>
 
+          <!-- Comptes créés AVANT la refonte de sécurité : ils n'ont aucun mot
+               de passe en base. Ce parcours explicite leur en attribue un. -->
+          <p class="wb-signup">
+            Compte créé avant la mise à jour de sécurité ?
+            <button class="wb-link" type="button" id="wb-claim">Définir mon mot de passe</button>
+          </p>
+
           <!-- Instructions du site (mises à jour avec les nouvelles fonctionnalités) -->
           <p class="wb-note">
             <b>Nouveautés interface</b> — écran « Bon retour » adaptatif (bureau &amp; mobile) · recherche dépliable en pastille · barre d'onglets lumineuse.<br>
@@ -2031,6 +2259,15 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
         <!-- ============ Vue INSCRIPTION ============ -->
         <form class="wb-fields hidden" id="signup-form" novalidate>
           <h2 class="wb-view-title">Créer un <em>compte</em></h2>
+
+          <!-- Progression : 2 étapes (1/2 Identité, 2/2 Sécurité & localisation) -->
+          <div class="wb-steps">
+            <div class="wb-steps-bar" aria-hidden="true"><i class="on" id="su-bar-1"></i><i id="su-bar-2"></i></div>
+            <p class="wb-steps-label" id="su-step-label" aria-live="polite">Étape <b>1</b>/2 · Identité</p>
+          </div>
+
+          <!-- ===== Étape 1/2 — Identité ===== -->
+          <div class="wb-step" id="su-step-1">
 
           <!-- Pseudo (obligatoire, unicité contrôlée) -->
           <div class="wb-group">
@@ -2068,41 +2305,9 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
             <p class="wb-err" id="su-phone-err"></p>
           </div>
 
-          <!-- Province (6 provinces de Madagascar) -->
-          <div class="wb-group" style="margin-top:12px;">
-            <div class="wb-field-head"><label for="su-province">Province *</label></div>
-            <select id="su-province" aria-label="Province">
-              <option value="">— Choisissez votre province —</option>
-            </select>
-            <p class="wb-err" id="su-prov-err"></p>
-          </div>
-
-          <!-- Mot de passe + confirmation -->
-          <div class="wb-group" style="margin-top:12px;">
-            <div class="wb-field-head"><label for="su-pass">Mot de passe *</label></div>
-            <div class="wb-field" id="su-pass-f">
-              <span class="f-icon" aria-hidden="true">
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              </span>
-              <input id="su-pass" type="password" placeholder="6 caractères minimum" autocomplete="new-password" aria-label="Mot de passe">
-            </div>
-            <p class="wb-err" id="su-pass-err"></p>
-          </div>
-          <div class="wb-group" style="margin-top:12px;">
-            <div class="wb-field-head"><label for="su-pass2">Confirmation du mot de passe *</label></div>
-            <div class="wb-field" id="su-pass2-f">
-              <span class="f-icon" aria-hidden="true">
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><path d="m9 16 2 2 4-4"/></svg>
-              </span>
-              <input id="su-pass2" type="password" placeholder="Répétez le mot de passe" autocomplete="new-password" aria-label="Confirmation du mot de passe">
-            </div>
-            <p class="wb-err" id="su-pass2-err"></p>
-          </div>
-
-          <button class="wb-btn" id="su-enter" type="submit">
-            <span class="lbl">Créer mon compte ✨</span>
-            <span class="spin wb-spin" aria-hidden="true"></span>
-            <svg class="tick" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <!-- Fin de l'étape 1/2 : passer à la sécurité et à la localisation -->
+          <button class="wb-btn" id="su-next" type="button">
+            <span class="lbl">Continuer →</span>
           </button>
 
           <p class="wb-signup">Déjà inscrit ? <button class="wb-link" type="button" id="su-back">Se connecter</button></p>
@@ -2120,6 +2325,85 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
               <span>Facebook</span>
             </button>
           </div>
+          </div><!-- /étape 1/2 — Identité -->
+
+          <!-- ===== Étape 2/2 — Sécurité & localisation ===== -->
+          <div class="wb-step hidden" id="su-step-2">
+
+          <!-- Province (6 provinces de Madagascar) -->
+          <div class="wb-group" style="margin-top:12px;">
+            <div class="wb-field-head"><label for="su-province">Province *</label></div>
+            <select id="su-province" aria-label="Province">
+              <option value="">— Choisissez votre province —</option>
+            </select>
+            <p class="wb-err" id="su-prov-err"></p>
+          </div>
+
+          <!-- Mot de passe + confirmation -->
+          <div class="wb-group" style="margin-top:12px;">
+            <div class="wb-field-head"><label for="su-pass">Mot de passe *</label></div>
+            <div class="wb-field" id="su-pass-f">
+              <span class="f-icon" aria-hidden="true">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </span>
+              <input id="su-pass" type="password" placeholder="12 caractères minimum" autocomplete="new-password" aria-label="Mot de passe">
+              <button class="wb-toggle-pass" id="su-toggle-pass" type="button" aria-label="Afficher le mot de passe">
+                <svg class="icon-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="icon-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+            <p class="wb-err" id="su-pass-err"></p>
+
+            <!-- Robustesse : jauge 4 niveaux + conditions animées (logique de la maquette, charte D-aôna) -->
+            <div class="wb-strength" id="su-strength" data-level="0">
+              <div class="wb-meter" aria-hidden="true">
+                <i class="wb-seg"></i><i class="wb-seg"></i><i class="wb-seg"></i><i class="wb-seg"></i>
+                <span class="wb-strength-label" id="su-strength-label" aria-live="polite"></span>
+              </div>
+              <ul class="wb-rules">
+                <li class="wb-rule" id="su-rule-len"><span class="wb-rule-box"><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5"/></svg></span><span>Au moins 12 caractères</span></li>
+                <li class="wb-rule" id="su-rule-case"><span class="wb-rule-box"><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5"/></svg></span><span>Une majuscule et une minuscule</span></li>
+                <li class="wb-rule" id="su-rule-num"><span class="wb-rule-box"><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5"/></svg></span><span>Un chiffre</span></li>
+                <li class="wb-rule" id="su-rule-special"><span class="wb-rule-box"><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5"/></svg></span><span>Un caractère spécial (ex : ?, !, #)</span></li>
+              </ul>
+              <p class="wb-valid" id="su-valid-msg">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8.5l3.5 3.5L13.5 4.5"/></svg>
+                Mot de passe valide
+              </p>
+            </div>
+          </div>
+          <div class="wb-group" style="margin-top:12px;">
+            <div class="wb-field-head"><label for="su-pass2">Confirmation du mot de passe *</label></div>
+            <div class="wb-field" id="su-pass2-f">
+              <span class="f-icon" aria-hidden="true">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><path d="m9 16 2 2 4-4"/></svg>
+              </span>
+              <input id="su-pass2" type="password" placeholder="Répétez le mot de passe" autocomplete="new-password" aria-label="Confirmation du mot de passe">
+              <span class="wb-badge" id="su-badge" aria-live="polite">
+                <svg class="i-v" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5"/></svg>
+                <svg class="i-x" viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
+              </span>
+              <button class="wb-toggle-pass" id="su-toggle-pass2" type="button" aria-label="Afficher le mot de passe">
+                <svg class="icon-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="icon-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+            <p class="wb-err" id="su-pass2-err"></p>
+          </div>
+
+          <!-- Retour à l'étape précédente + création du compte -->
+          <div class="wb-stepnav">
+            <button class="wb-btn ghost" id="su-prev" type="button">
+              <span class="lbl">Retour</span>
+            </button>
+            <button class="wb-btn" id="su-enter" type="submit">
+              <span class="lbl">Créer mon compte ✨</span>
+              <span class="spin wb-spin" aria-hidden="true"></span>
+              <svg class="tick" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            </button>
+          </div>
+          </div><!-- /étape 2/2 — Sécurité & localisation -->
+
         </form>
 
         <!-- ============ Vue COMPLÉTION GOOGLE ============ -->
@@ -2251,10 +2535,16 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
         <!-- Plateau -->
         <div class="screen-board" id="board-stage">
           <div class="board" id="fanorona-board"></div>
-          <div class="chain-bar" id="chain-bar" hidden>
-            <b>Prise en chaîne !</b> continuez avec le même pion
-            <button id="btn-chain-end">Terminer la prise</button>
-          </div>
+        </div>
+
+        <!-- Bandeau « Prise en chaîne » — HORS du plateau.
+             Avant : surcouche absolue en bas du plateau → sur mobile elle masquait
+             les pions du bas et absorbait les taps. Désormais posé sous le plateau,
+             juste au-dessus de la barre du joueur actif (zone du pouce), sans rien
+             recouvrir et toujours aligné sur la largeur du plateau. -->
+        <div class="chain-bar" id="chain-bar" hidden>
+          <span class="cb-msg" role="status" aria-live="polite"><b>Prise en chaîne !</b><span class="cb-sub">continuez avec le même pion</span></span>
+          <button id="btn-chain-end" type="button">Terminer la prise</button>
         </div>
 
         <!-- Joueur -->
@@ -2282,6 +2572,12 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
           <div class="board-actions">
             <button class="btn ghost" id="btn-rules" onclick="App.rulesModal()">📜 Règles</button>
             <button class="btn ghost" id="btn-draw">🤝 Proposer nul</button>
+            <!-- Bascule des aides au déplacement : affichée UNIQUEMENT en partie contre l'IA -->
+            <button class="btn ghost help-toggle" id="btn-help" type="button" aria-pressed="true" hidden>
+              <span class="help-dot" aria-hidden="true"></span>
+              <span>Aides au déplacement</span>
+              <span class="help-state" id="btn-help-state">ON</span>
+            </button>
             <button class="btn danger" id="btn-resign">🏳️ Abandonner</button>
           </div>
           <div class="hint" id="hint" style="margin-top:10px; font-size:12.5px; color:var(--brand-2);"></div>
@@ -2451,9 +2747,12 @@ const LightTabbar = (() => {
       }
     }
 
-    function select(i) {
+    function select(i, silent) {
       // Recale TOUJOURS la lumière sur le centre de l'onglet visé
       // (sinon un clic sur place laisse la cible sur le pointeur).
+      // `silent` = recalage PILOTÉ PAR LE ROUTEUR (l'écran affiché est déjà le bon) :
+      // on suit l'écran sans rappeler onChange, sinon on re-naviguerait vers l'onglet
+      // (ex. « Reprendre » sur le plateau était redirigé vers la liste des jeux).
       const changed = (i !== active);
       targetX = centers[i];
       settled = false;
@@ -2464,7 +2763,7 @@ const LightTabbar = (() => {
         t.style.setProperty("--acc", tabs[j].dataset.acc || "");
       });
       active = i;
-      if (changed && opts.onChange) opts.onChange(i, tabs[i]);
+      if (changed && !silent && opts.onChange) opts.onChange(i, tabs[i]);
     }
 
     /* --- interactions --- */
@@ -3013,15 +3312,29 @@ const Fanorona = (() => {
   /* POV : retourne la ligne d'affichage selon le joueur local — le joueur 2
      voit son camp en bas (retournement vertical du plateau). */
   const dy = (r) => (G && G.playerNum === 2 ? ROWS - 1 - r : r);
-  /* L'aide au déplacement ne s'active QUE en entraînement IA (POV compétitif). */
-  const helpOn = () => !!(G && G.mode === "ai" && helpEnabled);
+  /* L'aide au déplacement ne s'active QUE en entraînement IA (POV compétitif).
+     Dans toutes les autres parties (classée, défi, spectateur) : strictement OFF. */
+  const helpOn = () => !!(G && G.mode === "ai" && !G.spectator && helpEnabled);
   let helpEnabled = true;
   try { helpEnabled = localStorage.getItem("daona_help") !== "0"; } catch (e) {}
+  /* Bouton de bascule : PRÉSENT uniquement pendant une partie contre l'IA
+     (masqué partout ailleurs — les aides y sont de toute façon coupées). */
+  function syncHelpToggle() {
+    const btn = document.getElementById("btn-help");
+    if (!btn) return;
+    btn.hidden = !(G && G.mode === "ai" && !G.spectator);
+    btn.setAttribute("aria-pressed", helpEnabled ? "true" : "false");
+    const st = document.getElementById("btn-help-state");
+    if (st) st.textContent = helpEnabled ? "ON" : "OFF";
+  }
   function setHelp(v) {
     helpEnabled = !!v;
     try { localStorage.setItem("daona_help", v ? "1" : "0"); } catch (e) {}
-    updateAll();
+    if (!helpEnabled) clearDots();   // coupe l'affichage des aides immédiatement
+    syncHelpToggle();
+    if (G) updateAll();
   }
+  const toggleHelp = () => setHelp(!helpEnabled);
   function isHelp() { return helpEnabled; }
 
   /* ---------- Génération des coups (IA locale & validation) ---------- */
@@ -3111,7 +3424,10 @@ const Fanorona = (() => {
         const v = G.grid[r][c];
         if (!v) continue;
         const p = document.createElement("div");
-        p.className = "piece " + (v === 1 ? "me" : "opp");
+        /* Le camp local dépend du joueur (meVal() = G.playerNum) : le joueur 2
+           a la valeur 2. Comparer à la valeur fixe 1 inversait l'affichage de
+           ses pions (il voyait les siens dans le style de l'adversaire). */
+        p.className = "piece " + (v === meVal() ? "me" : "opp");
         p.dataset.r = r; p.dataset.c = c; p.dataset.v = v;
         p.style.left = PX(c) + "%";
         p.style.top = PY(r) + "%";
@@ -3133,6 +3449,11 @@ const Fanorona = (() => {
     clearDots();
     G.sel = { r, c };
     pieceAt(r, c)?.classList.add("sel");
+    /* Aides au déplacement (points verts = simple, ambre = prise) : uniquement en
+       entraînement IA et si elles sont activées. Partout ailleurs (partie classée,
+       défi, spectateur) les aides sont strictement coupées ; le déplacement se
+       valide en tapant DIRECTEMENT la case d'arrivée (cf. onCell). */
+    if (!helpOn()) return;
     const mine = eligibilityCache.filter((m) => m.from[0] === r && m.from[1] === c);
     const dots = document.getElementById("dots");
     if (!dots) return;
@@ -3388,6 +3709,7 @@ const Fanorona = (() => {
   }
 
   function refreshInteractive() {
+    syncHelpToggle();
     const boardEl = document.getElementById("fanorona-board");
     if (!boardEl || !G) return;
     boardEl.classList.toggle("myturn", G.turn === meVal() && !G.over);
@@ -3443,6 +3765,7 @@ const Fanorona = (() => {
     G = null;
     const bar = document.getElementById("turn-banner");
     if (bar) bar.classList.remove("show");
+    syncHelpToggle();   // quitte la partie → le bouton d'aides se masque
   }
 
   /* Débloque le plateau après un échec d'envoi (coup rejeté par le serveur,
@@ -3494,6 +3817,7 @@ const Fanorona = (() => {
     if (c2) c2.textContent = `${String(format.time / 60).padStart(2, "0")}:00`;
     const cbar = document.getElementById("chain-bar");
     if (cbar) cbar.hidden = true;
+    syncHelpToggle();   // le bouton d'aides n'apparaît qu'en partie contre l'IA
   }
 
   /* start : mode IA local */
@@ -3595,7 +3919,9 @@ const Fanorona = (() => {
     eligibilityCache = (G.turn === meVal() && !G.over && !G.spectator) ? legalMoves(G.grid, meVal(), G.chain) : [];
     updateAll();
     const cbar = document.getElementById("chain-bar");
-    if (cbar && G.chain && G.turn === meVal() && !G.spectator) cbar.hidden = false;
+    // Bascule dans les deux sens : sans cela le bandeau (désormais une ligne à part
+    // entière) pouvait rester affiché après la fin de la chaîne en mode multijoueur.
+    if (cbar) cbar.hidden = !(G.chain && G.turn === meVal() && !G.spectator);
     // Prise en chaîne : sélection automatique du pion actif + affichage de ses
     // destinations de continuation. Sans cela, l'utilisateur ne sait pas quel
     // pion continuer ni vers où → il cliquait d'autres pions et recevait en
@@ -3612,7 +3938,7 @@ const Fanorona = (() => {
     resign: () => { if (G && !G.over) finish(2, "abandon"); },
     state: () => G,
     setOnMove: (cb) => { onMoveCb = cb; },
-    setHelp, isHelp, unstuck,
+    setHelp, isHelp, toggleHelp, unstuck,
   };
 })();
 
@@ -3758,6 +4084,10 @@ const App = (() => {
 
   /* ------------------ SYNCHRO BACKEND ------------------ */
   async function refreshUser() {
+    /* Sans session ouverte, inutile d'interroger l'API : la requête partait
+       avec un en-tête vide, le serveur répondait 401 et l'erreur s'affichait
+       dans la console. */
+    if (!API.getToken()) return;
     try {
       const d = await API.request("/api/user");
       const u = d.user;
@@ -3912,14 +4242,25 @@ const App = (() => {
     btn.classList.remove("is-loading", "is-success");
     btn.setAttribute("aria-busy", "false");
   }
-  /* Séquence d'entrée commune : connexion, inscription, complétion Google */
+  /* Séquence d'entrée commune : connexion, inscription, réclamation d'un compte ancien */
   async function authSequence(btn, pseudo, extra = {}) {
     if (authBusy) return;
     authBusy = true;
     btn.classList.add("is-loading");            // → spinner (CSS)
     btn.setAttribute("aria-busy", "true");
     try {
-      const d = await API.request("/api/auth", "POST", { pseudo: pseudo.slice(0, 14) });
+      /* Le mot de passe est désormais réellement TRANSMIS et vérifié côté
+         serveur. Trois parcours distincts :
+           login    → compte existant, mot de passe connu ;
+           register → création de compte (pseudo libre) ;
+           claim    → compte créé AVANT la refonte, donc sans mot de passe. */
+      const mode = extra.mode || "login";
+      const path = mode === "register" ? "/api/auth/register"
+                 : mode === "claim"    ? "/api/auth/claim"
+                 : "/api/auth/login";
+      const body = { pseudo: pseudo.slice(0, 14), password: extra.password || "" };
+      if (mode === "register") { body.province = extra.province || null; body.phone = extra.phone || null; }
+      const d = await API.request(path, "POST", body);
       // Laisse le spinner visible au moins 900 ms (séquence fluide, calée sur l'animation)
       await new Promise((r) => setTimeout(r, Math.max(0, 900 - 160)));
       API.setToken(d.token);
@@ -3954,7 +4295,52 @@ const App = (() => {
     if (!val) { flashField("wb-field-id"); return toast("Entrez un pseudo.", "warn"); }
     const pass = document.getElementById("auth-pass").value;
     if (!pass) { flashField("wb-field-pass"); return toast("Entrez votre mot de passe.", "warn"); }
-    return authSequence(document.getElementById("auth-enter"), val);
+    return authSequence(document.getElementById("auth-enter"), val, { password: pass, mode: "login" });
+  }
+
+  /* --- Comptes hérités : définir un mot de passe -------------------------
+     Les comptes créés avant la refonte n'ont AUCUN mot de passe en base.
+     Ce parcours explicite leur en attribue un (route /api/auth/claim).
+     Fenêtre de risque assumée : le premier arrivé peut réclamer un compte
+     hérité. À RETIRER une fois les comptes migrés — voir SECURITE_AUTH.md,
+     c'est le dernier point faible connu. */
+  function openClaimModal() {
+    showModal(`
+      <h2>Définir mon mot de passe</h2>
+      <p class="m-sub">Réservé aux comptes créés avant la mise à jour de sécurité : ils n'ont pas encore de mot de passe.</p>
+      <div class="wb-group" style="margin-top:12px;">
+        <div class="wb-field-head"><label for="cl-pseudo">Pseudo</label></div>
+        <div class="wb-field"><input id="cl-pseudo" type="text" maxlength="14" autocomplete="username"></div>
+      </div>
+      <div class="wb-group" style="margin-top:12px;">
+        <div class="wb-field-head"><label for="cl-pass">Nouveau mot de passe</label></div>
+        <div class="wb-field"><input id="cl-pass" type="password" autocomplete="new-password"></div>
+      </div>
+      <div class="wb-group" style="margin-top:12px;">
+        <div class="wb-field-head"><label for="cl-pass2">Confirmer</label></div>
+        <div class="wb-field"><input id="cl-pass2" type="password" autocomplete="new-password"></div>
+      </div>
+      <p class="small muted" style="margin-top:10px;">12 caractères minimum, avec majuscule, minuscule, chiffre et caractère spécial.</p>
+      <div class="m-foot">
+        <button class="btn ghost" id="cl-cancel">Annuler</button>
+        <button class="btn primary" id="cl-ok">Définir</button>
+      </div>
+    `);
+    /* Pré-remplissage par le DOM, jamais par interpolation dans le HTML :
+       le pseudo est une donnée saisie par l'utilisateur. */
+    const pre = document.getElementById("auth-id");
+    if (pre && pre.value.trim()) document.getElementById("cl-pseudo").value = pre.value.trim();
+    document.getElementById("cl-cancel").onclick = closeModal;
+    document.getElementById("cl-ok").onclick = () => {
+      const p = document.getElementById("cl-pseudo").value.trim();
+      const p1 = document.getElementById("cl-pass").value;
+      const p2 = document.getElementById("cl-pass2").value;
+      if (!p) return toast("Entrez votre pseudo.", "warn");
+      if (p1 !== p2) return toast("Les deux mots de passe ne correspondent pas.", "warn");
+      if (p1.length < 12) return toast("Mot de passe trop court : 12 caractères minimum.", "warn");
+      closeModal();
+      authSequence(document.getElementById("auth-enter"), p, { password: p1, mode: "claim" });
+    };
   }
 
   /* --- Inscription & complétion Google : vues, unicité du pseudo, téléphone obligatoire --- */
@@ -3962,6 +4348,42 @@ const App = (() => {
   const normPhone = (s) => (s || "").replace(/[\s.\-]/g, "");
   const isPhone = (s) => /^03[0-9]{8}$/.test(normPhone(s)) || /^\+2613[0-9]{8}$/.test(normPhone(s));
   const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((s || "").trim());
+  /* --- Masque de saisie téléphone (Madagascar) : 034 00 000 00 / +261 34 00 000 00 --- */
+  function formatPhone(v) {
+    const raw = String(v == null ? "" : v).trim().replace(/^00/, "+");
+    const all = raw.replace(/\D/g, "");
+    const intl = raw.startsWith("+") || /^261/.test(all);
+    let d = intl ? all.replace(/^261/, "") : all;
+    if (!d) return intl && raw.startsWith("+") ? "+" : "";
+    if (intl) {
+      d = d.slice(0, 9);
+      let out = "+261 " + d.slice(0, 2);
+      if (d.length > 2) out += " " + d.slice(2, 4);
+      if (d.length > 4) out += " " + d.slice(4, 7);
+      if (d.length > 7) out += " " + d.slice(7, 9);
+      return out;
+    }
+    d = d.slice(0, 10);
+    let out = d.slice(0, 3);
+    if (d.length > 3) out += " " + d.slice(3, 5);
+    if (d.length > 5) out += " " + d.slice(5, 8);
+    if (d.length > 8) out += " " + d.slice(8, 10);
+    return out;
+  }
+  /* Applique le masque en conservant la position du curseur (saisie au milieu incluse) */
+  function applyPhoneMask(el) {
+    const old = el.value;
+    if (/[A-Za-z@]/.test(old)) return;   // champ « email ou téléphone » : on n'abîme pas une adresse
+    const next = formatPhone(old);
+    if (next === old) return;
+    const caret = el.selectionStart == null ? old.length : el.selectionStart;
+    const digitsBefore = (old.slice(0, caret).match(/\d/g) || []).length;
+    el.value = next;
+    let pos = 0, seen = 0;
+    while (pos < next.length && seen < digitsBefore) { if (/\d/.test(next.charAt(pos))) seen++; pos++; }
+    if (next.charAt(pos) === " ") pos++;
+    try { el.setSelectionRange(pos, pos); } catch (e) { /* champ non compatible */ }
+  }
   const pseudoTaken = (p) => TAKEN_PSEUDOS.concat(S.onlineUsers.map((u) => u.pseudo))
     .some((x) => x.toLowerCase() === (p || "").trim().toLowerCase());
   function setErr(fieldId, errId, msg) {
@@ -3975,13 +4397,61 @@ const App = (() => {
     document.getElementById("signup-form").classList.toggle("hidden", v !== "signup");
     document.getElementById("google-form").classList.toggle("hidden", v !== "google");
     const h1 = document.querySelector(".wb-left h1"), sub = document.querySelector(".wb-left .wb-subtitle");
-    if (v === "signup") { h1.innerHTML = "Créer un <em>compte</em>"; sub.textContent = "Rejoignez l'arène — six provinces, une seule passion : le Fanorona."; }
+    if (v === "signup") {
+      /* Le panneau de gauche reste identique sur les 2 étapes (le titre ne change plus) */
+      h1.innerHTML = "Créer un <em>compte</em>";
+      sub.textContent = "Rejoignez l'arène — six provinces, une seule passion : le Fanorona.";
+      setSignupStep(1);
+    }
     else if (v === "google") {
       const lab = _socialProvider === "facebook" ? "Facebook" : "Google";
       h1.innerHTML = "Profil <em>" + lab + "</em>";
       sub.textContent = "Compte " + lab + " lié — choisissez votre pseudo et votre téléphone pour entrer.";
     }
     else { h1.innerHTML = "Bon <em>retour</em>"; sub.textContent = "Connectez-vous pour reprendre la partie — D-aôna, l'arène du Fanorona."; }
+  }
+  /* --- Inscription en 2 étapes : 1/2 Identité → 2/2 Sécurité & localisation --- */
+  let _signupStep = 1, _stepTimer = null;
+  const motionReduced = () => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  function setSignupStep(n) {
+    const target = n === 2 ? 2 : 1;
+    const back = target < _signupStep;
+    const move = target !== _signupStep;
+    _signupStep = target;
+    /* Progression : barre + libellé (le panneau de gauche, lui, ne change pas) */
+    const b1 = document.getElementById("su-bar-1"), b2 = document.getElementById("su-bar-2");
+    if (b1) b1.classList.toggle("on", target === 1);
+    if (b2) b2.classList.toggle("on", target === 2);
+    const lab = document.getElementById("su-step-label");
+    const txt = "Étape <b>" + target + "</b>/2 · " + (target === 1 ? "Identité" : "Sécurité & localisation");
+    if (lab && lab.innerHTML !== txt) {
+      lab.innerHTML = txt;
+      lab.classList.remove("fade");
+      void lab.offsetWidth;                     /* force le reflux → relance le fondu du libellé */
+      lab.classList.add("fade");
+    }
+    const s1 = document.getElementById("su-step-1"), s2 = document.getElementById("su-step-2");
+    if (!s1 || !s2) return;
+    if (!move) {                                /* ouverture de la vue ou même étape : bascule sèche */
+      s1.classList.toggle("hidden", target !== 1);
+      s2.classList.toggle("hidden", target !== 2);
+      return;
+    }
+    /* Transition fluide : l'étape sortante s'efface en glissant, l'entrante arrive du côté opposé */
+    const cur = back ? s2 : s1, nxt = back ? s1 : s2;
+    const swap = () => {
+      cur.classList.add("hidden");
+      cur.classList.remove("wb-step-out-fwd", "wb-step-out-back");
+      nxt.classList.remove("hidden", "wb-step-in-fwd", "wb-step-in-back");
+      void nxt.offsetWidth;                     /* force le reflux → l'animation d'entrée repart */
+      nxt.classList.add(back ? "wb-step-in-back" : "wb-step-in-fwd");
+    };
+    clearTimeout(_stepTimer);
+    if (motionReduced()) { swap(); return; }
+    cur.classList.remove("wb-step-in-fwd", "wb-step-in-back", "wb-step-out-fwd", "wb-step-out-back");
+    void cur.offsetWidth;
+    cur.classList.add(back ? "wb-step-out-back" : "wb-step-out-fwd");
+    _stepTimer = setTimeout(swap, 150);
   }
   let _socialProvider = "google";
   /* Auth sociale simulée (connexion OU inscription) → complétion profil */
@@ -4006,6 +4476,86 @@ const App = (() => {
   function checkPhone(inputId, fieldId, errId) {
     const v = document.getElementById(inputId).value;
     return isPhone(v) ? setErr(fieldId, errId, "") : setErr(fieldId, errId, "Téléphone obligatoire — format 034 00 000 00.");
+  }
+  /* --- Création de mot de passe : jauge + conditions (logique de la maquette adaptée à la charte D-aôna) --- */
+  const PWD_LABELS = ["", "Faible", "Moyen", "Fort", "Excellent"];
+  const PWD_RULES = [
+    { id: "su-rule-len", test: (v) => v.length >= 12 },
+    { id: "su-rule-case", test: (v) => /[a-z]/.test(v) && /[A-Z]/.test(v) },
+    { id: "su-rule-num", test: (v) => /\d/.test(v) },
+    { id: "su-rule-special", test: (v) => /[^A-Za-z0-9\s]/.test(v) },
+  ];
+  const passwordScore = (v) => PWD_RULES.reduce((n, r) => n + (v && r.test(v) ? 1 : 0), 0);
+  let _pwdFocused = false;
+  function updatePasswordStrength() {
+    const input = document.getElementById("su-pass"), box = document.getElementById("su-strength");
+    if (!input || !box) return;
+    const v = input.value, score = passwordScore(v), full = score === PWD_RULES.length;
+    PWD_RULES.forEach((r) => { const el = document.getElementById(r.id); if (el) el.classList.toggle("ok", !!v && r.test(v)); });
+    box.querySelectorAll(".wb-seg").forEach((s, i) => s.classList.toggle("on", i < score));
+    box.setAttribute("data-level", String(score));
+    /* Le panneau des conditions se déplie pendant la saisie… et se replie dès que tout est conforme */
+    box.classList.toggle("open", (_pwdFocused || v.length > 0) && !full);
+    box.classList.toggle("valid", full);
+    const f = document.getElementById("su-pass-f");
+    if (f) f.classList.toggle("valid", full);
+    const lab = document.getElementById("su-strength-label");
+    const txt = v ? PWD_LABELS[score] : "";
+    if (lab) {
+      if (lab.textContent !== txt) {
+        lab.textContent = txt;
+        lab.classList.remove("fade");
+        void lab.offsetWidth;                  /* force le reflux → relance le fondu du libellé */
+        lab.classList.add("fade");
+      }
+      lab.classList.toggle("show", txt !== "");   /* le libellé glisse depuis la jauge */
+    }
+    if (full) setErr("su-pass-f", "su-pass-err", "");   /* le voyant vert remplace l'erreur */
+  }
+  /* Confirmation : badge de correspondance + bouton « prêt » (province + mot de passe conforme + identiques) */
+  function updateSignupReady() {
+    const prov = document.getElementById("su-province");
+    const p1 = document.getElementById("su-pass"), p2 = document.getElementById("su-pass2");
+    const f2 = document.getElementById("su-pass2-f"), badge = document.getElementById("su-badge"), btn = document.getElementById("su-enter");
+    if (!p1 || !p2) return false;
+    const v1 = p1.value, v2 = p2.value;
+    const match = v2.length > 0 && v2 === v1;
+    if (badge) {
+      badge.classList.toggle("match", match);
+      badge.classList.toggle("mismatch", v2.length > 0 && !match);
+      badge.setAttribute("aria-label", match ? "Mots de passe identiques" : (v2.length > 0 ? "Mots de passe différents" : ""));
+    }
+    if (f2) f2.classList.toggle("valid", match);
+    const ready = !!(prov && prov.value) && passwordScore(v1) === PWD_RULES.length && match;
+    if (btn) {
+      btn.classList.toggle("not-ready", !ready);
+      btn.setAttribute("aria-disabled", ready ? "false" : "true");
+    }
+    return ready;
+  }
+  /* Un seul point de rafraîchissement pour les 3 champs concernés */
+  const refreshSignupSecurity = () => { updatePasswordStrength(); updateSignupReady(); };
+  /* Œil « afficher / masquer » partagé par les champs mot de passe (connexion + création) */
+  function bindPassEye(btnId, inputId) {
+    const t = document.getElementById(btnId), pass = document.getElementById(inputId);
+    if (!t || !pass) return;
+    t.onclick = () => {
+      const hidden = pass.type === "password";
+      pass.type = hidden ? "text" : "password";
+      t.classList.toggle("revealed", hidden);
+      t.setAttribute("aria-label", hidden ? "Masquer le mot de passe" : "Afficher le mot de passe");
+    };
+  }
+  /* Étape 1/2 — Identité : pseudo + email/téléphone + téléphone */
+  function validateSignupIdentity() {
+    let ok = true;
+    if (!checkPseudo("su-pseudo", "su-pseudo-f", "su-pseudo-err")) ok = false;
+    const contact = document.getElementById("su-contact").value.trim();
+    if (!(isEmail(contact) || isPhone(contact))) { setErr("su-contact-f", "su-contact-err", "Email ou numéro de téléphone invalide."); ok = false; }
+    else setErr("su-contact-f", "su-contact-err", "");
+    if (!checkPhone("su-phone", "su-phone-f", "su-phone-err")) ok = false;
+    if (!ok) toast("Vérifiez les champs signalés.", "warn");
+    return ok;
   }
   /* Peuple le select avec les 6 provinces de Madagascar */
   (function () {
@@ -4080,6 +4630,14 @@ const App = (() => {
       const refreshChips = () => {
         document.querySelectorAll("#modal .amt-chip").forEach((c) => c.classList.toggle("on", +c.dataset.amt === depAmount));
         document.querySelectorAll("#modal .op-card").forEach((c) => c.classList.toggle("on", c.dataset.op === depOp));
+        /* Le récapitulatif doit suivre la pastille choisie : sans cela l'écran
+           annonçait « Montant du dépôt 5 000 Ar » (valeur d'ouverture) alors
+           que le dépôt réellement envoyé au serveur était celui de la pastille
+           sélectionnée. */
+        const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+        setTxt("dep-amt", fmtAr(depAmount));
+        setTxt("dep-fees", fmtAr(depAmount * 0.02));
+        setTxt("dep-net", fmtAr(depAmount));
       };
       document.querySelectorAll("#modal .amt-chip").forEach((c) => c.onclick = () => { depAmount = +c.dataset.amt; refreshChips(); });
       document.querySelectorAll("#modal .op-card").forEach((c) => c.onclick = () => { depOp = c.dataset.op; refreshChips(); });
@@ -4584,9 +5142,13 @@ const App = (() => {
     const card = (t) => {
       const full = t.registered.length >= t.maxPlayers;
       const rankOk = RANKS.findIndex((r2) => r2.name === rankFor(S.elo).name) >= RANKS.findIndex((r2) => r2.name === t.minRank);
+      /* Un tournoi terminé/en cours, ou en « inscriptions » dont l'heure de
+         début est passée, n'est plus ouvert : plus de bouton trompeur. */
+      const closed = t.status !== "inscriptions";
+      const started = t.status === "inscriptions" && (t.startsInSec ?? 0) <= 0;
       return `
       <div class="tn-card">
-        <div class="tn-head"><h3>${t.name}</h3><span class="pill amber">${t.status === "termine" ? "Terminé" : "Inscriptions"}</span></div>
+        <div class="tn-head"><h3>${t.name}</h3><span class="pill amber">${t.status === "termine" ? "Terminé" : (started ? "En cours" : "Inscriptions")}</span></div>
         ${t.sponsor ? `<span class="pill blue" style="align-self:flex-start;">🎖️ ${t.sponsor}</span>` : ""}
         <div class="tn-rows">
           <div class="row"><span>Jeu · Format</span><span>${t.game} · ${fmtName(t.format)}</span></div>
@@ -4600,7 +5162,12 @@ const App = (() => {
         <div class="tn-foot">
           <button class="btn" onclick="App.openTournament('${t.id}')">Détail & bracket</button>
           ${!S.myRegs[t.id]
-            ? `<button class="btn primary ${full || !rankOk ? "disabled" : ""}" onclick="App.joinTournament('${t.id}')">S'inscrire</button>` : ""}
+            ? (t.status === "termine"
+                ? `<button class="btn disabled" disabled>Terminé</button>`
+                : (closed || started)
+                  ? `<button class="btn primary disabled" disabled title="${closed ? "Ce tournoi n'est plus ouvert" : "Le tournoi a déjà commencé"}">Inscriptions closes</button>`
+                  : `<button class="btn primary ${full || !rankOk ? "disabled" : ""}" onclick="App.joinTournament('${t.id}')">S'inscrire</button>`)
+            : ""}
         </div>
       </div>`;
     };
@@ -4787,6 +5354,10 @@ const App = (() => {
   async function joinTournament(id) {
     const t = S.tournaments.find((x) => x.id === id);
     if (!t || S.myRegs[id]) return;
+    /* Garde-fou : un tournoi terminé ou déjà commencé n'accepte plus
+       d'inscription (le serveur le refuse de son côté). */
+    if (t.status !== "inscriptions" || (t.startsInSec ?? 0) <= 0)
+      return toast("Ce tournoi n'accepte plus d'inscription.", "warn");
     const rankOk = RANKS.findIndex((r2) => r2.name === rankFor(S.elo).name) >= RANKS.findIndex((r2) => r2.name === t.minRank);
     if (!rankOk) return toast(`Rang ${t.minRank} requis pour ce tournoi.`, "warn");
     if (t.registered.length >= t.maxPlayers) return toast("Tournoi complet.", "warn");
@@ -5129,8 +5700,12 @@ const App = (() => {
   }
 
   function logout() {
-    API.setToken(null);
-    location.reload();
+    /* Révocation côté SERVEUR avant d'oublier le jeton. L'ancien code se
+       contentait d'effacer le jeton localement : la session restait valide
+       en base, donc rejouable par quiconque avait intercepté le jeton. */
+    API.request("/api/auth/logout", "POST", {})
+      .catch(() => { /* réseau coupé : on déconnecte quand même localement */ })
+      .finally(() => { API.setToken(null); location.reload(); });
   }
 
   /* ------------------ CHAT ------------------ */
@@ -6080,7 +6655,9 @@ const App = (() => {
     // afin que la pastille reflète toujours l'écran réellement affiché.
     const tabKey = r === "board" ? "play" : r === "tournament" ? "match" : r;
     const ti = TAB_ROUTES.indexOf(tabKey);
-    if (mainTab && ti >= 0) mainTab.select(ti);
+    // Recalage SILENCIEUX : c'est l'écran qui commande la pastille, jamais l'inverse.
+    // (un select() qui rappellerait onChange renverrait « board » vers « play »)
+    if (mainTab && ti >= 0) mainTab.select(ti, true);
     // Profil d'un autre joueur : #/profile?id=<ID joueur>
     const viewId = query ? parseInt(new URLSearchParams(query).get("id")) : null;
     const renderers = { home: renderHome, play: renderPlay, match: renderMatch, ranks: renderRanks, wallet: renderWallet, profile: viewId && viewId !== S.id ? () => renderPublicProfile(viewId) : async () => { await refreshUser(); renderProfile(); }, chat: renderChat, friends: renderFriends, notifications: renderNotifications, tournament: () => renderTournamentScreen(viewId), board: renderBoard };
@@ -6135,6 +6712,11 @@ const App = (() => {
       if (!Fanorona.isActive()) return;
       toast("Proposition de nulle envoyée…");
     };
+    /* Bascule des aides au déplacement (visible uniquement en partie contre l'IA) */
+    document.getElementById("btn-help").onclick = () => {
+      Fanorona.toggleHelp();
+      toast(Fanorona.isHelp() ? "Aides au déplacement activées" : "Aides au déplacement masquées");
+    };
     document.getElementById("btn-spectate").onclick = () =>
       copyLink(`${location.origin}`, "Lien du serveur copié — partagez-le à vos amis");
     document.getElementById("btn-chain-end").onclick = () => Fanorona.endChain();
@@ -6166,22 +6748,57 @@ const App = (() => {
       if (e.target.value.trim() && pseudoTaken(e.target.value)) setErr("gg-pseudo-f", "gg-pseudo-err", "Ce pseudo est déjà pris — modifiez-le.");
       else setErr("gg-pseudo-f", "gg-pseudo-err", "");
     });
-    document.getElementById("wb-toggle-pass").onclick = () => {
-      const pass = document.getElementById("auth-pass");
-      const t = document.getElementById("wb-toggle-pass");
-      const hidden = pass.type === "password";
-      pass.type = hidden ? "text" : "password";
-      t.classList.toggle("revealed", hidden);
-      t.setAttribute("aria-label", hidden ? "Masquer le mot de passe" : "Afficher le mot de passe");
-    };
+    /* Œil mot de passe : connexion + création (étape 2/2) */
+    bindPassEye("wb-toggle-pass", "auth-pass");
+    bindPassEye("su-toggle-pass", "su-pass");
+    bindPassEye("su-toggle-pass2", "su-pass2");
+    /* Jauge, panneau de conditions, badge de confirmation et bouton « prêt » : mises à jour en direct */
+    const suPassEl = document.getElementById("su-pass");
+    suPassEl.addEventListener("input", refreshSignupSecurity);
+    suPassEl.addEventListener("focus", () => { _pwdFocused = true; updatePasswordStrength(); });
+    suPassEl.addEventListener("blur", () => { _pwdFocused = false; updatePasswordStrength(); });
+    document.getElementById("su-pass2").addEventListener("input", refreshSignupSecurity);
+    document.getElementById("su-province").addEventListener("change", (e) => {
+      if (e.target.value) setErr("su-province", "su-prov-err", "");
+      refreshSignupSecurity();
+    });
+    refreshSignupSecurity();
     document.getElementById("wb-forgot").onclick = () =>
       toast("Un code de réinitialisation serait envoyé par SMS au numéro du compte (démo).");
     document.getElementById("wb-signup").onclick = () => setAuthView("signup");
+    document.getElementById("wb-claim").onclick = openClaimModal;
     document.getElementById("su-back").onclick = () => setAuthView("login");
     document.getElementById("gg-back").onclick = () => setAuthView("login");
+    /* Navigation entre les 2 étapes : Continuer (1/2 → 2/2), Retour (2/2 → 1/2) */
+    document.getElementById("su-next").onclick = () => { if (validateSignupIdentity()) setSignupStep(2); };
+    document.getElementById("su-prev").onclick = () => setSignupStep(1);
+    /* --- Séparateurs automatiques des numéros de téléphone (034 00 000 00) --- */
+    document.addEventListener("input", (e) => {
+      const el = e.target;
+      if (el && el.tagName === "INPUT" && (el.type === "tel" || el.id === "su-contact")) applyPhoneMask(el);
+    }, true);
+    /* Suppression naturelle : devant un séparateur, on efface le chiffre (pas l'espace) */
+    document.addEventListener("keydown", (e) => {
+      const el = e.target;
+      if (!el || el.tagName !== "INPUT" || !(el.type === "tel" || el.id === "su-contact")) return;
+      if (e.key !== "Backspace" && e.key !== "Delete") return;
+      const i = el.selectionStart;
+      if (i == null || i !== el.selectionEnd) return;
+      if (e.key === "Backspace" && /^\s$/.test(el.value.charAt(i - 1)) && /\d/.test(el.value.charAt(i - 2))) {
+        e.preventDefault();
+        el.value = el.value.slice(0, i - 2) + el.value.slice(i - 1);
+        el.selectionStart = el.selectionEnd = i - 1;
+        applyPhoneMask(el);
+      } else if (e.key === "Delete" && /^\s$/.test(el.value.charAt(i)) && /\d/.test(el.value.charAt(i + 1))) {
+        e.preventDefault();
+        el.value = el.value.slice(0, i + 1) + el.value.slice(i + 2);
+        el.selectionStart = el.selectionEnd = i;
+        applyPhoneMask(el);
+      }
+    }, true);
     /* Le contact saisi comme téléphone pré-remplit le champ téléphone obligatoire */
     document.getElementById("su-contact").addEventListener("input", (e) => {
-      if (isPhone(e.target.value)) { document.getElementById("su-phone").value = e.target.value; setErr("su-phone-f", "su-phone-err", ""); }
+      if (isPhone(e.target.value)) { document.getElementById("su-phone").value = formatPhone(e.target.value); setErr("su-phone-f", "su-phone-err", ""); }
     });
     document.getElementById("su-pseudo").addEventListener("input", (e) => {
       if (e.target.value.trim() && pseudoTaken(e.target.value)) setErr("su-pseudo-f", "su-pseudo-err", "Ce pseudo est déjà pris — modifiez-le.");
@@ -6189,6 +6806,8 @@ const App = (() => {
     });
     document.getElementById("signup-form").addEventListener("submit", (e) => {
       e.preventDefault();
+      /* Étape 1/2 : la touche Entrée ne crée pas le compte — elle fait avancer d'une étape */
+      if (_signupStep === 1) { if (validateSignupIdentity()) setSignupStep(2); return; }
       let ok = true;
       if (!checkPseudo("su-pseudo", "su-pseudo-f", "su-pseudo-err")) ok = false;
       const contact = document.getElementById("su-contact").value.trim();
@@ -6199,13 +6818,13 @@ const App = (() => {
       if (!prov.value) { setErr("su-province", "su-prov-err", "Choisissez votre province."); ok = false; }
       else setErr("su-province", "su-prov-err", "");
       const p1 = document.getElementById("su-pass").value, p2 = document.getElementById("su-pass2").value;
-      if (p1.length < 6) { setErr("su-pass-f", "su-pass-err", "6 caractères minimum."); ok = false; }
+      if (passwordScore(p1) < PWD_RULES.length) { setErr("su-pass-f", "su-pass-err", "Mot de passe trop faible — respectez les 4 conditions affichées."); ok = false; }
       else setErr("su-pass-f", "su-pass-err", "");
       if (p2 !== p1 || !p2) { setErr("su-pass2-f", "su-pass2-err", "Les mots de passe ne correspondent pas."); ok = false; }
       else setErr("su-pass2-f", "su-pass2-err", "");
       if (!ok) return toast("Vérifiez les champs signalés.", "warn");
       authSequence(document.getElementById("su-enter"), document.getElementById("su-pseudo").value.trim(),
-        { province: prov.value, phone: normPhone(document.getElementById("su-phone").value) });
+        { province: prov.value, phone: normPhone(document.getElementById("su-phone").value), password: p1, mode: "register" });
     });
     // Clic sur la zone du champ (icône / libellé) → focus sur l'input
     document.querySelectorAll(".wb-field").forEach((f) => {

@@ -24,7 +24,7 @@ Ce script fait tout automatiquement :
 
 ### 1️⃣ Même réseau WiFi que le PC
 ```
-http://192.168.114.151:8080
+http://10.11.15.125:8080
 ```
 Pour les personnes connectées au **même WiFi** que cet ordinateur.
 
@@ -46,10 +46,23 @@ http://192.168.137.1:8080
 
 ### 3️⃣ Internet (depuis n'importe où dans le monde)
 ```
-https://petite-doing-oakland-colleges.trycloudflare.com
+https://reception-fleet-luis-psychological.trycloudflare.com
 ```
 Fonctionne même si vos amis ne sont **pas** sur votre réseau.
 ⚠️ Cette URL change à chaque redémarrage du tunnel — `LIEN_REMOTE.bat` affiche la nouvelle.
+
+> ⚙️ **Important quand le serveur est exposé par ce tunnel** — démarrez-le avec le
+> drapeau proxy :
+> ```
+> set D_AONA_TRUST_PROXY=1 && node server.js
+> ```
+> Sans ce drapeau, toutes les connexions arrivant par le tunnel présentent la même
+> adresse au serveur (`127.0.0.1`) : elles partagent donc **un seul quota
+> d'authentification** (12 tentatives / 5 min par défaut) — au-delà, tout le monde
+> reçoit « Trop de tentatives depuis ce réseau ». Avec le drapeau, chaque joueur est
+> compté séparément (IP réelle lue dans l'en-tête Cloudflare `CF-Connecting-IP`).
+> ⚠️ À ne pas activer pour un usage **réseau local seul** : un client pourrait y
+> annoncer une fausse IP et contourner la limitation (cf. `.env.example`).
 
 ---
 

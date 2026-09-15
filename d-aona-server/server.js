@@ -15,13 +15,18 @@ const WebSocket = require("ws");
 const { db, User, GameRecord, Tournament, Wallet, Chat, Skins, Challenge, GameSessionStore, Friend, FriendRequest, Notification, TournamentMatch, applyInactivityDecay } = require("./db");
 const { GameSession, computeEloDelta, legalMoves, checkWin, countPieces, initialGrid } = require("./game");
 const DATA = require("./data");
+const Auth = require("./auth");
 
-const PORT = 8080;
+const PORT = parseInt(process.env.D_AONA_PORT || process.env.PORT || "8080", 10);
 const ROOT = path.resolve(__dirname, "../D-aona/d-aona-web");
 const TICK_MS = 1000;
 
 /* ---------- State serveur (in-memory) ---------- */
-const tokens = new Map();          // token -> userId
+/* Les jetons de session ne sont PLUS conservés ici. L'ancienne Map
+   `tokens` (token -> userId) perdait toutes les sessions au redémarrage,
+   ne savait ni les faire expirer ni les révoquer, et vivait donc en
+   contradiction avec les promesses de l'interface. Les sessions sont
+   désormais en base (table `sessions`, jeton stocké haché). */
 const connections = new Map();     // ws -> { userId, pseudo }
 const userSockets = new Map();     // userId -> ws
 const sessions = new Map();        // sessionId -> GameSession (engine)
@@ -35,7 +40,6 @@ const pendingMatches = new Map();  // key -> { p1, p2, p1Ready, p2Ready, format 
 const aiTimers = new Map();        // sessionId -> timer
 
 /* ---------- Utilitaires ---------- */
-function genToken() { return crypto.randomBytes(32).toString("hex"); }
 function send(ws, msg) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); }
 function sendUser(userId, msg) { const ws = userSockets.get(userId); if (ws) send(ws, msg); }
 function broadcast(msg, exceptId = null) {
@@ -158,16 +162,68 @@ function serveStatic(req, res) {
 }
 
 /* ---------- REST API ---------- */
-function authMiddleware(req) {
+
+/* Adresse réelle du client. Derrière le tunnel Cloudflare (ou tout autre
+   proxy), le socket local n'est PAS le client : on lit alors l'en-tête
+   transmis — mais UNIQUEMENT si l'exploitant l'autorise explicitement
+   (D_AONA_TRUST_PROXY=1). Sans cette précaution, n'importe quel client
+   pourrait annoncer une autre IP et contourner la limitation de débit. */
+const TRUST_PROXY = process.env.D_AONA_TRUST_PROXY === "1";
+function clientIp(req) {
+  if (TRUST_PROXY) {
+    const fwd = req.headers["cf-connecting-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0];
+    if (fwd && String(fwd).trim()) return String(fwd).trim().slice(0, 64);
+  }
+  return ((req.socket && req.socket.remoteAddress) || "inconnu").slice(0, 64);
+}
+
+function bearerToken(req) {
   const header = req.headers["authorization"];
   if (!header || !header.startsWith("Bearer ")) return null;
-  return tokens.get(header.slice(7)) || null;
+  const raw = header.slice(7).trim();
+  return raw || null;
 }
-function readBody(req) {
+
+/* Résout l'en-tête Authorization en identifiant d'utilisateur, via la base.
+   Renvoie null si la session est inconnue, expirée ou révoquée. */
+function authMiddleware(req) {
+  const raw = bearerToken(req);
+  if (!raw) return null;
+  const session = Auth.resolveSession(raw);
+  return session ? session.userId : null;
+}
+
+/* Applique la limitation de débit des routes d'authentification.
+   Renvoie true (et répond 429) si le quota de l'IP est épuisé. */
+function isRateLimited(req, res) {
+  const rl = Auth.rateLimit(clientIp(req));
+  if (rl.allowed) return false;
+  respond(res, { error: `Trop de tentatives depuis ce réseau. Réessayez dans ${rl.retryAfter} s.` }, 429);
+  return true;
+}
+
+/* Lecture du corps BORNÉE. Sans limite, un client peut envoyer un flux
+   arbitrairement long : la concaténation grossit sans fin et épuise la
+   mémoire du serveur — qui héberge aussi les parties en cours, un arrêt
+   mémoire coupe donc tous les joueurs. */
+function readBody(req, maxBytes = 64 * 1024) {
   return new Promise((resolve) => {
     let data = "";
-    req.on("data", (c) => data += c);
-    req.on("end", () => { try { resolve(JSON.parse(data)); } catch(e) { resolve({}); } });
+    let size = 0;
+    let ended = false;
+    req.on("data", (chunk) => {
+      if (ended) return;
+      size += chunk.length;
+      if (size > maxBytes) {
+        ended = true;
+        resolve({ __tooLarge: true });
+        req.destroy();
+        return;
+      }
+      data += chunk;
+    });
+    req.on("end", () => { if (!ended) { ended = true; try { resolve(JSON.parse(data)); } catch (e) { resolve({}); } } });
+    req.on("error", () => { if (!ended) { ended = true; resolve({}); } });
   });
 }
 function respond(res, obj, code = 200) {
@@ -181,19 +237,77 @@ function handleRest(req, res, url, userId) {
   const user = userId ? User.getById(userId) : null;
 
   (async () => {
-    // POST /api/auth (no auth required)
-    if (method === "POST" && pathname === "/api/auth") {
-      const payload = await readBody(req);
-      const pseudo = (payload.pseudo || "").trim().slice(0, 14).replace(/<[^>]*>/g, "");
-      if (!pseudo) return respond(res, { error: "Pseudo requis" }, 400);
-      const u = User.createOrUpdate(pseudo);
-      const token = genToken();
-      tokens.set(token, u.id);
-      return respond(res, { token, user: sanitizeUser(u) });
+    /* ---------- Authentification ----------------------------------------
+       Rappel du défaut corrigé : l'ancienne route créait ou ouvrait un
+       compte à partir du SEUL pseudo, sans aucun secret. Connaître un
+       pseudo suffisait donc à prendre la main sur le compte d'autrui.
+       Ces routes ne renvoient jamais de mot de passe ni d'empreinte. */
+    if (method === "POST" && (pathname === "/api/auth/login" || pathname === "/api/auth")) {
+      if (isRateLimited(req, res)) return;
+      const payload = await readBody(req, 1024);
+      if (payload.__tooLarge) return respond(res, { error: "Requête trop volumineuse" }, 413);
+      const r = await Auth.login({
+        pseudo: payload.pseudo, password: payload.password,
+        userAgent: req.headers["user-agent"], ip: clientIp(req),
+      });
+      if (!r.ok) return respond(res, { error: r.error }, r.status);
+      return respond(res, { token: r.token, expiresAt: r.expiresAt, user: sanitizeUser(r.user) });
+    }
+
+    if (method === "POST" && pathname === "/api/auth/register") {
+      if (isRateLimited(req, res)) return;
+      const payload = await readBody(req, 2048);
+      if (payload.__tooLarge) return respond(res, { error: "Requête trop volumineuse" }, 413);
+      const r = await Auth.register({
+        pseudo: payload.pseudo, password: payload.password,
+        province: payload.province, phone: payload.phone,
+        userAgent: req.headers["user-agent"], ip: clientIp(req),
+      });
+      if (!r.ok) return respond(res, { error: r.error, missing: r.missing }, r.status);
+      return respond(res, { token: r.token, expiresAt: r.expiresAt, user: sanitizeUser(r.user) });
+    }
+
+    /* Définition du mot de passe d'un compte créé AVANT cette refonte
+       (donc sans mot de passe). Voir SECURITE_AUTH.md : cette fenêtre doit
+       être fermée (D_AONA_ALLOW_LEGACY_CLAIM=0) avant l'argent réel. */
+    if (method === "POST" && pathname === "/api/auth/claim") {
+      if (isRateLimited(req, res)) return;
+      const payload = await readBody(req, 1024);
+      if (payload.__tooLarge) return respond(res, { error: "Requête trop volumineuse" }, 413);
+      const r = await Auth.claim({
+        pseudo: payload.pseudo, password: payload.password,
+        userAgent: req.headers["user-agent"], ip: clientIp(req),
+      });
+      if (!r.ok) return respond(res, { error: r.error, missing: r.missing }, r.status);
+      return respond(res, { token: r.token, expiresAt: r.expiresAt, user: sanitizeUser(r.user) });
+    }
+
+    /* Déconnexion : révoque la session côté SERVEUR. Un simple effacement
+       du jeton côté client laissait la session valide en base — donc
+       rejouable si le jeton avait fuité. */
+    if (method === "POST" && pathname === "/api/auth/logout") {
+      const raw = bearerToken(req);
+      if (!raw || !Auth.resolveSession(raw)) return respond(res, { error: "Session invalide" }, 401);
+      Auth.logout(raw, { userId, ip: clientIp(req), userAgent: req.headers["user-agent"] });
+      return respond(res, { ok: true });
     }
 
     if (!userId) return respond(res, { error: "Non authentifié" }, 401);
     if (!user) return respond(res, { error: "Utilisateur introuvable" }, 404);
+
+    /* Changement de mot de passe (session requise).
+       Révoque toutes les sessions : si le changement fait suite à un
+       soupçon de compromission, les sessions ouvertes ailleurs tombent. */
+    if (method === "POST" && pathname === "/api/auth/password") {
+      if (isRateLimited(req, res)) return;
+      const payload = await readBody(req, 1024);
+      if (payload.__tooLarge) return respond(res, { error: "Requête trop volumineuse" }, 413);
+      const r = await Auth.changePassword(user.id, payload.currentPassword, payload.newPassword, {
+        ip: clientIp(req), userAgent: req.headers["user-agent"],
+      });
+      if (!r.ok) return respond(res, { error: r.error, missing: r.missing }, r.status);
+      return respond(res, { ok: true, revokedSessions: r.revokedSessions, mustReconnect: true });
+    }
 
     // GET /api/user
     if (method === "GET" && pathname === "/api/user")
@@ -209,6 +323,11 @@ function handleRest(req, res, url, userId) {
       const t = Tournament.get(parseInt(payload.tournamentId));
       if (!t) return respond(res, { error: "Tournoi introuvable" }, 404);
       if (Tournament.isRegistered(user.id, t.id)) return respond(res, { error: "Deja inscrit" }, 400);
+      /* Un tournoi dont l'heure de début est passée ne doit plus accepter
+         d'inscription (l'ancien contrôle ne regardait que le statut, resté
+         « inscriptions » : on pouvait s'inscrire à un tournoi déjà commencé). */
+      if (t.starts_at && new Date(t.starts_at).getTime() <= Date.now())
+        return respond(res, { error: "Tournoi déjà commencé" }, 400);
       const userRank = DATA.rankFor(user.elo);
       const tRank = DATA.RANKS.find((r) => r.name === t.min_rank);
       if (!tRank || DATA.RANKS.indexOf(userRank) < DATA.RANKS.indexOf(tRank))
@@ -242,7 +361,10 @@ function handleRest(req, res, url, userId) {
 
     // POST /api/user/avatar — upload photo de profil (base64)
     if (method === "POST" && pathname === "/api/user/avatar") {
-      const payload = await readBody(req);
+      /* Plafond explicite : une image de 2 Mo occupe ~2,7 Mo encodée en
+         base64. Partout ailleurs, l'API se contente du défaut de 64 Ko. */
+      const payload = await readBody(req, 4 * 1024 * 1024);
+      if (payload.__tooLarge) return respond(res, { error: "Image trop lourde (max 2 Mo)" }, 413);
       const dataUrl = payload.avatar || "";
       const m = dataUrl.match(/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/);
       if (!m) return respond(res, { error: "Format image invalide (base64 attendu)" }, 400);
@@ -267,12 +389,16 @@ function handleRest(req, res, url, userId) {
       const payload = await readBody(req);
       const sk = DATA.SKINS_CATALOG.find((s) => s.id === payload.skinId);
       if (!sk) return respond(res, { error: "Skin introuvable" }, 404);
+      /* Déjà possédé : refus AVANT tout débit. L'ancien code ignorait le verdict
+         de Skins.buy et débitait quand même — un double clic (ou un appel
+         répété) retirait le prix du solde sans rien apporter en plus. */
+      if (Skins.listOwned(user.id).includes(sk.id))
+        return respond(res, { error: "Skin deja possede" }, 400);
       if (sk.price && sk.price > 0) {
         if (user.balance < sk.price) return respond(res, { error: "Solde insuffisant" }, 400);
         Wallet.spend(user.id, sk.price, `Achat ${sk.name}`);
       }
       Skins.buy(user.id, sk.id);
-      User.update(user.id, { balance: (user.balance || 0) - (sk.price || 0) });
       const bal = Wallet.getBalance(user.id);
       return respond(res, { ok: true, balance: bal.balance });
     }
@@ -450,7 +576,14 @@ function handleRest(req, res, url, userId) {
     // POST /api/deposit
     if (method === "POST" && pathname === "/api/deposit") {
       const payload = await readBody(req);
-      if (!user.kyc) Wallet.credit(user.id, 5000, "Credit de bienvenue", true);
+      /* Bonus de bienvenue : UNE SEULE FOIS par compte.
+         L'ancien code le recréditait à CHAQUE dépôt tant que le KYC n'était pas
+         fait : 5 000 Ar bloqués (non retirables, mais dépensables en mises et en
+         entrées de tournoi) s'ajoutaient indéfiniment, dépôt après dépôt. */
+      if (!user.kyc && !user.bonus_used) {
+        Wallet.credit(user.id, 5000, "Credit de bienvenue", true);
+        db.prepare("UPDATE users SET bonus_used = 1 WHERE id = ?").run(user.id);
+      }
       Wallet.credit(user.id, parseInt(payload.amount) || 5000, `Depot ${payload.operator || "MVola"}`);
       const bal = Wallet.getBalance(user.id);
       return respond(res, { ok: true, balance: bal.balance, bonusLock: bal.bonus_lock });
@@ -570,9 +703,12 @@ function handleWsMessage(ws, msg) {
 
   // Auth is always allowed
   if (msg.type === "auth") {
-    const userId = tokens.get(msg.token);
-    if (!userId) { send(ws, { type: "error", message: "Token invalide" }); return; }
-    const user = User.getById(userId);
+    /* Validation EN BASE : la session doit exister, ne pas être expirée ni
+       révoquée (déconnexion, changement de mot de passe, incident).
+       L'ancien code lisait une Map en mémoire, vidée à chaque redémarrage. */
+    const session = Auth.resolveSession(msg.token);
+    if (!session) { send(ws, { type: "error", message: "Session invalide ou expirée" }); return; }
+    const user = User.getById(session.userId);
     if (!user) { send(ws, { type: "error", message: "Utilisateur introuvable" }); return; }
     connections.set(ws, { userId: user.id, pseudo: user.pseudo });
     userSockets.set(user.id, ws);

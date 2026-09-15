@@ -1,3 +1,10 @@
+# Sauvegardes locales de la base (créées par `node backup_db.js`) — jamais versionnées :
+# elles contiennent des données clients (comptes, transactions, chat).
+d-aona-server/backups/
+
+# Fichiers téléversés par les joueurs (photos de profil) = données personnelles.
+# Ne doivent jamais entrer dans l'historique Git.
+d-aona-server/uploads/
 # ===== D-aôna — .gitignore =====
 
 # Dépendances
@@ -37,3 +44,18 @@ d-aona-server/shots/
 
 # Graphe de connaissances généré par graphify (régénérable via `py -m graphify update .`)
 graphify-out/
+
+# Secrets locaux (clé de session, mots de passe) — jamais versionnés.
+# Le modèle à copier est fourni dans d-aona-server/.env.example
+.env
+.env.*
+!.env.example
+
+# Scripts jetables de session (sondes, découpages, mesures ponctuelles).
+# Le harnais livré reste test_ui_scenarios.js, régénérable par `node _build.js`
+# à partir des morceaux _p1.js ... _p12.js (ces deux-là sont versionnés).
+d-aona-server/_*.js
+!d-aona-server/_build.js
+!d-aona-server/_p[0-9]*.js
+d-aona-server/_*.err
+d-aona-server/test_ui_scenarios.fixed.js
