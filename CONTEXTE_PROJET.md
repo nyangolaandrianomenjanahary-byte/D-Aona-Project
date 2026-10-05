@@ -124,6 +124,20 @@
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
 
+## 2026-10-05 — Lot performances : plateau WebP −40 %, chat en ajout ciblé, tabbar suspendue, index SQLite (entrée MANUELLE)
+
+**Demande :** suite du programme d'audit — Lot 4 : ce que l'application dépense pour rien (octets, DOM, CPU, requêtes).
+
+**Constats mesurés avant.** `plateau_clean.png` (2,4 Mo) partait en entier à chaque ouverture du plateau ; l'écran Chat reconstruisait TOUTE la conversation à chaque message (O(n) par message) ; la barre d'onglets entretenait une boucle `requestAnimationFrame` PERMANENTE (60 fps même immobile) ; trois requêtes chaudes balayaient leurs tables (`challenges`, scrutée à chaque tick de jeu ; `games` ; sens inverse du chat). Le SVG « plateau_exact » de 8,3 Mo est un artefact de CONSERVATION (PNG embarqué sans recompression) qui n'est PAS chargé par l'application — laissé tel quel, volontairement.
+
+**Correctifs.** (1) **Plateau : WebP SANS PERTE (1 432 Ko vs 2 404 Ko, −40 %)** produit par `_webp_board.py` (contrôle intégré : pixels RGBA reconstruits identiques) + PNG recompressé sans perte (2 313 Ko) ; la page sert le WebP via `<picture>` avec repli PNG. (2) **Chat : ajout ciblé** — `appendChatMsg` construit la bulle par `textContent` (aucune injection possible) et n'ajoute QUE le nouveau message ; l'aperçu du contact est mis à jour sur place ; les bulles existantes ne sont plus détruites/recréées. (3) **Tabbar : boucle suspendue au repos** — `needsFrames()` (ressorts arrivés + couleurs stabilisées) arrête la boucle `requestAnimationFrame` ; `kick()` la relance à chaque geste (sélection, glisser, measure/resize). (4) **Index SQLite (migration 012)** : `challenges(status, expires_at)` + `to_id` + `from_id` ; `games(player1_id|player2_id, created_at)` ; `chat_messages(to_user_id, from_user_id, created_at)`.
+
+**Mesures (probes dédiés).** `_idxcheck.js` (copie gonflée : 20 000 messages, 8 000 parties, 2 000 défis ; base réelle intacte) : **défis expirés (chaque seconde) 0,249 → 0,099 ms (−60 %)** · **parties d'un joueur 4,681 → 1,366 ms (−71 %)** · gain moyen **23 %**. `_perf_probe.js` (navigateur réel, instance jetable) : **TOUT OK** — WebP servi et ≥ 30 % plus léger, la page le référence en `<source>` ; **bulles du chat intactes** à l'arrivée ET à l'envoi d'un message (nœuds DOM identiques, +1 bulle exactement) ; **aucune boucle permanente au repos (≤ 2 frames / 2 s)**, réveil au resize, re-suspension.
+
+**Contrôles.** `node --check server.js` / `node _check_html.js` OK · `test_scenarios.js` **251/251** · `test_auth.js` **TOUS LES TESTS PASSENT** · `_xss_probe.js` et `_robust_probe.js` rejoués → tout OK · campagne UI relancée · migration 012 appliquée sur la base réelle (serveur redémarré, HTTP 200).
+
+**Reste ouvert (lots suivants).** Architecture (découpage `server.js`/`db.js`) ; hygiène (code mort, dédoublonnage, scripts npm) ; migration CSP stricte (chantier long).
+
 ## 2026-10-05 — Lot robustesse réseau : timeout REST, backoff WebSocket, plafond de file, gardes et journalisation (entrée MANUELLE)
 
 **Demande :** suite du programme d'audit — Lot 3 : rendre l'application résiliente aux coupures (réseau mobile, hotspot, mise en veille) et aux données partielles.
@@ -2748,6 +2762,8 @@ du Bureau reste inchangé (référence de style).
 **Ajoutés :** `avatar_37_1791228486263.jpg`, `avatar_41_1791228540492.png`, `avatar_42_1791228519128.png`, `_sec_probe.js`, `8925c25386a0b5fc50e4e78db48eebc6aab9415fbb9796a3831c4d5689eb2f95.json`
 **Modifiés :** `index.html`, `db.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `server.js`, `_inline.js`
 **Ajoutés :** `avatar_45_1791228983955.png`, `avatar_46_1791228957683.png`, `_robust_probe.js`, `8615da3689f949ff3957bba77346885a738a43c803e0fea6e1ca7919846ea8cc.json`
+**Modifiés :** `plateau_clean.png`, `index.html`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `_inline.js`
+**Ajoutés :** `plateau_clean.webp`, `012_perf_indexes.sql`, `avatar_41_1791229182404.jpg`, `avatar_50_1791229510871.png`, `_idxcheck.js`, `_idxlist.js`, `_perf_probe.js`, `_webp_board.py`, `ed03dd62ff1cd77cdb268686603c1ebaef36d065b321673ad643cc33c515791b.json`
 
 ## 2026-09-27
 **Modifiés :** `index.html`, `data.js`, `db.js`, `server.js`, `test_scenarios.js`, `test_ui_scenarios.js`, `_inline.js`, `_layout_fill.js`, `_layout_fill_report.txt`, `_p10.js`, `_p12.js`, `_p2.js`, `_p5.js`, `_probe_profil_v3.js`, `_revue_ui.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `last_query_stamp`, `stat-index.json`, `graph.html`, `desktop-1440x900-home.png`, `desktop-1440x900-match-tournois.png`, `desktop-1440x900-match.png`, `desktop-1440x900-ranks.png`, `desktop-1440x900-wallet.png`, `mobile-360x760-home.png`, `mobile-360x760-match.png`, `mobile-390x844-home.png`, `mobile-390x844-match.png`

@@ -4782,6 +4782,7 @@ const LightTabbar = (() => {
     let ax = 0, bx = 0, av = 0, bv = 0;      // 2 ressorts : tête (a) et queue (b)
     let targetX = 0, trip = 1, kB = 217;
     let active = -1, dragging = false, settled = true, moved = false;
+    let running = false, last = 0;   // boucle d'animation suspendue au repos
     let cur = hex2(tabs[opts.active || 0].dataset.acc || "#2BA37E"), tgt = cur.slice();
 
     function measure() {
@@ -4799,6 +4800,7 @@ const LightTabbar = (() => {
       if (Math.abs(ax - targetX) < 1 && Math.abs(bx - targetX) < 1 && !dragging) {
         ax = bx = targetX = centers[active < 0 ? (opts.active || 0) : active];
       }
+      kick();
     }
 
     function select(i, silent) {
@@ -4818,6 +4820,7 @@ const LightTabbar = (() => {
       });
       active = i;
       if (changed && !silent && opts.onChange) opts.onChange(i, tabs[i]);
+      kick();
     }
 
     /* --- interactions --- */
@@ -4834,11 +4837,13 @@ const LightTabbar = (() => {
       dragging = true; moved = false; settled = false;
       root.setPointerCapture(e.pointerId);
       targetX = pointerX(e);
+      kick();
     });
     root.addEventListener("pointermove", (e) => {
       if (!dragging) return;
       moved = true;
       targetX = pointerX(e);
+      kick();
       const i = nearest(targetX);
       tgt = hex2(tabs[i].dataset.acc || "#2BA37E");
       tabs.forEach((t, j) => t.setAttribute("aria-selected", j === i));
@@ -4900,19 +4905,36 @@ const LightTabbar = (() => {
       light.style.setProperty("--acc-soft", `rgba(${r},${g},${b},.5)`);
     }
 
-    let last = performance.now();
-    (function frame(now) {
+    /* La boucle ne tourne QUE quand quelque chose bouge : au repos (ressorts
+       arrivés, couleurs stabilisées) elle se suspend au lieu de repeindre
+       60 fois par seconde pour rien, et repart au prochain geste (sélection,
+       glisser, mesure). */
+    function needsFrames() {
+      return dragging || !settled
+        || Math.abs(av) + Math.abs(bv) > 0.5
+        || Math.abs(ax - targetX) > 0.3 || Math.abs(bx - targetX) > 0.3
+        || Math.abs(cur[0] - tgt[0]) + Math.abs(cur[1] - tgt[1]) + Math.abs(cur[2] - tgt[2]) > 1;
+    }
+    function frame(now) {
       const dt = Math.min((now - last) / 1000, .05); last = now;
       for (let i = 0; i < 3; i++) step(dt / 3);
       render(dt);
+      if (needsFrames()) requestAnimationFrame(frame);
+      else running = false;
+    }
+    function kick() {
+      if (running) return;
+      running = true;
+      last = performance.now();
       requestAnimationFrame(frame);
-    })(last);
+    }
 
     measure();
     const start = opts.active || 0;
     active = start;
     ax = bx = targetX = centers[start];
     tabs.forEach((t) => t.style.setProperty("--acc", t.dataset.acc || ""));
+    kick();
 
     return { select, measure };
   }
@@ -5772,7 +5794,7 @@ const Fanorona = (() => {
        plateau_exact.svg — plus besoin de le dessiner en SVG superposé. */
     host.insertAdjacentHTML("beforeend",
       `<div class="pov">
-         <img class="board-img" src="assets/board/plateau_clean.png" alt="Plateau de Fanorona" draggable="false">
+         <picture><source type="image/webp" srcset="assets/board/plateau_clean.webp"><img class="board-img" src="assets/board/plateau_clean.png" alt="Plateau de Fanorona" draggable="false"></picture>
          <div class="lastmove" id="lastmove" hidden></div>
          <div class="dots" id="dots"></div>
          <div class="pieces" id="pieces"></div>
@@ -10444,11 +10466,33 @@ const App = (() => {
       if (!txt) return;
       sendChatText(chatWith, txt);
       f.value = "";
-      renderChat();
+      /* Ajout ciblé : le fil n'est plus reconstruit, on ajoute la bulle. */
+      const t = S.chatThreads[chatWith] || [];
+      appendChatMsg(document.getElementById("chat-msgs"), t[t.length - 1]);
+      const row = [...document.querySelectorAll("#chat-root [data-chat]")].find((el) => el.dataset.chat === chatWith);
+      const prev = row && row.querySelector(".c-prev");
+      if (prev) prev.textContent = txt;
     };
     document.getElementById("chat-send").onclick = send;
     document.getElementById("chat-field").onkeydown = (e) => { if (e.key === "Enter") send(); };
     document.getElementById("chat-defi").onclick = () => { playCfg.mode = "defi"; playCfg.friend = chatWith; playCfg.wager = 500; playStep = 2; go("play"); };
+  }
+
+  /* Ajout d'UN seul message au fil affiché, sans reconstruire l'écran.
+     Reconstruire toute la conversation à chaque message coûtait O(n) par
+     message (O(n²) sur un long fil) et détruisait/recréait chaque bulle.
+     Éléments créés par textContent — aucune injection HTML possible. */
+  function appendChatMsg(container, m) {
+    if (!container) return;
+    const d = document.createElement("div");
+    d.className = "msg " + (m.from === "me" ? "me" : "them");
+    d.textContent = m.text == null ? "" : String(m.text);
+    const at = document.createElement("span");
+    at.className = "at";
+    at.textContent = m.at == null ? "" : String(m.at);
+    d.appendChild(at);
+    container.appendChild(d);
+    container.scrollTop = container.scrollHeight;
   }
 
   /* ------------------ MESSAGERIE FLOTTANTE (dock) ------------------
@@ -11155,7 +11199,13 @@ const App = (() => {
       S.chatThreads[msg.from] = S.chatThreads[msg.from] || [];
       S.chatThreads[msg.from].push({ from: "them", text: msg.text, at: msg.at || "À l'instant" });
       if (!S.contacts.some((c) => c.pseudo === msg.from)) S.contacts.push({ pseudo: msg.from });
-      if (currentRoute() === "chat" && chatWith === msg.from) renderChat();
+      /* Ajout ciblé au fil ouvert (le dock reste re-rendu par onIncomingChat). */
+      if (currentRoute() === "chat" && chatWith === msg.from) {
+        appendChatMsg(document.getElementById("chat-msgs"), { from: "them", text: msg.text, at: msg.at || "À l'instant" });
+        const row = [...document.querySelectorAll("#chat-root [data-chat]")].find((el) => el.dataset.chat === msg.from);
+        const prev = row && row.querySelector(".c-prev");
+        if (prev) prev.textContent = msg.text;
+      }
       onIncomingChat(msg.from);
     });
     API.on("spectate_state", onSpectateState);
