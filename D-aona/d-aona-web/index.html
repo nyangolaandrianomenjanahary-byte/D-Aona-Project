@@ -10466,9 +10466,7 @@ const App = (() => {
       /* Ajout ciblé : le fil n'est plus reconstruit, on ajoute la bulle. */
       const t = S.chatThreads[chatWith] || [];
       appendChatMsg(document.getElementById("chat-msgs"), t[t.length - 1]);
-      const row = [...document.querySelectorAll("#chat-root [data-chat]")].find((el) => el.dataset.chat === chatWith);
-      const prev = row && row.querySelector(".c-prev");
-      if (prev) prev.textContent = txt;
+      updateChatPreviews(chatWith, txt);
     };
     document.getElementById("chat-send").onclick = send;
     document.getElementById("chat-field").onkeydown = (e) => { if (e.key === "Enter") send(); };
@@ -10490,6 +10488,30 @@ const App = (() => {
     d.appendChild(at);
     container.appendChild(d);
     container.scrollTop = container.scrollHeight;
+  }
+
+  /* Aperçu « dernier message » : la même information vit dans la liste de
+     l'écran Chat ET dans le panneau du dock. On la met à jour SUR PLACE — pas
+     de reconstruction, donc aucun brouillon de saisie n'est touché. */
+  function updateChatPreviews(pseudo, text) {
+    document.querySelectorAll("#chat-root [data-chat]").forEach((el) => {
+      if (el.dataset.chat === pseudo) { const p = el.querySelector(".c-prev"); if (p) p.textContent = text; }
+    });
+    document.querySelectorAll("#chat-tray [data-dock-chat]").forEach((el) => {
+      if (el.dataset.dockChat === pseudo) { const p = el.querySelector(".c-prev"); if (p) p.textContent = text; }
+    });
+  }
+
+  /* Pastille « non lus » d'une ligne du dock, posée ou retirée sans re-rendu. */
+  function updateDockUnread(pseudo) {
+    const el = [...document.querySelectorAll("#chat-tray [data-dock-chat]")].find((x) => x.dataset.dockChat === pseudo);
+    if (!el) return;
+    const u = unreadChats[pseudo] || 0;
+    let b = el.querySelector(".cp-unread");
+    if (u > 0) {
+      if (!b) { b = document.createElement("span"); b.className = "cp-unread"; el.appendChild(b); }
+      b.textContent = u;
+    } else if (b) b.remove();
   }
 
   /* ------------------ MESSAGERIE FLOTTANTE (dock) ------------------
@@ -10569,7 +10591,30 @@ const App = (() => {
           }).join("") : '<div class="cp-empty">Aucun contact pour le moment.<br>Jouez un match pour rencontrer des joueurs.</div>'}
         </div>`;
     }
+    /* Un re-rendu du dock recrée les champs de saisie : sans précaution, le
+       brouillon en cours de frappe s'effacerait (message entrant, fermeture
+       d'une AUTRE fenêtre, envoi dans une autre…). On capture valeurs, focus et
+       curseur AVANT la reconstruction, puis on les restaure. La re-prise de
+       focus ne se fait QUE si la frappe était DANS le dock — sinon on volerait
+       le focus du champ de l'écran Chat. */
+    const draftsBefore = {};
+    let focusBefore = null;
+    if (tray.contains(document.activeElement)) {
+      focusBefore = { pseudo: document.activeElement.dataset.popField || null, caret: null };
+      try { focusBefore.caret = document.activeElement.selectionStart; } catch (e) {}
+    }
+    tray.querySelectorAll("[data-pop-field]").forEach((el) => {
+      if (el.value) draftsBefore[el.dataset.popField] = el.value;
+    });
     tray.innerHTML = html;
+    tray.querySelectorAll("[data-pop-field]").forEach((el) => {
+      const d = draftsBefore[el.dataset.popField];
+      if (d) el.value = d;
+      if (focusBefore && focusBefore.pseudo === el.dataset.popField) {
+        el.focus();
+        try { if (focusBefore.caret != null) el.setSelectionRange(focusBefore.caret, focusBefore.caret); } catch (e) {}
+      }
+    });
 
     // Bind fenêtres pop-up
     tray.querySelectorAll("[data-pop-head]").forEach((el) => el.onclick = (e) => {
@@ -10584,12 +10629,22 @@ const App = (() => {
     tray.querySelectorAll("[data-pop-profile]").forEach((el) => el.onclick = () => openProfileByPseudo(el.dataset.popProfile));
     tray.querySelectorAll("[data-pop-send]").forEach((el) => el.onclick = () => {
       const pseudo = el.dataset.popSend;
-      const f = tray.querySelector(`[data-pop-field="${pseudo}"]`);
+      const f = [...tray.querySelectorAll("[data-pop-field]")].find((x) => x.dataset.popField === pseudo);
+      if (!f) return;
       const txt = f.value.trim();
       if (!txt) return;
       sendChatText(pseudo, txt);
       f.value = "";
-      renderChatDock();
+      /* Ajout ciblé : bulle ajoutée, aperçus rafraîchis — aucune reconstruction
+         (envoyer dans une fenêtre ne doit pas toucher les brouillons des autres). */
+      const msgsEl = [...tray.querySelectorAll("[data-pop-msgs]")].find((x) => x.dataset.popMsgs === pseudo);
+      const t = S.chatThreads[pseudo] || [];
+      if (msgsEl && t.length) {
+        msgsEl.querySelectorAll("p").forEach((p) => p.remove());
+        appendChatMsg(msgsEl, t[t.length - 1]);
+      }
+      updateChatPreviews(pseudo, txt);
+      updateDockUnread(pseudo);
     });
     tray.querySelectorAll("[data-pop-field]").forEach((el) => el.onkeydown = (e) => {
       if (e.key !== "Enter") return;
@@ -10598,7 +10653,14 @@ const App = (() => {
       if (!txt) return;
       sendChatText(pseudo, txt);
       el.value = "";
-      renderChatDock();
+      const msgsEl = [...tray.querySelectorAll("[data-pop-msgs]")].find((x) => x.dataset.popMsgs === pseudo);
+      const t = S.chatThreads[pseudo] || [];
+      if (msgsEl && t.length) {
+        msgsEl.querySelectorAll("p").forEach((p) => p.remove());
+        appendChatMsg(msgsEl, t[t.length - 1]);
+      }
+      updateChatPreviews(pseudo, txt);
+      updateDockUnread(pseudo);
     });
     tray.querySelectorAll("[data-dock-chat]").forEach((el) => el.onclick = () => openChatPopup(el.dataset.dockChat));
 
@@ -10621,7 +10683,11 @@ const App = (() => {
     renderChatDock();
   }
 
-  /* Réception d'un message : badge messagerie uniquement (jamais la cloche). */
+  /* Réception d'un message : badge messagerie uniquement (jamais la cloche).
+     MISE À JOUR CIBLÉE — plus de reconstruction du dock : un message entrant
+     pendant que le joueur écrit effaçait son brouillon (les champs de saisie
+     étaient recréés). On ajoute la bulle à la fenêtre ouverte, on rafraîchit
+     les aperçus et la pastille SUR PLACE. */
   function onIncomingChat(fromPseudo) {
     const onChatScreen = currentRoute() === "chat" && chatWith === fromPseudo;
     const popupOpen = chatPopups.includes(fromPseudo);
@@ -10630,7 +10696,18 @@ const App = (() => {
       toast(`💬 ${fromPseudo} vous a envoyé un message`, "info", 2600);
     }
     if (popupOpen) delete unreadChats[fromPseudo];
-    renderChatDock();
+    const tray = document.getElementById("chat-tray");
+    const t = S.chatThreads[fromPseudo] || [];
+    if (tray && popupOpen && t.length) {
+      const msgsEl = [...tray.querySelectorAll("[data-pop-msgs]")].find((el) => el.dataset.popMsgs === fromPseudo);
+      if (msgsEl) {
+        msgsEl.querySelectorAll("p").forEach((p) => p.remove());   // retire « Démarrez la conversation 👋 »
+        appendChatMsg(msgsEl, t[t.length - 1]);
+      }
+    }
+    if (t.length) updateChatPreviews(fromPseudo, t[t.length - 1].text);
+    updateDockUnread(fromPseudo);
+    updateChatFab();
   }
 
   /* ------------------ RECHERCHE DU HEADER (joueurs, amis ou non) ------------------
@@ -11196,12 +11273,10 @@ const App = (() => {
       S.chatThreads[msg.from] = S.chatThreads[msg.from] || [];
       S.chatThreads[msg.from].push({ from: "them", text: msg.text, at: msg.at || "À l'instant" });
       if (!S.contacts.some((c) => c.pseudo === msg.from)) S.contacts.push({ pseudo: msg.from });
-      /* Ajout ciblé au fil ouvert (le dock reste re-rendu par onIncomingChat). */
+      /* Ajout ciblé au fil ouvert ; le dock (fenêtres/pastilles/aperçus) est mis
+         à jour SUR PLACE par onIncomingChat — plus aucune reconstruction. */
       if (currentRoute() === "chat" && chatWith === msg.from) {
         appendChatMsg(document.getElementById("chat-msgs"), { from: "them", text: msg.text, at: msg.at || "À l'instant" });
-        const row = [...document.querySelectorAll("#chat-root [data-chat]")].find((el) => el.dataset.chat === msg.from);
-        const prev = row && row.querySelector(".c-prev");
-        if (prev) prev.textContent = msg.text;
       }
       onIncomingChat(msg.from);
     });

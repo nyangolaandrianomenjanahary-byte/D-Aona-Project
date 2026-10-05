@@ -124,6 +124,18 @@
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
 
+## 2026-10-05 — Correctif bug : le brouillon de saisie ne s'efface plus quand un message arrive (surtout mobile) (entrée MANUELLE)
+
+**Symptôme (rapporté).** « Quand je suis en train de répondre un message et que l'autre personne écrit, mon texte s'enlève automatiquement quand son message arrive » — surtout dans la partie mobile.
+
+**Cause (trouvée).** `renderChatDock()` reconstruit TOUT le dock (`tray.innerHTML`) ; il était appelé à CHAQUE message entrant (`onIncomingChat`) — les champs de saisie des fenêtres pop-up (encoche mobile / fenêtres façon Facebook du dock) étaient recréés VIDES, et le brouillon disparaissait. Les autres reconstructions (fermeture d'une autre fenêtre, envoi dans une autre, ouverture, toggle du panneau) avaient le même défaut. L'écran Chat, lui, était déjà protégé depuis le lot performances (ajout ciblé).
+
+**Correctif — deux couches.** (1) **Ajout ciblé** : un message entrant n'ajoute QUE la bulle à la fenêtre ouverte ; les aperçus « dernier message » (`c-prev`) et la pastille non-lus sont rafraîchis SUR PLACE via deux nouveaux helpers (`updateChatPreviews`, `updateDockUnread`) ; l'envoi dans une pop-up (clic ou Entrée) fait de même — plus AUCUNE reconstruction sur ces chemins, donc ni clignotement ni perte de frappe. (2) **Filet de préservation** dans `renderChatDock` : valeurs des champs, focus et position du curseur sont capturés AVANT chaque reconstruction et restaurés APRÈS — la re-prise de focus ne se produit que si la frappe était DANS le dock (jamais de vol de focus depuis l'écran Chat). Conséquence : fermer la fenêtre B ne touche plus le brouillon de la fenêtre C.
+
+**Preuve (nouveau probe `_chat_draft_probe.js`, 4 sections).** Instance jetable (copie `VACUUM INTO`, 3 comptes, navigateur réel) : **TOUT OK** — ① écran Chat : brouillon INTACT après message entrant + bulle ajoutée sans reconstruire ; ② fenêtre pop-up : brouillon INTACT + bulle ajoutée DANS la fenêtre ; ③ filet : taper dans la fenêtre C puis fermer B → brouillon de C intact ; ④ 0 erreur JS.
+
+**Contrôles.** `node _check_html.js` OK · `_chat_draft_probe.js` tout OK · `_xss_probe.js` rejoué → tout OK · campagne UI relancée.
+
 ## 2026-10-05 — Lot hygiène : code mort, scripts npm réels, .gitignore, purge des logs (entrée MANUELLE)
 
 **Demande :** dernier lot du programme d'audit — l'entretien : ce qui traîne, ce qui ment, ce qui s'accumule.
@@ -2790,6 +2802,8 @@ du Bureau reste inchangé (référence de style).
 **Ajoutés :** `core.js`, `schema.js`, `stores.js`, `9611d1d636fb757e3d10d78530b94f6ebedb40c16fc721bc3bc283a513a91e50.json`, `http.js`, `avatar_45_1791229734060.jpg`, `avatar_53_1791229864593.png`, `avatar_54_1791229842355.png`, `_smoke_db.js`, `_split_db.js`, `_split_http.js`, `0481e8b3f15482d9794c751f7e9326cef48420053405b67825e45fa26f55b0f5.json`, `3413c0a03ef6656c18c965a94a274d66406e946d3afbdddb13abe4188df59b8d.json`
 **Modifiés :** `.gitignore`, `index.html`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `package.json`, `_inline.js`
 **Ajoutés :** `avatar_53_1791230190475.jpg`, `avatar_58_1791230211704.png`, `avatar_62_1791230239772.png`, `79f989acb00855b9afeeb1bc3a044417f525d859b2bacf420839d9dc2d007883.json`
+**Modifiés :** `index.html`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `_inline.js`
+**Ajoutés :** `d21e8f2cd68d4b9027fcd974ea4302ba44373f85290ac2d5c5914add5ed84523.json`, `avatar_61_1791230480858.jpg`, `_chat_draft_probe.js`, `058e3cac71a08d8abb7ce26f17f8b2b31689394dae8a951231c2adc3286e9a10.json`, `7b43cb533d2423ae50bf3d0f9b15a056147c9988580239d9f86d5054fcfd4ac4.json`
 
 ## 2026-09-27
 **Modifiés :** `index.html`, `data.js`, `db.js`, `server.js`, `test_scenarios.js`, `test_ui_scenarios.js`, `_inline.js`, `_layout_fill.js`, `_layout_fill_report.txt`, `_p10.js`, `_p12.js`, `_p2.js`, `_p5.js`, `_probe_profil_v3.js`, `_revue_ui.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `last_query_stamp`, `stat-index.json`, `graph.html`, `desktop-1440x900-home.png`, `desktop-1440x900-match-tournois.png`, `desktop-1440x900-match.png`, `desktop-1440x900-ranks.png`, `desktop-1440x900-wallet.png`, `mobile-360x760-home.png`, `mobile-360x760-match.png`, `mobile-390x844-home.png`, `mobile-390x844-match.png`
