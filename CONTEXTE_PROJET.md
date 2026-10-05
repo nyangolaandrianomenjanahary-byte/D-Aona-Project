@@ -124,6 +124,18 @@
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
 
+## 2026-10-05 — Lot architecture : découpage de `db.js` (816 l.) et extraction de `http.js` (entrée MANUELLE)
+
+**Demande :** suite du programme d'audit — Lot 5 : le rapport graphify demandait explicitement « Should server.js / db.js be split into smaller, more focused modules? » (cohésions 0,08 / 0,06).
+
+**Ce qui a été fait — découpage par SCRIPT déterministe** (`_split_db.js`, `_split_http.js` : copies VERBATIM par marqueurs, aucune recopie à la main) :
+- `db.js` (816 l.) → **`db.js` = 29 lignes de câblage** + **`db/core.js`** (connexion SQLite, PRAGMA) + **`db/schema.js`** (218 l., amorçage du schéma CREATE/ALTER tolérants) + **`db/stores.js`** (592 l., les magasins métier — copie verbatim, commentaires d'origine conservés) ;
+- `server.js` → **`http.js`** (130 l. : MIME, ROOT, serveStatic anti-traversée, clientIp, bearerToken, authMiddleware, isRateLimited, readBody borné, respond) ; les points d'appel de server.js passent par un require destructuré — aucun renommage, aucun comportement modifié. server.js : 1761 → 1653 lignes.
+
+**Contrôles.** `node --check` 6/6 fichiers OK · **fumée `_smoke_db.js` sur COPIE** : surface publique identique (17 exports, aucun manquant, base lisible : 16 comptes, wallet, 6 tournois) · `test_scenarios.js` **251/251** · `test_auth.js` **TOUS LES TESTS PASSENT** · `_sec_probe.js` rejoué → tout OK · campagne UI **115/115** (Lot 4) · serveur de production redémarré (HTTP 200, en-têtes actifs).
+
+**Reste ouvert.** Lot 6 (hygiène : code mort, dédoublonnage, scripts npm, archivage des brouillons) ; migration CSP stricte (chantier long) ; si besoin, poursuite du découpage de server.js par seams contigus (routes/WS), avec la même méthode scriptée.
+
 ## 2026-10-05 — Lot performances : plateau WebP −40 %, chat en ajout ciblé, tabbar suspendue, index SQLite (entrée MANUELLE)
 
 **Demande :** suite du programme d'audit — Lot 4 : ce que l'application dépense pour rien (octets, DOM, CPU, requêtes).
@@ -2764,6 +2776,8 @@ du Bureau reste inchangé (référence de style).
 **Ajoutés :** `avatar_45_1791228983955.png`, `avatar_46_1791228957683.png`, `_robust_probe.js`, `8615da3689f949ff3957bba77346885a738a43c803e0fea6e1ca7919846ea8cc.json`
 **Modifiés :** `plateau_clean.png`, `index.html`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `_inline.js`
 **Ajoutés :** `plateau_clean.webp`, `012_perf_indexes.sql`, `avatar_41_1791229182404.jpg`, `avatar_50_1791229510871.png`, `_idxcheck.js`, `_idxlist.js`, `_perf_probe.js`, `_webp_board.py`, `ed03dd62ff1cd77cdb268686603c1ebaef36d065b321673ad643cc33c515791b.json`
+**Modifiés :** `db.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `server.js`
+**Ajoutés :** `core.js`, `schema.js`, `stores.js`, `9611d1d636fb757e3d10d78530b94f6ebedb40c16fc721bc3bc283a513a91e50.json`, `http.js`, `avatar_45_1791229734060.jpg`, `avatar_53_1791229864593.png`, `avatar_54_1791229842355.png`, `_smoke_db.js`, `_split_db.js`, `_split_http.js`, `0481e8b3f15482d9794c751f7e9326cef48420053405b67825e45fa26f55b0f5.json`, `3413c0a03ef6656c18c965a94a274d66406e946d3afbdddb13abe4188df59b8d.json`
 
 ## 2026-09-27
 **Modifiés :** `index.html`, `data.js`, `db.js`, `server.js`, `test_scenarios.js`, `test_ui_scenarios.js`, `_inline.js`, `_layout_fill.js`, `_layout_fill_report.txt`, `_p10.js`, `_p12.js`, `_p2.js`, `_p5.js`, `_probe_profil_v3.js`, `_revue_ui.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `last_query_stamp`, `stat-index.json`, `graph.html`, `desktop-1440x900-home.png`, `desktop-1440x900-match-tournois.png`, `desktop-1440x900-match.png`, `desktop-1440x900-ranks.png`, `desktop-1440x900-wallet.png`, `mobile-360x760-home.png`, `mobile-360x760-match.png`, `mobile-390x844-home.png`, `mobile-390x844-match.png`
