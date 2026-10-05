@@ -61,6 +61,35 @@ function sanitizeUser(u) {
     badge: badge ? { name: badge.name, icon: badge.icon, color: badge.color } : null };
 }
 
+/* ---------- Limitation de débit du chat (lot S10) ----------
+   Un fil de discussion n'a aucune raison d'accepter des dizaines de messages
+   par seconde : fenêtre glissante simple par joueur (20 messages / 10 s).
+   Les entrées des joueurs inactifs sont purgées à chaque tick (gameLoop). */
+const CHAT_RATE_MAX = 20;
+const CHAT_RATE_WINDOW_MS = 10000;
+const chatRate = new Map(); // userId -> { count, since }
+function allowChatMessage(userId) {
+  const nowMs = Date.now();
+  const e = chatRate.get(userId);
+  if (!e || nowMs - e.since >= CHAT_RATE_WINDOW_MS) { chatRate.set(userId, { count: 1, since: nowMs }); return true; }
+  e.count += 1;
+  return e.count <= CHAT_RATE_MAX;
+}
+
+/* ---------- Signature binaire des images (upload d'avatar, lot S10) ----------
+   Le type DÉCLARÉ (extension du dataURL) doit correspondre au CONTENU réel :
+   sans ce contrôle, un fichier HTML renommé « .png » serait stocké puis servi
+   depuis la même origine. Les formats acceptés sont déjà sans SVG (liste du
+   dataURL) ; ceci ferme le dernier écart (contenu ≠ déclaration). */
+function imageMagicOk(buf, ext) {
+  if (!buf || buf.length < 12) return false;
+  if (ext === "png") return buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+  if (ext === "jpg") return buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
+  if (ext === "gif") { const h = buf.slice(0, 6).toString("ascii"); return h === "GIF87a" || h === "GIF89a"; }
+  if (ext === "webp") return buf.slice(0, 4).toString("ascii") === "RIFF" && buf.slice(8, 12).toString("ascii") === "WEBP";
+  return false;
+}
+
 /* ---------- Seed de la base ----------
    DÉSACTIVÉ PAR DÉFAUT. Le seed réécrivait 98 comptes de référence et 5 tournois
    à CHAQUE démarrage : vider la base était donc sans effet, tout revenait au
@@ -422,6 +451,8 @@ function handleRest(req, res, url, userId) {
       const ext = m[1] === "jpeg" ? "jpg" : m[1];
       const buf = Buffer.from(m[2], "base64");
       if (buf.length > 2 * 1024 * 1024) return respond(res, { error: "Image trop lourde (max 2 Mo)" }, 400);
+      /* Le type déclaré doit correspondre au CONTENU réel (voir imageMagicOk). */
+      if (!imageMagicOk(buf, ext)) return respond(res, { error: "Le contenu de l'image ne correspond pas au format déclaré" }, 400);
       const dir = path.join(__dirname, "uploads", "avatars");
       fs.mkdirSync(dir, { recursive: true });
       const fname = `avatar_${user.id}_${Date.now()}.${ext}`;
@@ -933,7 +964,7 @@ function handleWsMessage(ws, msg) {
       const opponent = mmQueues[fmt].find((e) => e.userId !== conn.userId && e.mode === "online");
       if (opponent && mode === "online") {
         mmQueues[fmt] = mmQueues[fmt].filter((e) => e.userId !== conn.userId && e.userId !== opponent.userId);
-        const key = "PM-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+        const key = "PM-" + crypto.randomBytes(4).toString("hex").toUpperCase();
         const p1 = User.getById(conn.userId);
         const p2 = User.getById(opponent.userId);
         pendingMatches.set(key, { p1: conn.userId, p2: opponent.userId, p1Ready: false, p2Ready: false, format: fmt });
@@ -1045,12 +1076,23 @@ function handleWsMessage(ws, msg) {
       break;
     }
     case "chat_message": {
+      /* Bornes SERVEUR : un client modifié peut ignorer les limites du
+         formulaire — type, longueur et caractères de contrôle se vérifient ici.
+         (L'échappement HTML, lui, vit au rendu côté client : lot S9.) */
+      if (typeof msg.toPseudo !== "string" || typeof msg.text !== "string") {
+        send(ws, { type: "error", message: "Message invalide" }); return;
+      }
+      if (!allowChatMessage(conn.userId)) {
+        send(ws, { type: "error", message: "Trop de messages — patientez un instant" }); return;
+      }
+      const text = msg.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").slice(0, 500);
+      if (!text.trim()) { send(ws, { type: "error", message: "Message vide" }); return; }
       const otherUser = User.getByPseudo(msg.toPseudo);
       if (!otherUser) { send(ws, { type: "error", message: "Joueur introuvable" }); return; }
-      Chat.saveMessage(conn.userId, otherUser.id, msg.text);
+      Chat.saveMessage(conn.userId, otherUser.id, text);
       const at = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-      sendUser(otherUser.id, { type: "chat_message", from: user.pseudo, text: msg.text, at });
-      send(ws, { type: "chat_message", from: user.pseudo, to: otherUser.pseudo, text: msg.text, at, direction: "me" });
+      sendUser(otherUser.id, { type: "chat_message", from: user.pseudo, text, at });
+      send(ws, { type: "chat_message", from: user.pseudo, to: otherUser.pseudo, text, at, direction: "me" });
       break;
     }
     case "send_challenge": {
@@ -1149,7 +1191,7 @@ function findUserSession(userId) {
 }
 
 function createGameSession(p1Id, p2Id, mode, formatId, wager) {
-  const sessionId = "GS-" + Math.random().toString(36).slice(2, 10).toUpperCase();
+  const sessionId = "GS-" + crypto.randomBytes(4).toString("hex").toUpperCase();
   const format = DATA.FORMATS.find((f) => f.id === formatId) || DATA.FORMATS[0];
   const p1 = p1Id ? User.getById(p1Id) : null;
   let p2;
@@ -1555,6 +1597,9 @@ function gameLoop() {
   }
   // Traitement des matchs de tournoi (confirmations + forfaits automatiques)
   try { processTournamentMatches(); } catch (e) { console.error("tournament loop", e); }
+  // Purge des fenêtres de limitation de chat expirées (mémoire bornée)
+  { const nowMs = Date.now();
+    for (const [uid, e] of chatRate) if (nowMs - e.since >= CHAT_RATE_WINDOW_MS) chatRate.delete(uid); }
   // Expire challenges
   const expired = db.prepare("SELECT * FROM challenges WHERE status='pending' AND expires_at < datetime('now')").all();
   for (const c of expired) {
@@ -1633,6 +1678,22 @@ function start() {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+    /* ---------- En-têtes de sécurité (lot S10) ----------
+       Posés pour TOUTES les réponses (API + statique). La CSP laisse
+       'unsafe-inline' à script/style : le fichier mono-page contient trois
+       <script> en ligne et de nombreux gestionnaires `onclick=` — leur
+       migration est un chantier séparé. Même ainsi elle isole l'essentiel :
+       aucune source de script externe, pas de <object>, pas de base détournée,
+       formulaires et cadres limités à l'origine. Les polices Google restent
+       permises (l'interface les utilise et retombe proprement hors-ligne). */
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Referrer-Policy", "same-origin");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+    res.setHeader("Content-Security-Policy",
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+      "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' ws: wss:; " +
+      "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
     const url = new URL(req.url, `http://${req.headers.host || "localhost:" + PORT}`);
     if (url.pathname.startsWith("/api/")) {
@@ -1643,7 +1704,22 @@ function start() {
   });
 
   const wss = new WebSocket.Server({ server, path: "/ws" });
-  wss.on("connection", (ws) => {
+  wss.on("connection", (ws, req) => {
+    /* Anti « cross-site WebSocket hijacking » : un navigateur envoie TOUJOURS
+       un en-tête Origin ; s'il est présent et que l'hôte ne correspond pas à
+       celui du service, la connexion est refusée. Un client natif (aucun
+       Origin — sondes, scripts) reste accepté : il ne peut pas être détourné
+       par un site tiers. Cette barrière s'AJOUTE à l'authentification par
+       jeton, elle ne la remplace pas. */
+    const origin = req.headers.origin;
+    if (origin !== undefined) {
+      let originHost = null;
+      try { originHost = new URL(origin).host; } catch (e) { originHost = null; }
+      if (!originHost || originHost !== req.headers.host) {
+        try { ws.close(1008, "Origine refusée"); } catch (e) {}
+        return;
+      }
+    }
     ws.on("message", (data) => {
       try {
         const msg = JSON.parse(data.toString());
