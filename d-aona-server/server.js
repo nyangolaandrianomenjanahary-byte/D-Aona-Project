@@ -787,7 +787,12 @@ function handleRest(req, res, url, userId) {
         Wallet.credit(user.id, 5000, "Credit de bienvenue", true);
         db.prepare("UPDATE users SET bonus_used = 1 WHERE id = ?").run(user.id);
       }
-      Wallet.credit(user.id, parseInt(payload.amount) || 5000, `Depot ${payload.operator || "MVola"}`);
+      /* Montant : entier positif. Valeur absente ou zéro → 5 000 (comportement
+         historique) ; valeur NÉGATIVE refusée — un « dépôt » négatif débiterait
+         le wallet au lieu de le créditer. Libellé d'opérateur borné (40). */
+      const depAmount = parseInt(payload.amount, 10);
+      if (Number.isFinite(depAmount) && depAmount < 0) return respond(res, { error: "Montant invalide" }, 400);
+      Wallet.credit(user.id, (Number.isFinite(depAmount) && depAmount !== 0) ? depAmount : 5000, `Depot ${String(payload.operator || "MVola").slice(0, 40)}`);
       const bal = Wallet.getBalance(user.id);
       return respond(res, { ok: true, balance: bal.balance, bonusLock: bal.bonus_lock });
     }
@@ -800,7 +805,7 @@ function handleRest(req, res, url, userId) {
       const bal = Wallet.getBalance(user.id);
       const available = bal.balance - bal.bonus_lock;
       if (amount > available) return respond(res, { error: "Solde insuffisant" }, 400);
-      Wallet.spend(user.id, amount, `Retrait ${payload.operator || "MVola"}`);
+      Wallet.spend(user.id, amount, `Retrait ${String(payload.operator || "MVola").slice(0, 40)}`);
       const nBal = Wallet.getBalance(user.id);
       return respond(res, { ok: true, balance: nBal.balance, bonusLock: nBal.bonus_lock });
     }
@@ -1730,7 +1735,7 @@ function start() {
       }
     });
     ws.on("close", () => handleDisconnect(ws));
-    ws.on("error", () => {});
+    ws.on("error", (err) => { console.error("[ws] erreur socket:", (err && err.message) || err); });
   });
 
   setInterval(gameLoop, TICK_MS);

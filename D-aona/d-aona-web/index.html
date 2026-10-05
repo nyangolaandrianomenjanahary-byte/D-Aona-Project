@@ -5416,6 +5416,8 @@ const API = (() => {
   let ws = null;
   let wsReady = false;
   let wsQueue = [];
+  let wsAttempts = 0;       // échecs consécutifs → backoff exponentiel plafonné
+  let wsDownLogged = false; // un seul avertissement console par panne
   const handlers = {};   // type -> [fn]
 
   /* ---------- REST ---------- */
@@ -5423,7 +5425,20 @@ const API = (() => {
     const opts = { method, headers: { "Content-Type": "application/json" } };
     if (token) opts.headers["Authorization"] = "Bearer " + token;
     if (body) opts.body = JSON.stringify(body);
-    const res = await fetch(base + path, opts);
+    /* Délai maximal : sans lui, une coupure réseau laisse la promesse en
+       attente indéfiniment (spinner sans fin, files d'attente qui s'empilent). */
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    opts.signal = ctrl.signal;
+    let res;
+    try {
+      res = await fetch(base + path, opts);
+    } catch (e) {
+      if (e && e.name === "AbortError") throw new Error("Le serveur ne répond pas — vérifiez votre connexion.");
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
     let data = null;
     try { data = await res.json(); } catch (e) { data = null; }
     if (!res.ok) {
@@ -5454,6 +5469,8 @@ const API = (() => {
     socket.onopen = () => {
       if (ws !== socket) return;
       wsReady = true;
+      wsAttempts = 0;
+      wsDownLogged = false;
       // 1. Envoyer l'authentification d'abord
       if (token) {
         try { socket.send(JSON.stringify({ type: "auth", token })); } catch (e) {}
@@ -5475,13 +5492,24 @@ const API = (() => {
       wsReady = false;
       ws = null;
       emit("close");
-      setTimeout(() => { if (!ws) connect(); }, 3000);
+      if (!wsDownLogged) { wsDownLogged = true; console.warn("[ws] connexion perdue — reconnexion automatique"); }
+      /* Backoff exponentiel plafonné (1 s → 15 s) avec jitter : évite de
+         marteler un serveur longuement indisponible toutes les 3 s, et évite
+         que tous les clients reviennent à la même milliseconde au retour. */
+      const delay = Math.min(1000 * Math.pow(2, wsAttempts), 15000) + Math.floor(Math.random() * 400);
+      wsAttempts += 1;
+      setTimeout(() => { if (!ws) connect(); }, delay);
     };
     socket.onerror = () => { try { socket.close(); } catch (e) {} };
   }
 
   function send(msg) {
-    if (!wsReady) { wsQueue.push(msg); connect(); return; }
+    if (!wsReady) {
+      wsQueue.push(msg);
+      if (wsQueue.length > 50) wsQueue.shift();  // on jette le plus ancien : rejouer des centaines d'actions périmées n'a aucun sens
+      connect();
+      return;
+    }
     try { ws.send(JSON.stringify(msg)); } catch (e) {}
   }
 
@@ -11015,7 +11043,7 @@ const App = (() => {
           <div style="flex:1;">
             <b style="color:var(--text-strong); font-size:16px;">${pseudoLink(msg.opponent && msg.opponent.id, msg.opponent && msg.opponent.pseudo)}</b>
           </div>
-          <div style="text-align:right;"><div class="mono" style="font-size:20px; font-weight:700;">${msg.opponent.elo}</div><div class="small muted">Elo</div></div>
+          <div style="text-align:right;"><div class="mono" style="font-size:20px; font-weight:700;">${msg.opponent?.elo ?? "—"}</div><div class="small muted">Elo</div></div>
         </div>
         <p class="m-sub" style="margin-top:12px;">Format : ${escHtml(FORMATS.find((f) => f.id === msg.format)?.name || msg.format)} · Partie classée</p>
         <div class="m-foot">
@@ -11028,7 +11056,7 @@ const App = (() => {
         showModal(`
           <h2>En attente de l'adversaire…</h2>
           <div class="mm-spinner"><div class="mm-orbit"><i></i><i></i><i></i></div>
-          <p class="muted small" id="mm-wait">Vous avez accepté. En attente que ${escHtml(msg.opponent.pseudo)} accepte aussi…</p></div>
+          <p class="muted small" id="mm-wait">Vous avez accepté. En attente que ${escHtml((msg.opponent && msg.opponent.pseudo) || "")} accepte aussi…</p></div>
         `, "", true);
       };
       document.getElementById("mm-decline").onclick = () => {

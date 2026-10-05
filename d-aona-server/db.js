@@ -73,6 +73,8 @@ function init() {
   // Migration : durée d'un match + intervalle entre matchs (en minutes). Version finale :
   // starts_at du match i = heure_début + index*(durée+intervalle). Pour le test d'aujourd'hui
   // (interval_min=0), aucun intervalle et lancement libre dès les confirmations.
+  /* Les ALTER ci-dessous sont des migrations idempotentes : la colonne peut
+     déjà exister (base créée après coup) — l'erreur est ATTENDUE et ignorée. */
   try { db.exec("ALTER TABLE tournaments ADD COLUMN match_duration_min INTEGER DEFAULT 5"); } catch (e) {}
   try { db.exec("ALTER TABLE tournaments ADD COLUMN interval_min INTEGER DEFAULT 5"); } catch (e) {}
   db.exec(`CREATE TABLE IF NOT EXISTS tournament_registrations (

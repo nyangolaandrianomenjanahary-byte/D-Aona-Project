@@ -124,6 +124,18 @@
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
 
+## 2026-10-05 — Lot robustesse réseau : timeout REST, backoff WebSocket, plafond de file, gardes et journalisation (entrée MANUELLE)
+
+**Demande :** suite du programme d'audit — Lot 3 : rendre l'application résiliente aux coupures (réseau mobile, hotspot, mise en veille) et aux données partielles.
+
+**Correctifs.** (1) **REST : délai maximal de 15 s** (`AbortController` dans `API.request`) : une coupure ne laisse plus de spinner sans fin ni de files qui s'empilent ; l'échec parle de connexion. (2) **WebSocket : backoff exponentiel plafonné (1 s → 15 s) + jitter** en remplacement du délai fixe de 3 s — plus de martèlement pendant une longue panne, plus de ruée synchronisée au retour ; UN seul avertissement console par panne ; compteurs remis à zéro à l'ouverture (la reconnexion ré-authentifiait déjà — vérifié). (3) **File d'envoi plafonnée à 50** (le plus ancien est jeté) : rejouer des centaines d'actions périmées n'avait aucun sens. (4) **Gardes `undefined`** dans la fenêtre « adversaire trouvé » (`opponent?.elo ?? "—"`, pseudo optionnel). (5) **Serveur : erreurs de socket WebSocket journalisées** (`[ws] erreur socket: …`) au lieu d'être avalées ; les `ALTER TABLE` idempotents de `db.js` portent le commentaire qui légitime leur catch muet. (6) **Dépôt : montant négatif refusé (400)** — un dépôt négatif débitait le wallet ; valeur absente/zéro → 5 000 (comportement conservé) ; libellés d'opérateur bornés à 40 (dépôt et retrait).
+
+**Preuve (nouveau probe `_robust_probe.js`).** Scénario de coupure complet sur instance jetable (copie VACUUM INTO, port 8093) : **TOUT OK** — chaque requête REST porte un signal d'annulation ; dépôt −5 000 → 400, solde inchangé ; serveur **tué** → tentatives espacées 1 s→2 s→4 s (délais croissants ; premier < 2,5 s vs 3 s fixe avant), aucune erreur JS ; serveur **relancé** → reconnexion seule de la page ET **message reçu de nouveau en direct**. Note best-effort (sans échec) : la destruction TCP brutale d'une sonde n'a pas déclenché la ligne `[ws]` — journalisation vérifiée par lecture de code.
+
+**Contrôles.** `node --check server.js` OK · `node _check_html.js` OK · `test_scenarios.js` **251/251** · `test_auth.js` **TOUS LES TESTS PASSENT** · `_sec_probe.js` et `_xss_probe.js` rejoués → tout OK · campagne UI relancée · serveur de production redémarré, en-têtes toujours actifs.
+
+**Reste ouvert (lots suivants).** Performances (rendus en delta, assets — plateau SVG 8,3 Mo) ; architecture (découpage `server.js`/`db.js`) ; hygiène (code mort, dédoublonnage, scripts npm) ; migration CSP stricte (chantier long).
+
 ## 2026-10-05 — Lot sécurite « durcissement serveur » : en-têtes + CSP, Origine WebSocket, bornes du chat, signature des images, identifiants imprévisibles (entrée MANUELLE)
 
 **Demande :** suite du programme d'audit — Lot 2 : tout ce qui protège le SERVEUR lui-même (le Lot 1 avait traité l'XSS côté rendu).
@@ -2734,6 +2746,8 @@ du Bureau reste inchangé (référence de style).
 **Supprimés :** `_chk.txt`
 **Modifiés :** `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `server.js`
 **Ajoutés :** `avatar_37_1791228486263.jpg`, `avatar_41_1791228540492.png`, `avatar_42_1791228519128.png`, `_sec_probe.js`, `8925c25386a0b5fc50e4e78db48eebc6aab9415fbb9796a3831c4d5689eb2f95.json`
+**Modifiés :** `index.html`, `db.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `server.js`, `_inline.js`
+**Ajoutés :** `avatar_45_1791228983955.png`, `avatar_46_1791228957683.png`, `_robust_probe.js`, `8615da3689f949ff3957bba77346885a738a43c803e0fea6e1ca7919846ea8cc.json`
 
 ## 2026-09-27
 **Modifiés :** `index.html`, `data.js`, `db.js`, `server.js`, `test_scenarios.js`, `test_ui_scenarios.js`, `_inline.js`, `_layout_fill.js`, `_layout_fill_report.txt`, `_p10.js`, `_p12.js`, `_p2.js`, `_p5.js`, `_probe_profil_v3.js`, `_revue_ui.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `last_query_stamp`, `stat-index.json`, `graph.html`, `desktop-1440x900-home.png`, `desktop-1440x900-match-tournois.png`, `desktop-1440x900-match.png`, `desktop-1440x900-ranks.png`, `desktop-1440x900-wallet.png`, `mobile-360x760-home.png`, `mobile-360x760-match.png`, `mobile-390x844-home.png`, `mobile-390x844-match.png`
