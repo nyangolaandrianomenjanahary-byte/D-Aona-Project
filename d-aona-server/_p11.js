@@ -6,7 +6,7 @@ async function s9_tournament(browser) {
   let tid = null;
 
   await step("l'écran Matchs liste les tournois disponibles", async () => {
-    await goScreen(A.page, "match");
+    await goMatchTab(A.page, "tournois");
     const n = await A.page.locator("#match-root .tn-card").count();
     return n >= 1 ? true : "aucune carte de tournoi affichée";
   });
@@ -21,7 +21,7 @@ async function s9_tournament(browser) {
     const txt = (await textOf(A.page, "#tournament-root")) || "";
     if (txt.length < 40) return "écran de détail vide (contenu " + txt.length + " caractères)";
     if (!/bracket|mise|place|joueur|inscri|tournoi/i.test(txt)) return "contenu du détail inattendu : « " + txt.slice(0, 80) + " »";
-    await goScreen(A.page, "match");
+    await goMatchTab(A.page, "tournois");
     return true;
   });
 
@@ -40,6 +40,23 @@ async function s9_tournament(browser) {
   });
 
   await step("inscription au tournoi ouvert : la mise est débitée du wallet", async () => {
+    /* L'entrée de tournoi est une transaction réelle : le serveur la refuse
+       sans KYC, et l'application ouvre alors la fenêtre « Vérification
+       d'identité » — qui recouvre le bouton et fait échouer le clic SUIVANT.
+       Lancé seul, ce scénario partait d'un compte neuf (kyc = 0) et échouait
+       donc pour une raison étrangère au tournoi (S7, exécuté avant dans la
+       campagne complète, est ce qui vérifiait le KYC). On le vérifie ici :
+       le scénario devient réellement autonome, comme annoncé plus haut. */
+    if (!(await stateOf(A.page)).kyc) {
+      const r = await apiFromPage(A.page, "/api/kyc/verify", "POST", {});
+      if (!r.json || r.json.kyc !== true) return "impossible de vérifier le KYC du compte de test";
+      await A.page.reload({ waitUntil: "domcontentloaded" });
+      await sleep(2500);
+      if (!(await stateOf(A.page)).kyc) return "le KYC vérifié n'est pas relu par l'application";
+      /* Le rechargement repart sur l'onglet « En direct » : on revient sur les
+         tournois, sinon le bouton cherché n'existe pas dans la page. */
+      await goMatchTab(A.page, "tournois");
+    }
     const btn = A.page.locator(`#match-root button[onclick*="joinTournament('${TID_UI}')"]`).first();
     if (!(await btn.count())) return "le tournoi ouvert de la campagne n'est pas proposé à l'inscription";
     tid = TID_UI;
@@ -70,9 +87,57 @@ async function s9_tournament(browser) {
   });
 
   await step("l'inscription est confirmée à l'écran", async () => {
-    await goScreen(A.page, "match");
+    await goMatchTab(A.page, "tournois");
     const shown = await until(A.page, () => /inscrit/i.test(document.getElementById("match-root").innerText), 10000);
     return shown ? true : "aucune mention « inscrit » affichée après l'inscription";
+  });
+
+  await step("le tournoi rejoint « Je participe » dès l'inscription confirmée", async () => {
+    await goMatchTab(A.page, "tournois");
+    const seg = A.page.locator('#match-root [data-tfilter="participe"]');
+    if (!(await seg.count())) return "le filtre « Je participe » n'existe pas dans l'onglet Tournois";
+    await seg.first().click();
+    await sleep(600);
+    const info = await A.page.evaluate(() => {
+      const root = document.getElementById("match-root");
+      const on = root.querySelector(".mt-seg.on");
+      const cards = [...root.querySelectorAll(".tn-card")];
+      return {
+        actif: on ? on.innerText.trim().split("\n")[0] : "",
+        n: cards.length,
+        noms: cards.map((c) => ((c.querySelector("h3") || {}).textContent || "").trim()),
+        inscrit: cards.some((c) => /inscrit/i.test(c.innerText)),
+      };
+    });
+    if (!/participe/i.test(info.actif)) return "le filtre actif n'est pas « Je participe » : « " + info.actif + " »";
+    if (info.n < 1) return "« Je participe » est vide alors que l'inscription vient d'être confirmée";
+    if (!info.inscrit) return "la carte ne porte pas la mention d'inscription : " + JSON.stringify(info.noms);
+    return true;
+  });
+
+  await step("inscription retirée côté serveur : le tournoi sort de « Je participe » sans geste", async () => {
+    /* La ligne d'inscription est supprimée dans la COPIE jetable — c'est ce que
+       feront l'annulation et le retrait d'inscription — puis un second joueur
+       s'inscrit : le serveur diffuse `tournament_update` et le panneau se
+       redessine seul. Aucun clic, aucun rechargement dans la section. */
+    const me = await stateOf(A.page);
+    const db = new DatabaseSync(path.join(tmpDir, "d-aona.db"));
+    const del = db.prepare("DELETE FROM tournament_registrations WHERE tournament_id = ? AND user_id = ?").run(TID_UI, me.id);
+    db.close();
+    if (del.changes !== 1) return "aucune inscription à retirer pour l'utilisateur " + me.id;
+    const B = await ensure(browser, "B");
+    let bs = await stateOf(B.page);
+    if (!bs.kyc) { await apiFromPage(B.page, "/api/kyc/verify", "POST", {}); bs = await stateOf(B.page); }
+    if (bs.balance < 1000) await apiFromPage(B.page, "/api/deposit", "POST", { amount: 1000, operator: "MVola" });
+    const joinB = await apiFromPage(B.page, "/api/tournaments/join", "POST", { tournamentId: TID_UI });
+    if (joinB.status !== 200) return "impossible de déclencher la diffusion serveur : " + JSON.stringify(joinB.json);
+    const sorti = await until(A.page, () => {
+      const root = document.getElementById("match-root");
+      return root.querySelectorAll(".tn-card").length === 0 && /aucune participation/i.test(root.innerText || "");
+    }, 10000);
+    if (sorti) return true;
+    const txt = ((await textOf(A.page, "#match-root")) || "").replace(/\s+/g, " ");
+    return "la carte reste dans « Je participe » : « " + txt.slice(0, 140) + " »";
   });
 }
 

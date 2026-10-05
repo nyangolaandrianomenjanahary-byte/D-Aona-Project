@@ -39,7 +39,7 @@ async function s6_online_play(browser) {
   });
 
   await step("le troisième joueur voit la partie en direct dans Matchs", async () => {
-    await goScreen(C.page, "match");
+    await goMatchTab(C.page, "live");
     const listed = await until(C.page, () => {
       const r = document.getElementById("live-games-root");
       return !!r && /Regarder/.test(r.innerText);

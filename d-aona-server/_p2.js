@@ -73,7 +73,7 @@ const stateOf = (page) => page.evaluate(() => {
   return {
     id: s.id, pseudo: s.pseudo, elo: s.elo, balance: s.balance, bonusLock: s.bonusLock,
     kyc: s.kyc, currentSession: s.currentSession, playerNum: s.playerNum,
-    skins: s.skins, notifUnread: s.notifUnread, bonusUsed: s.bonusUsed,
+    skins: s.skins, pion: s.pion, notifUnread: s.notifUnread, bonusUsed: s.bonusUsed,
     route: (location.hash || "").replace("#/", "").split("?")[0],
   };
 });

@@ -35,11 +35,13 @@ async function s11_chat(browser) {
     });
     if (!txt) return "impossible de relire le message envoyé";
     /* Réception en temps réel : le destinataire ouvre la conversation avec
-       l'expéditeur et doit y voir le message. */
+       l'expéditeur et doit y voir le message. Le conteneur des messages est
+       marqué `data-pop-msgs` (famille `data-pop-*` des fenêtres de discussion) :
+       on vise cette marque-là, pas `data-pop`, qui est celle de la fenêtre. */
     const fenetre = await uiOpenChatPopup(C.page, A.pseudo);
     if (fenetre !== true) return fenetre;
     const vu = await until(C.page, ([p, t]) => {
-      const el = document.querySelector(`.cp-msgs[data-pop="${p}"]`);
+      const el = document.querySelector(`.cp-msgs[data-pop-msgs="${p}"]`);
       return !!el && el.innerText.includes(t);
     }, [A.pseudo, txt], 14000);
     return vu ? true : "le message n'est pas arrivé chez le destinataire";
@@ -57,10 +59,12 @@ const SCENARIOS = [
   ["S5", "Partie classée en ligne : matchmaking et tirage au sort", () => s5_online(BROWSER)],
   ["S6", "Partie en ligne : coups diffusés, spectateur, abandon", () => s6_online_play(BROWSER)],
   ["S7", "Wallet : KYC, dépôt, retrait, historique", () => s7_wallet(BROWSER)],
-  ["S8", "Boutique de skins : achat, débit, équipement", () => s8_skins(BROWSER)],
+  ["S8", "Boutique de skins : couleur × motif, page dédiée, choix indépendants", () => s8_skins(BROWSER)],
   ["S9", "Tournois : liste, détail, inscription", () => s9_tournament(BROWSER)],
   ["S10", "Notifications : badge, liste, lecture, tout lire", () => s10_notifications(BROWSER)],
   ["S11", "Messagerie : dock, envoi et réception temps réel", () => s11_chat(BROWSER)],
+  ["S12", "Écran Match : héro, tuiles de statistiques, deux colonnes, défis réels et annulation", () => s12_match(BROWSER)],
+  ["S13", "Données : classement vivant, badge Amis, photo de profil, noms cliquables, Elo gagné/perdu", () => s13_datafix(BROWSER)],
 ];
 let BROWSER = null;
 
@@ -98,6 +102,12 @@ let BROWSER = null;
       if (!/setTxt\("dep-amt"/.test(html)) missing.push("récapitulatif du dépôt");
       if (!/Inscriptions closes/.test(html)) missing.push("tournoi fermé non inscriptible");
       if (!/if \(!API\.getToken\(\)\) return;/.test(html)) missing.push("pas de requête sans session");
+      /* Correctifs de DONNÉES : une fabrique d'avatar, une lecture d'historique, et
+         la règle CSS qui rend un nom cliquable reconnaissable. Leur disparition du
+         fichier servi signalerait un retour en arrière silencieux. */
+      if (!/function avatarInnerHtml/.test(html)) missing.push("fabrique d'avatar unique");
+      if (!/function mapGameRows/.test(html)) missing.push("lecture unique de l'historique");
+      if (!/\.link-pseudo \{/.test(html)) missing.push("styles des noms cliquables");
       return missing.length === 0 ? true : "correctifs absents du fichier servi : " + missing.join(", ");
     });
     await step("le mot de passe erroné est bien refusé par le serveur (401 attendu, hors erreurs applicatives)",

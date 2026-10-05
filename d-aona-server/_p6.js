@@ -2,23 +2,31 @@
    S3 — ENTRAÎNEMENT CONTRE L'IA : assistant, plateau, tirage au sort, coups
    ========================================================================= */
 async function wizard(page, { mode = "ai", fmt = "blitz" }) {
+  /* UN CHOIX VAUT « SUIVANT » : depuis le lot « onglet Jeux », la flèche « Suivant »
+     n'existe plus et le CTA (lancement) n'apparaît qu'à l'étape 4. On clique donc la
+     tuile du jeu, puis le mode, puis le format — le geste réel d'un joueur. */
   await goScreen(page, "play");
-  if (!(await visible(page, "#pg-cta"))) return "bouton principal de l'assistant absent";
-  await page.click("#pg-cta");
+  const game = page.locator("#play-root .pg-opt[data-game]");
+  if (!(await game.count())) return "aucune tuile de jeu à l'étape 1 de l'assistant";
+  await game.first().click();          /* étape 1 → 2 */
   await sleep(400);
   const opt = page.locator(`#play-root .pg-opt[data-mode="${mode}"]`);
   if (!(await opt.count())) return `aucune option de mode « ${mode} » à l'étape 2`;
-  await opt.first().click();
+  await opt.first().click();           /* étape 2 → 3 (sauf « défi », voir ci-dessous) */
   await sleep(400);
-  await page.click("#pg-cta");
-  await sleep(400);
+  if (mode === "defi") {
+    /* « Défi » réclame un adversaire ET une mise : il se contente d'afficher son
+       formulaire. C'est la MISE qui valide et fait avancer. */
+    const w = page.locator("#play-root [data-wager]");
+    if (!(await w.count())) return "aucune mise proposée pour le mode défi";
+    await w.first().click();           /* étape 2 → 3 */
+    await sleep(400);
+  }
   const f = page.locator(`#play-root .pg-fmt[data-fmt="${fmt}"]`);
   if (!(await f.count())) return `aucun format « ${fmt} » à l'étape 3`;
   const cls = (await f.first().getAttribute("class")) || "";
   if (/off/.test(cls)) return `format « ${fmt} » indisponible pour ce mode`;
-  await f.first().click();
-  await sleep(350);
-  await page.click("#pg-cta");
+  await f.first().click();             /* étape 3 → 4 */
   await sleep(450);
   return true;
 }

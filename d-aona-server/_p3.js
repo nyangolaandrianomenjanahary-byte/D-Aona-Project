@@ -156,6 +156,22 @@ async function goScreen(page, route) {
   return ok;
 }
 
+/* Écran Match : trois onglets seulement — « live » (En direct), « defis »
+   (Défis), « tournois » (Tournois), présentés en tuiles de statistiques dans le
+   héro. Chaque scénario déclare celui dont il a besoin : aucun état d'onglet
+   implicite d'un scénario à l'autre. */
+async function goMatchTab(page, tab) {
+  await goScreen(page, "match");
+  const sel = "#mt-tiles .mt-tile[data-mtab='" + tab + "']";
+  const btn = page.locator(sel);
+  if (await btn.count()) await btn.first().click();
+  await sleep(950);
+  return page.evaluate((s) => {
+    const el = document.querySelector(s);
+    return !!el && el.getAttribute("aria-selected") === "true";
+  }, sel);
+}
+
 /* Nombre de pions affichés par camp + cases cliquables. */
 const pieceCounts = (page) => page.evaluate(() => ({
   me: document.querySelectorAll(".piece.me").length,

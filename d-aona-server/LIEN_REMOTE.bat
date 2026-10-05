@@ -25,6 +25,12 @@ if %errorlevel% neq 0 (
 :: --- 2. Serveur de jeu ---
 echo   [2/3] Demarrage du serveur de jeu sur le port 8080...
 taskkill /F /IM node.exe >nul 2>&1
+::    Le tunnel expose le serveur a Internet : on active la lecture de l'IP reelle
+::    (en-tete Cloudflare CF-Connecting-IP). Sans ce drapeau, TOUS les visiteurs
+::    presentent 127.0.0.1 et partagent un seul quota d'authentification
+::    (12 essais / 5 min) : ils se bloqueraient les uns les autres.
+::    A ne PAS mettre pour un usage reseau local seul (voir GUIDE_LIEN_REMOTE.md).
+set D_AONA_TRUST_PROXY=1
 start "D-aona Server" /min cmd /c "node server.js ^> server_out.log 2^> server_err.log"
 timeout /t 3 /nobreak >nul
 

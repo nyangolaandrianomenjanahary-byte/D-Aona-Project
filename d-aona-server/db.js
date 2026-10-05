@@ -5,6 +5,10 @@
 
 const { DatabaseSync } = require("node:sqlite");
 const path = require("node:path");
+/* Catalogues métier (couleurs et motifs du pion) : `data.js` n'a AUCUNE
+   dépendance, le require est donc sans risque de cycle. Le défaut du pion vient
+   de là, jamais d'une constante recopiée ici. */
+const DATA = require("./data");
 /* Chemin de la base. Par défaut : d-aona.db à côté de ce fichier (comportement
    historique, inchangé). D_AONA_DB_PATH permet de pointer ailleurs — utilisé par
    les campagnes de tests (test_scenarios.js / test_e2e.js) pour travailler sur
@@ -101,11 +105,27 @@ function init() {
     acquired_at TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, skin_id)
   );`);
+  /* ATTENTION — schéma d'AMORÇAGE : il doit être celui qu'attendent les
+     migrations, pas la forme finale. `equipped_skins` naît donc ici avec les
+     trois colonnes d'origine (`pions`), puis la chaîne de migrations la fait
+     évoluer : 005 ajoute la clé étrangère, 008 scinde `pions` en `pions_light` /
+     `pions_dark`. Déclarer directement la forme finale ici casse la 005
+     (« no such column: pions ») sur une base neuve — c'est-à-dire le chemin
+     `wipe_db.js --yes` puis redémarrage. */
   db.exec(`CREATE TABLE IF NOT EXISTS equipped_skins (
     user_id INTEGER PRIMARY KEY,
     pions   TEXT,
     plateau TEXT,
     effet   TEXT
+  );`);
+  /* Personnalisation du pion : UNE ligne par compte, deux colonnes SÉPARÉES.
+     Aucune combinaison n'est stockée (ni ici ni ailleurs) : la couleur et le
+     motif sont deux choix indépendants, que la migration 009 a repris des anciens
+     skins de pions déjà achetés — aucun achat perdu. */
+  db.exec(`CREATE TABLE IF NOT EXISTS pion_style (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    color   TEXT NOT NULL DEFAULT 'blanc',
+    pattern TEXT NOT NULL DEFAULT 'aucun'
   );`);
   db.exec(`CREATE TABLE IF NOT EXISTS challenges (
     id          TEXT PRIMARY KEY,
@@ -236,8 +256,7 @@ const User = {
       const stmt = db.prepare("INSERT INTO users (pseudo, elo, balance) VALUES (?, 1100, 5000)");
       const info = stmt.run(pseudo);
       user = this.getById(info.lastInsertRowid);
-      db.prepare("INSERT OR IGNORE INTO equipped_skins (user_id, pions, plateau, effet) VALUES (?, 'pions-classique', NULL, NULL)").run(user.id);
-      db.prepare("INSERT OR IGNORE INTO user_skins (user_id, skin_id) VALUES (?, 'pions-classique')").run(user.id);
+      Skins.ensureDefaults(user.id);
     } else {
       db.prepare("UPDATE users SET last_seen = ? WHERE id = ?").run(now(), user.id);
     }
@@ -290,10 +309,19 @@ const GameRecord = {
     ).run(p1Id, p2Id, mode, format, wager);
     return r.lastInsertRowid;
   },
-  finish(id, winnerId, delta1, delta2, moves, reason) {
+  finish(id, winnerId, delta1, delta2, moves, reason, elo = null) {
+    /* L'instantané d'Elo (migration 006) est OPTIONNEL : un appel qui ne le
+       fournit pas laisse les colonnes à NULL, et l'interface affichera « Données
+       indisponibles » au lieu d'inventer une valeur. */
     db.prepare(
-      "UPDATE games SET winner_id = ?, delta1 = ?, delta2 = ?, moves_json = ?, reason = ? WHERE id = ?"
-    ).run(winnerId, delta1, delta2, JSON.stringify(moves || []), reason, id);
+      `UPDATE games SET winner_id = ?, delta1 = ?, delta2 = ?, moves_json = ?, reason = ?,
+              elo1_before = ?, elo1_after = ?, elo2_before = ?, elo2_after = ?
+       WHERE id = ?`
+    ).run(
+      winnerId, delta1, delta2, JSON.stringify(moves || []), reason,
+      elo ? elo.p1Before : null, elo ? elo.p1After : null,
+      elo ? elo.p2Before : null, elo ? elo.p2After : null, id
+    );
   },
   listForUser(userId, limit = 50) {
     return db.prepare(`
@@ -301,7 +329,7 @@ const GameRecord = {
       FROM games g JOIN users u1 ON g.player1_id = u1.id
       JOIN users u2 ON g.player2_id = u2.id
       WHERE g.player1_id = ? OR g.player2_id = ?
-      ORDER BY g.created_at DESC LIMIT ?
+      ORDER BY g.created_at DESC, g.id DESC LIMIT ?
     `).all(userId, userId, limit);
   },
 };
@@ -464,6 +492,38 @@ const FriendRequest = {
       WHERE fr.from_id = ? AND fr.status = 'pending' ORDER BY fr.created_at DESC
     `).all(userId);
   },
+  /* Demandes ARRIVÉES DEPUIS la dernière consultation de l'écran Amis.
+     Le repère est `users.friends_seen_request_id` (migration 007) : un
+     IDENTIFIANT, jamais une date — SQLite écrit `datetime('now')` là où le reste
+     du code manipule de l'ISO-UTC, et comparer les deux formats est un bug
+     silencieux qui attend son heure. */
+  newIncoming(userId) {
+    const u = db.prepare("SELECT friends_seen_request_id FROM users WHERE id = ?").get(userId);
+    const seen = (u && u.friends_seen_request_id) || 0;
+    return db.prepare(
+      "SELECT COUNT(*) AS c FROM friend_requests WHERE to_id = ? AND status = 'pending' AND id > ?"
+    ).get(userId, seen).c;
+  },
+  /* Identifiant de la dernière demande REÇUE (tous statuts) : c'est le filigrane
+     que `markSeen` enregistre, et celui que l'API expose au client. Le client
+     peut ainsi trancher une réponse retardée (partie avant la consultation) sans
+     dépendre de l'ordre d'arrivée des requêtes. */
+  incomingWatermark(userId) {
+    const row = db.prepare("SELECT MAX(id) AS m FROM friend_requests WHERE to_id = ?").get(userId);
+    return (row && row.m) || 0;
+  },
+  /* « J'ai vu l'écran Amis » : le filigrane avance jusqu'à la dernière demande
+     REÇUE, tous statuts confondus (une demande traitée ne doit pas être recomptée ;
+     une relance crée un nouvel id, donc elle sera comptée comme nouvelle).
+     Le filigrane ne recule jamais : deux ouvertures d'écran ne doivent pas rendre
+     « nouvelle » une demande plus ancienne. */
+  markSeen(userId) {
+    const upto = this.incomingWatermark(userId);
+    const cur = db.prepare("SELECT friends_seen_request_id FROM users WHERE id = ?").get(userId);
+    const seen = (cur && cur.friends_seen_request_id) || 0;
+    if (upto > seen) db.prepare("UPDATE users SET friends_seen_request_id = ? WHERE id = ?").run(upto, userId);
+    return { seen: Math.max(seen, upto) };
+  },
   pendingBetween(a, b) {
     const row = db.prepare(`
       SELECT id, from_id, to_id FROM friend_requests
@@ -505,15 +565,48 @@ const Friend = {
   },
 };
 
-/* ---------- Skins ---------- */
+/* ---------- Skins ----------
+   Deux catégories de pions, deux achats, deux emplacements : `pions_light`
+   (pions clairs) et `pions_dark` (pions sombres). Le TYPE est porté par le skin
+   (voir data.js) et le slot est toujours dérivé de ce type — jamais d'une
+   valeur envoyée par le client. */
+const EQUIPPED_SLOTS = Object.freeze(["pions_light", "pions_dark", "plateau", "effet"]);
+/* Skins gratuits attribués à tout compte : l'ex-`pions-classique` (qui habillait
+   les deux camps) est scindé en deux par la migration 008, un par catégorie. */
+const FREE_SKINS = Object.freeze(["pions-clair-classique", "pions-sombre-classique"]);
+const DEFAULT_EQUIPPED = Object.freeze({
+  pions_light: "pions-clair-classique",
+  pions_dark: "pions-sombre-classique",
+  plateau: null,
+  effet: null,
+});
+
 const Skins = {
+  FREE_SKINS, DEFAULT_EQUIPPED,
+  /* Attribution des skins gratuits + des deux emplacements par défaut.
+     Appelée par les DEUX chemins d'inscription (`User.createOrUpdate` et
+     `Auth.register`) : une seule définition, donc aucune divergence possible. */
+  ensureDefaults(userId) {
+    db.prepare(
+      `INSERT OR IGNORE INTO equipped_skins (user_id, pions_light, pions_dark, plateau, effet)
+       VALUES (?, ?, ?, NULL, NULL)`
+    ).run(userId, DEFAULT_EQUIPPED.pions_light, DEFAULT_EQUIPPED.pions_dark);
+    const ins = db.prepare("INSERT OR IGNORE INTO user_skins (user_id, skin_id) VALUES (?, ?)");
+    for (const id of FREE_SKINS) ins.run(userId, id);
+    /* La personnalisation du pion est créée au même moment et par le même chemin :
+       un compte neuf a donc TOUJOURS une couleur et un motif POUR CHAQUE CAMP
+       (les défauts), ce qui évite un « aucun style » à gérer dans l'interface et
+       sur le plateau. */
+    PionStyle.ensureDefaults(userId);
+  },
   listOwned(userId) {
     return db.prepare("SELECT skin_id FROM user_skins WHERE user_id = ?").all(userId).map((r) => r.skin_id);
   },
   getEquipped(userId) {
-    const row = db.prepare("SELECT pions, plateau, effet FROM equipped_skins WHERE user_id = ?").get(userId);
-    return row ? { pions: row.pions, plateau: row.plateau, effet: row.effet }
-      : { pions: "pions-classique", plateau: null, effet: null };
+    const row = db.prepare("SELECT pions_light, pions_dark, plateau, effet FROM equipped_skins WHERE user_id = ?").get(userId);
+    return row
+      ? { pions_light: row.pions_light, pions_dark: row.pions_dark, plateau: row.plateau, effet: row.effet }
+      : { ...DEFAULT_EQUIPPED };
   },
   buy(userId, skinId, price) {
     const owned = this.listOwned(userId);
@@ -521,10 +614,50 @@ const Skins = {
     db.prepare("INSERT INTO user_skins (user_id, skin_id) VALUES (?, ?)").run(userId, skinId);
     return { ok: true, price };
   },
-  equip(userId, kind, skinId) {
-    const col = kind === "pions" ? "pions" : kind === "plateau" ? "plateau" : "effet";
-    db.prepare(`UPDATE equipped_skins SET ${col} = ? WHERE user_id = ?`).run(skinId, userId);
-    return { ok: true };
+  /* `slot` doit être une clé de la liste blanche ci-dessus : aucune valeur venue
+     du client n'est jamais concaténée dans le SQL. Un skin clair ne peut donc
+     écrire que dans `pions_light`, un skin sombre que dans `pions_dark`. */
+  equip(userId, slot, skinId) {
+    if (!EQUIPPED_SLOTS.includes(slot)) return { ok: false, error: "Emplacement de skin inconnu" };
+    db.prepare(`UPDATE equipped_skins SET ${slot} = ? WHERE user_id = ?`).run(skinId, userId);
+    return { ok: true, slot };
+  },
+};
+
+/* ---------- Apparence des pions (couleur × motif), UNE LIGNE PAR CAMP ----------
+   Deux champs séparés, jamais d'identifiant combiné : la variété vient du
+   produit des deux catalogues (data.js), pas de la base. Les identifiants sont
+   validés par l'appelant (server.js) contre `PION_COLORS` / `PION_PATTERNS` et
+   contre le GROUPE du camp AVANT d'arriver ici : aucune valeur arbitraire ni
+   aucune couleur hors groupe ne peut être écrite. */
+const PionStyle = {
+  CAMPS: DATA.PION_CAMPS,
+  DEFAULTS: DATA.PION_DEFAULTS,
+  /* Création des DEUX lignes (une par camp), appelée par les DEUX chemins
+     d'inscription (voir Skins.ensureDefaults) : une seule définition, donc
+     aucune divergence possible entre `User.createOrUpdate` et `Auth.register`. */
+  ensureDefaults(userId) {
+    const ins = db.prepare("INSERT OR IGNORE INTO pion_style (user_id, camp, color, pattern) VALUES (?, ?, ?, ?)");
+    for (const c of DATA.PION_CAMPS) {
+      const d = DATA.PION_DEFAULTS[c.id];
+      ins.run(userId, c.id, d.color, d.pattern);
+    }
+  },
+  /* `{ light: { color, pattern }, dark: { color, pattern } }` — la forme est
+     TOUJOURS complète : un camp sans ligne (base d'avant la 010, ligne
+     supprimée à la main) retombe sur son défaut au lieu de manquer. */
+  get(userId) {
+    const out = {};
+    for (const c of DATA.PION_CAMPS) out[c.id] = { ...DATA.PION_DEFAULTS[c.id] };
+    const rows = db.prepare("SELECT camp, color, pattern FROM pion_style WHERE user_id = ?").all(userId);
+    for (const r of rows) if (out[r.camp]) out[r.camp] = { color: r.color, pattern: r.pattern };
+    return out;
+  },
+  set(userId, camp, color, pattern) {
+    db.prepare(`INSERT INTO pion_style (user_id, camp, color, pattern) VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id, camp) DO UPDATE SET color = excluded.color, pattern = excluded.pattern`)
+      .run(userId, camp, color, pattern);
+    return { ok: true, camp, style: { color, pattern } };
   },
 };
 
@@ -540,14 +673,16 @@ const Challenge = {
   },
   getByUser(userId) {
     return db.prepare(`
-      SELECT c.*, u1.pseudo as from_pseudo, u2.pseudo as to_pseudo, u1.elo as from_elo, u2.elo as to_elo
+      SELECT c.*, u1.pseudo as from_pseudo, u2.pseudo as to_pseudo, u1.elo as from_elo, u2.elo as to_elo,
+             u1.avatar as from_avatar, u2.avatar as to_avatar
       FROM challenges c JOIN users u1 ON c.from_id = u1.id JOIN users u2 ON c.to_id = u2.id
       WHERE c.to_id = ? AND c.status = 'pending' ORDER BY c.created_at DESC
     `).all(userId);
   },
   get(id) {
     return db.prepare(`
-      SELECT c.*, u1.pseudo as from_pseudo, u2.pseudo as to_pseudo, u1.elo as from_elo, u2.elo as to_elo
+      SELECT c.*, u1.pseudo as from_pseudo, u2.pseudo as to_pseudo, u1.elo as from_elo, u2.elo as to_elo,
+             u1.avatar as from_avatar, u2.avatar as to_avatar
       FROM challenges c JOIN users u1 ON c.from_id = u1.id JOIN users u2 ON c.to_id = u2.id
       WHERE c.id = ?
     `).get(id);
@@ -674,6 +809,6 @@ function safeParse(json) {
 
 module.exports = {
   db, now, applyInactivityDecay, INACTIVITY,
-  User, GameRecord, Tournament, Wallet, Chat, Skins, Challenge, GameSessionStore, Friend, FriendRequest,
+  User, GameRecord, Tournament, Wallet, Chat, Skins, PionStyle, Challenge, GameSessionStore, Friend, FriendRequest,
   Notification, TournamentMatch,
 };

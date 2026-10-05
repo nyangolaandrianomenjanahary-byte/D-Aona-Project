@@ -46,7 +46,7 @@ http://192.168.137.1:8080
 
 ### 3️⃣ Internet (depuis n'importe où dans le monde)
 ```
-https://reception-fleet-luis-psychological.trycloudflare.com
+https://omissions-screenshots-imagination-milan.trycloudflare.com
 ```
 Fonctionne même si vos amis ne sont **pas** sur votre réseau.
 ⚠️ Cette URL change à chaque redémarrage du tunnel — `LIEN_REMOTE.bat` affiche la nouvelle.

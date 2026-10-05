@@ -12,7 +12,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const WebSocket = require("ws");
 
-const { db, User, GameRecord, Tournament, Wallet, Chat, Skins, Challenge, GameSessionStore, Friend, FriendRequest, Notification, TournamentMatch, applyInactivityDecay } = require("./db");
+const { db, User, GameRecord, Tournament, Wallet, Chat, Skins, PionStyle, Challenge, GameSessionStore, Friend, FriendRequest, Notification, TournamentMatch, applyInactivityDecay } = require("./db");
 const { GameSession, computeEloDelta, legalMoves, checkWin, countPieces, initialGrid } = require("./game");
 const DATA = require("./data");
 const Auth = require("./auth");
@@ -34,6 +34,10 @@ const spectators = new Map();      // sessionId -> Set<userId> (spectateurs du m
 /* Délai de grâce avant abandon sur déconnexion : une coupure WebSocket
    (souvent un simple blip du tunnel) ne doit PAS compter comme un abandon immédiat. */
 const GRACE_MS = 20000;
+/* Plafond du fil « parties en direct » (vue publique, scope=all) : la page
+   Match n'affiche pas plus de matchs à la fois, la liste reste lisible et la
+   réponse bornée même si le serveur hébergeait des centaines de parties. */
+const LIVE_FEED_MAX = 60;
 const disconnectTimers = new Map(); // userId -> { timer, sessionId }
 const mmQueues = { blitz: [], rapide: [], pro: [] };
 const pendingMatches = new Map();  // key -> { p1, p2, p1Ready, p2Ready, format }
@@ -57,8 +61,14 @@ function sanitizeUser(u) {
     badge: badge ? { name: badge.name, icon: badge.icon, color: badge.color } : null };
 }
 
-/* ---------- Seed de la base ---------- */
+/* ---------- Seed de la base ----------
+   DÉSACTIVÉ PAR DÉFAUT. Le seed réécrivait 98 comptes de référence et 5 tournois
+   à CHAQUE démarrage : vider la base était donc sans effet, tout revenait au
+   redémarrage suivant. Réactivation explicite, pour une base de démonstration :
+   D_AONA_SEED=1 (sinon la base reste exactement dans l'état où elle est). */
+const SEED_ENABLED = process.env.D_AONA_SEED === "1";
 function seedDatabase() {
+  if (!SEED_ENABLED) return;
   // 1. Seed all reference users FIRST (so tournament registrations can find them)
   const seen = new Set();
   const allPlayers = [];
@@ -92,9 +102,14 @@ function tourneysForClient(userId) {
     return {
       id: String(t.id), name: t.name, game: t.game, format: t.format,
       entry: t.entry, maxPlayers: t.max_players, status: t.status,
-      minRank: t.min_rank, sponsor: t.sponsor,
+      sponsor: t.sponsor,
       startsInSec: t.status === "inscriptions" ? startsInSec : (t.status === "termine" ? -1 : startsInSec),
       registered: regs.map((r) => r.pseudo), registeredCount: regCount, isRegistered: isReg,
+      /* Les pseudos SEULS ne suffisent pas à l'interface : pour rendre un nom
+         cliquable il faut l'identifiant (un pseudo peut être modifié). On expose
+         donc la liste des inscrits avec id + pseudo + photo, en plus de la liste
+         de pseudos conservée pour la compatibilité des vues existantes. */
+      registeredUsers: regs.map((r) => ({ id: r.id, pseudo: r.pseudo, elo: r.elo, avatar: r.avatar || null })),
       results: t.results_json ? JSON.parse(t.results_json) : null,
     };
   });
@@ -121,6 +136,25 @@ function acceptFriendRequest(res, requestId, acceptingUser) {
   return respond(res, { ok: true, status: "accepted", friend: { id: sender.id, pseudo: sender.pseudo, elo: sender.elo } });
 }
 
+/* Elo courant d'un joueur, lu EN BASE (et non dans un état mémorisé) : `null` si
+   le joueur n'existe pas — c'est le cas du camp « IA », dont l'id vaut 0. */
+function readElo(userId) {
+  if (!userId) return null;
+  const row = db.prepare("SELECT elo FROM users WHERE id = ?").get(userId);
+  return row ? row.elo : null;
+}
+
+/* Charge utile UNIQUE du portefeuille poussée au client.
+   Un `wallet_update` qui ne portait que `balance` faisait écraser `bonusLock`
+   côté client avec `undefined` : « Solde disponible » (calculé `solde − bonus
+   verrouillé`) s'affichait alors « NaN Ar ». Une seule fabrique, donc plus
+   aucune émission partielle possible — c'est la donnée qui garantit l'affichage,
+   pas la discipline des appelants. */
+function walletPayload(userId) {
+  const b = Wallet.getBalance(userId) || {};
+  return { type: "wallet_update", balance: b.balance, bonusLock: b.bonus_lock };
+}
+
 function leaderboardForClient(userId) {
   return User.listAll().map((p, i) => {
     const rank = i + 1;
@@ -137,6 +171,12 @@ function leaderboardForClient(userId) {
 /* ---------- Static file serving ---------- */
 const MIME = { ".html":"text/html",".css":"text/css",".js":"application/javascript",
   ".json":"application/json",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",
+  /* Le visuel du partenaire est un WebP (`assets/ad/yas-nperf-2025.webp`) : sans
+     cette entrée il partait en `application/octet-stream` et l'image ne
+     s'affichait pas. Le type est déclaré pour ce qu'il est, plutôt que de
+     renommer le fichier en `.jpg` — un mensonge que le navigateur devrait
+     rattraper par reniflage. */
+  ".webp":"image/webp",
   ".svg":"image/svg+xml",".ico":"image/x-icon",".woff":"font/woff",".woff2":"font/woff2",".txt":"text/plain" };
 function serveStatic(req, res) {
   let urlPath = decodeURIComponent(new URL(req.url, "http://x").pathname);
@@ -227,7 +267,16 @@ function readBody(req, maxBytes = 64 * 1024) {
   });
 }
 function respond(res, obj, code = 200) {
-  res.writeHead(code, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+  /* `no-store` explicite : un classement ou un historique mis en cache par le
+     navigateur (ou par un proxy/CDN, le serveur pouvant être exposé derrière le
+     tunnel Cloudflare) afficherait un nouveau joueur en retard d'une visite —
+     exactement le symptôme « le classement ne se met pas à jour ». Une réponse
+     d'API ne doit jamais être servie depuis un cache. */
+  res.writeHead(code, {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "Access-Control-Allow-Origin": "*",
+  });
   res.end(JSON.stringify(obj));
 }
 
@@ -260,26 +309,29 @@ function handleRest(req, res, url, userId) {
       if (payload.__tooLarge) return respond(res, { error: "Requête trop volumineuse" }, 413);
       const r = await Auth.register({
         pseudo: payload.pseudo, password: payload.password,
-        province: payload.province, phone: payload.phone,
+        province: payload.province, phone: payload.phone, email: payload.email,
         userAgent: req.headers["user-agent"], ip: clientIp(req),
       });
       if (!r.ok) return respond(res, { error: r.error, missing: r.missing }, r.status);
+      /* Un nouveau compte entre dans le classement : les AUTRES clients doivent
+         l'apprendre sans recharger leur page. C'est le seul moyen pour que
+         « le nouveau joueur apparaît » autrement qu'au prochain rechargement —
+         la requête /api/leaderboard, elle, renvoie déjà tout le monde. */
+      broadcast({ type: "leaderboard_update" });
       return respond(res, { token: r.token, expiresAt: r.expiresAt, user: sanitizeUser(r.user) });
     }
 
-    /* Définition du mot de passe d'un compte créé AVANT cette refonte
-       (donc sans mot de passe). Voir SECURITE_AUTH.md : cette fenêtre doit
-       être fermée (D_AONA_ALLOW_LEGACY_CLAIM=0) avant l'argent réel. */
-    if (method === "POST" && pathname === "/api/auth/claim") {
+    /* Disponibilité d'un pseudo, AVANT création du compte.
+       L'écran d'inscription ne peut pas deviner l'état de la table `users` :
+       la courte liste de pseudos codée en dur dans le frontend divergeait des
+       98 comptes réellement en base, et l'inscription finissait en 409 « déjà
+       pris » — un refus que l'utilisateur ne voyait pas. Publique, donc
+       limitée en débit ; ne révèle que « libre / pris ». */
+    if (method === "GET" && pathname === "/api/auth/available") {
       if (isRateLimited(req, res)) return;
-      const payload = await readBody(req, 1024);
-      if (payload.__tooLarge) return respond(res, { error: "Requête trop volumineuse" }, 413);
-      const r = await Auth.claim({
-        pseudo: payload.pseudo, password: payload.password,
-        userAgent: req.headers["user-agent"], ip: clientIp(req),
-      });
-      if (!r.ok) return respond(res, { error: r.error, missing: r.missing }, r.status);
-      return respond(res, { token: r.token, expiresAt: r.expiresAt, user: sanitizeUser(r.user) });
+      const pseudo = Auth.normalizePseudo(url.searchParams.get("pseudo") || "");
+      if (!Auth.isValidPseudo(pseudo)) return respond(res, { pseudo, valid: false, available: false });
+      return respond(res, { pseudo, valid: true, available: !User.getByPseudo(pseudo) });
     }
 
     /* Déconnexion : révoque la session côté SERVEUR. Un simple effacement
@@ -328,10 +380,9 @@ function handleRest(req, res, url, userId) {
          « inscriptions » : on pouvait s'inscrire à un tournoi déjà commencé). */
       if (t.starts_at && new Date(t.starts_at).getTime() <= Date.now())
         return respond(res, { error: "Tournoi déjà commencé" }, 400);
-      const userRank = DATA.rankFor(user.elo);
-      const tRank = DATA.RANKS.find((r) => r.name === t.min_rank);
-      if (!tRank || DATA.RANKS.indexOf(userRank) < DATA.RANKS.indexOf(tRank))
-        return respond(res, { error: `Rang ${t.min_rank} requis` }, 403);
+      /* Le rang minimum (`tournaments.min_rank`) n'est PLUS une condition d'accès :
+         le système de rang a été retiré — tout compte vérifié peut s'inscrire.
+         La colonne reste en base (données historiques) mais n'est jamais lue. */
       const count = db.prepare("SELECT COUNT(*) as c FROM tournament_registrations WHERE tournament_id = ?").get(t.id).c;
       if (count >= t.max_players) return respond(res, { error: "Tournoi complet" }, 400);
       if (user.balance < t.entry) return respond(res, { error: `Solde insuffisant` }, 400);
@@ -343,7 +394,7 @@ function handleRest(req, res, url, userId) {
       }
       Wallet.spend(user.id, t.entry, `Mise entree - ${t.name}`);
       const bal = Wallet.getBalance(user.id);
-      sendUser(user.id, { type: "wallet_update", balance: bal.balance, bonusLock: bal.bonus_lock });
+      sendUser(user.id, walletPayload(user.id));
       Notification.create(user.id, "inscription", { text: `✅ Inscription confirmée au tournoi « ${t.name} »`, tournamentId: t.id, startsAt: t.starts_at });
       // Si le tournoi vient d'être complété → générer le bracket et notifier
       const newCount = db.prepare("SELECT COUNT(*) as c FROM tournament_registrations WHERE tournament_id = ?").get(t.id).c;
@@ -381,8 +432,61 @@ function handleRest(req, res, url, userId) {
     }
 
     // GET /api/skins
-    if (method === "GET" && pathname === "/api/skins")
-      return respond(res, { skins: DATA.SKINS_CATALOG, owned: Skins.listOwned(user.id), equipped: Skins.getEquipped(user.id) });
+    if (method === "GET" && pathname === "/api/skins") {
+      /* Apparence des pions : DEUX camps (les miens / ceux de l'adversaire), donc
+         deux apparences enregistrées et lues séparément. `colors` reste le
+         catalogue complet — chaque couleur porte son `group` (« clair » /
+         « sombre ») — et `camps` dit à quel camp chaque groupe s'applique : c'est
+         ce qui permet au client de n'offrir que les couleurs de la catégorie. */
+      const styles = PionStyle.get(user.id);
+      return respond(res, {
+        skins: DATA.SKINS_CATALOG,               // chaque skin porte son `type` (LIGHT/DARK) et son prix
+        owned: Skins.listOwned(user.id),
+        equipped: Skins.getEquipped(user.id),    // { pions_light, pions_dark, plateau, effet }
+        colors: DATA.PION_COLORS,
+        groups: DATA.PION_GROUPS,
+        patterns: DATA.PION_PATTERNS,
+        camps: DATA.PION_CAMPS,                  // light → mes pions, dark → ceux de l'adversaire
+        pionStyles: styles,                      // { light: {color,pattern}, dark: {…} }
+        /* Compatibilité : `pionStyle` reste l'apparence des pions DU JOUEUR (camp
+           `light`) — c'est exactement ce que portait l'ancienne ligne unique, et
+           les clients d'avant cette version ne lisent que ces deux champs. La
+           source de vérité est `pionStyles`. */
+        pionStyle: styles.light,
+      });
+    }
+
+    // POST /api/pion/style — couleur et motif d'un camp (deux choix indépendants)
+    if (method === "POST" && pathname === "/api/pion/style") {
+      const payload = await readBody(req);
+      /* Le camp est DÉCLARÉ par le client (`light` par défaut : les clients d'avant
+         cette version ne l'envoient pas) puis VÉRIFIÉ — jamais cru. */
+      const camp = (payload.camp === undefined || payload.camp === null || payload.camp === "")
+        ? DATA.PION_DEFAULT_CAMP
+        : String(payload.camp).toLowerCase();
+      /* Validation contre les CATALOGUES serveur : un identifiant absent est
+         refusé (400) et rien n'est écrit. C'est ce qui interdit d'enregistrer un
+         « skin » combiné ou une couleur inventée par un appel direct. */
+      if (!DATA.pionCamp(camp))
+        return respond(res, { error: "Camp de pions inconnu" }, 400);
+      if (!DATA.pionColor(payload.color))
+        return respond(res, { error: "Couleur de pion inconnue" }, 400);
+      if (!DATA.pionPattern(payload.pattern))
+        return respond(res, { error: "Motif de pion inconnu" }, 400);
+      /* ÉTANCHÉITÉ : la couleur doit appartenir au GROUPE du camp visé. Une
+         couleur sombre (« Noir », « Bleu marine »…) ne peut donc JAMAIS être
+         enregistrée pour les pions clairs, ni une couleur claire pour les sombres
+         — y compris par appel direct à l'API, sans passer par l'interface. */
+      if (!DATA.pionColorFitsCamp(payload.color, camp)) {
+        const c = DATA.pionColor(payload.color), k = DATA.pionCamp(camp);
+        return respond(res, {
+          error: `Couleur ${c.group === "clair" ? "claire" : "sombre"} : les ${k.label.toLowerCase()} n'acceptent que les couleurs ${k.group === "clair" ? "claires" : "sombres"}`,
+        }, 400);
+      }
+      PionStyle.set(user.id, camp, payload.color, payload.pattern);
+      const styles = PionStyle.get(user.id);
+      return respond(res, { ok: true, camp, pionStyles: styles, pionStyle: styles.light });
+    }
 
     // POST /api/skins/buy
     if (method === "POST" && pathname === "/api/skins/buy") {
@@ -394,6 +498,9 @@ function handleRest(req, res, url, userId) {
          répété) retirait le prix du solde sans rien apporter en plus. */
       if (Skins.listOwned(user.id).includes(sk.id))
         return respond(res, { error: "Skin deja possede" }, 400);
+      /* Chaque skin a son propre identifiant et son propre prix : acheter la
+         version claire n'attribue jamais la version sombre (et inversement) —
+         ce sont deux transactions distinctes, chacune débitée une fois. */
       if (sk.price && sk.price > 0) {
         if (user.balance < sk.price) return respond(res, { error: "Solde insuffisant" }, 400);
         Wallet.spend(user.id, sk.price, `Achat ${sk.name}`);
@@ -408,9 +515,19 @@ function handleRest(req, res, url, userId) {
       const payload = await readBody(req);
       const sk = DATA.SKINS_CATALOG.find((s) => s.id === payload.skinId);
       if (!sk) return respond(res, { error: "Skin introuvable" }, 404);
+      /* Le slot est DÉDUIT DU TYPE du skin (catalogue serveur) : un skin LIGHT
+         ne peut viser que les pions clairs, un skin DARK que les pions sombres.
+         `type`/`slot` envoyés par le client ne sont qu'une revendication : s'ils
+         contredisent le catalogue, l'équipement est refusé (400) — un appel
+         direct ne peut pas forcer un skin incompatible sur un camp. */
+      if (!DATA.skinSlotMatches(sk, payload.slot || payload.type))
+        return respond(res, { error: "Skin incompatible avec ce type de pion" }, 400);
+      const slot = DATA.skinSlot(sk);
+      if (!slot) return respond(res, { error: "Skin non equipable" }, 400);
       if (!Skins.listOwned(user.id).includes(sk.id)) return respond(res, { error: "Skin non possede" }, 403);
-      Skins.equip(user.id, sk.kind, sk.id);
-      return respond(res, { ok: true });
+      const r = Skins.equip(user.id, slot, sk.id);
+      if (!r.ok) return respond(res, { error: r.error }, 400);
+      return respond(res, { ok: true, slot, equipped: Skins.getEquipped(user.id) });
     }
 
     // GET /api/transactions
@@ -444,7 +561,23 @@ function handleRest(req, res, url, userId) {
         friends: friends.map((f) => ({ ...f, online: online.has(f.id) })),
         incoming: FriendRequest.incoming(user.id),
         outgoing: FriendRequest.outgoing(user.id),
+        /* Demandes arrivées DEPUIS la dernière ouverture de l'écran Amis : c'est
+           la seule source du badge de l'icône Amis (voir POST /api/friends/seen). */
+        newIncoming: FriendRequest.newIncoming(user.id),
+        /* Filigrane serveur (dernière demande reçue) : le client s'en sert pour
+           ignorer une réponse partie AVANT qu'il n'ait consulté l'écran — sans lui,
+           le badge se rallumait aussitôt après avoir été éteint. */
+        newSinceId: FriendRequest.incomingWatermark(user.id),
       });
+    }
+
+    // POST /api/friends/seen — « j'ai vu l'écran Amis » : le badge retombe à zéro
+    /* Le repère est persisté EN BASE (migration 007) et non dans le navigateur :
+       après un rechargement, le badge doit rester éteint — sinon il se rallumerait
+       à chaque visite, ce qui est précisément ce qu'on veut éviter. */
+    if (method === "POST" && pathname === "/api/friends/seen") {
+      const w = FriendRequest.markSeen(user.id);
+      return respond(res, { ok: true, newIncoming: 0, newSinceId: w.seen });
     }
 
     // POST /api/friends/request — envoyer une demande d'ami par pseudo
@@ -539,30 +672,69 @@ function handleRest(req, res, url, userId) {
 
     // GET /api/config
     if (method === "GET" && pathname === "/api/config")
-      return respond(res, { formats: DATA.FORMATS, ranks: DATA.RANKS, games: DATA.GAMES_CATALOG, provinces: DATA.PROVINCES, operators: DATA.OPERATORS });
+      return respond(res, { formats: DATA.FORMATS, games: DATA.GAMES_CATALOG, provinces: DATA.PROVINCES, operators: DATA.OPERATORS });
 
     // GET /api/games/history
     if (method === "GET" && pathname === "/api/games/history")
       return respond(res, { games: GameRecord.listForUser(user.id) });
 
-    // GET /api/games/live — parties en cours des connaissances (amis + contacts)
+    // GET /api/games/live — parties en cours (écran Match, onglet « En direct »).
+    //   ?scope=contacts (défaut) : uniquement les amis + contacts — c'est le
+    //      périmètre historique, celui qui protège la vie privée des joueurs.
+    //   ?scope=all : toutes les parties non-IA en cours (filtre « Toutes les
+    //      parties »). Les parties d'entraînement (mode « ai ») n'y figurent
+    //      jamais, et la liste est plafonnée : c'est un fil de découverte, pas
+    //      un export de l'activité du serveur.
     if (method === "GET" && pathname === "/api/games/live") {
+      const scope = url.searchParams.get("scope") === "all" ? "all" : "contacts";
       const known = new Set();
-      Friend.list(user.id).forEach((f) => known.add(f.id));
-      Chat.getContacts(user.id).forEach((c) => known.add(c.id));
+      if (scope === "contacts") {
+        Friend.list(user.id).forEach((f) => known.add(f.id));
+        Chat.getContacts(user.id).forEach((c) => known.add(c.id));
+      }
       const live = [];
       for (const s of sessions.values()) {
         if (s.over || s.mode === "ai") continue;
         if (!s.player1.id || !s.player2 || !s.player2.id) continue;
-        if (!known.has(s.player1.id) && !known.has(s.player2.id)) continue;
+        if (scope === "contacts" && !known.has(s.player1.id) && !known.has(s.player2.id)) continue;
         live.push({
           sessionId: s.sessionId, mode: s.mode, format: s.format.id, wager: s.wager,
           player1: { id: s.player1.id, pseudo: s.player1.pseudo, elo: s.player1.elo },
           player2: { id: s.player2.id, pseudo: s.player2.pseudo, elo: s.player2.elo },
           moves: (s.moves || []).length, phase: s.phase,
+          /* Pions restants : la seule mesure de « score » que le serveur puisse
+             prouver (GameSession n'a pas de compteur de manches). Le fil ne
+             montre donc jamais un score inventé. */
+          pieces1: countPieces(s.grid, 1), pieces2: countPieces(s.grid, 2),
         });
+        if (live.length >= LIVE_FEED_MAX) break;
       }
-      return respond(res, { live });
+      return respond(res, { live, scope });
+    }
+
+    // GET /api/challenges — défis REÇUS (en attente) et ENVOYÉS (tous statuts).
+    // L'onglet « Défis » montre les deux colonnes ; le client n'avait jusqu'ici
+    // que les défis reçus (poussés par WebSocket).
+    if (method === "GET" && pathname === "/api/challenges") {
+      /* `createdAt` / `expiresAt` sont les seules sources du compte à rebours de
+         la carte de défi : le client ne fabrique aucune durée. Normalisées en
+         ISO-UTC, elles se parsent de la même façon dans tous les fuseaux. La
+         date SQLite brute n'est PAS exposée : « 2026-09-17 20:39:46 » se lirait
+         comme une heure locale côté navigateur. */
+      const strip = (c) => ({
+        id: c.id, wager: c.wager, format: c.format, status: c.status,
+        createdAt: toIsoUtc(c.created_at), expiresAt: toIsoUtc(c.expires_at),
+        /* Identifiants des DEUX camps : sans eux, l'interface ne peut pas ouvrir
+           le profil d'un joueur par son id (elle n'a que des pseudos, qui peuvent
+           être modifiés). */
+        fromId: c.from_id, toId: c.to_id,
+        fromPseudo: c.from_pseudo, fromElo: c.from_elo, fromAvatar: c.from_avatar || null,
+        toPseudo: c.to_pseudo, toElo: c.to_elo, toAvatar: c.to_avatar || null,
+      });
+      return respond(res, {
+        received: Challenge.getByUser(user.id).map(strip),
+        sent: Challenge.listSent(user.id).map(strip),
+      });
     }
 
     // POST /api/kyc/verify — persiste la vérification d'identité (la simulation
@@ -647,6 +819,9 @@ function handleRest(req, res, url, userId) {
           nextMatch: next ? {
             id: next.id, round: next.round, starts_at: next.starts_at,
             opponent: next.p1_id === user.id ? next.p2_pseudo : next.p1_pseudo,
+            /* Identifiant de l'adversaire : sans lui, aucun lien fiable vers son
+               profil (le pseudo n'est pas une clé). */
+            opponentId: next.p1_id === user.id ? next.p2_id : next.p1_id,
             status: next.status,
             confirmed: next.p1_id === user.id ? !!next.confirmed_p1 : !!next.confirmed_p2,
             confirm_deadline: next.confirm_deadline,
@@ -697,6 +872,29 @@ function handleRest(req, res, url, userId) {
   });
 }
 
+/* Les dates SQLite sortent en « YYYY-MM-DD HH:MM:SS » (UTC, sans suffixe).
+   `new Date("2026-09-17 12:34:56")` est interprété comme une heure LOCALE par
+   les navigateurs : le compte à rebours d'un défi serait décalé du fuseau.
+   On normalise donc en ISO-UTC avant l'envoi. Accepte aussi un timestamp ms
+   (ce que renvoie Challenge.create juste après l'insertion). */
+function toIsoUtc(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "number") return new Date(v).toISOString();
+  const s = String(v).trim();
+  if (/Z$|[+-]\d\d:?\d\d$/.test(s)) return s;
+  return new Date(s.replace(" ", "T") + "Z").toISOString();
+}
+
+/* Liste des défis en attente d'un joueur, prête pour le client : les dates sont
+   normalisées en ISO-UTC, exactement comme dans l'API REST — sinon le compte à
+   rebours de la carte de défi se décalerait du fuseau (SQLite renvoie des dates
+   « locales à l'œil » alors qu'elles sont en UTC). */
+function challengeFeed(userId) {
+  return Challenge.getByUser(userId).map((c) => ({
+    ...c, created_at: toIsoUtc(c.created_at), expires_at: toIsoUtc(c.expires_at),
+  }));
+}
+
 /* ---------- WebSocket handler ---------- */
 function handleWsMessage(ws, msg) {
   const conn = connections.get(ws);
@@ -717,7 +915,7 @@ function handleWsMessage(ws, msg) {
     if (pend) { clearTimeout(pend.timer); disconnectTimers.delete(user.id); }
     const curSession = findUserSession(user.id);
     if (curSession) dispatchGameState(curSession);
-    const challenges = Challenge.getByUser(user.id);
+    const challenges = challengeFeed(user.id);
     if (challenges.length) send(ws, { type: "challenges_update", challenges });
     return;
   }
@@ -864,8 +1062,12 @@ function handleWsMessage(ws, msg) {
       if (user.balance < wager) { send(ws, { type: "error", message: "Solde insuffisant" }); return; }
       Wallet.spend(user.id, wager, `Mise defi vs ${targetUser.pseudo}`);
       const ch = Challenge.create(user.id, targetUser.id, wager, msg.format);
+      /* Le solde affiché doit suivre le débit : sans cette poussée, la barre du
+         haut continuait d'annoncer l'ancien solde après un défi avec mise. */
+      send(ws, walletPayload(user.id));
       sendUser(targetUser.id, { type: "challenge_received", challenge: {
-        id: ch.id, from: user.pseudo, fromElo: user.elo, wager, format: msg.format, expiresAt: ch.expires_at
+        id: ch.id, from: user.pseudo, fromId: user.id, fromAvatar: user.avatar || null, fromElo: user.elo, wager, format: msg.format,
+        createdAt: toIsoUtc(Date.now()), expiresAt: toIsoUtc(ch.expires_at)
       }});
       send(ws, { type: "challenge_sent", challengeId: ch.id, to: targetUser.pseudo });
       break;
@@ -879,10 +1081,29 @@ function handleWsMessage(ws, msg) {
         if (!user.kyc) { send(ws, { type: "error", message: "KYC requis" }); return; }
         if (user.balance < ch.wager) { send(ws, { type: "error", message: "Solde insuffisant" }); return; }
         Wallet.spend(user.id, ch.wager, `Mise defi vs ${fromUser.pseudo}`);
+        /* Même règle que pour l'envoi : la mise engagée se voit tout de suite. */
+        send(ws, walletPayload(user.id));
       }
       Challenge.update(msg.challengeId, "accepted");
       createGameSession(fromUser.id, user.id, "defi", ch.format, ch.wager);
       sendUser(fromUser.id, { type: "challenge_accepted", challengeId: msg.challengeId });
+      break;
+    }
+    /* Annulation par l'EXPÉDITEUR (bouton « Annuler le défi » de l'onglet
+       Défis) : miroir exact du refus — la mise repart chez l'envoyeur, le défi
+       sort des « en attente », et le destinataire voit sa carte disparaître
+       sans avoir à recharger (même poussée que celle de la reconnexion). */
+    case "cancel_challenge": {
+      const ch = Challenge.get(msg.challengeId);
+      if (!ch || ch.status !== "pending" || ch.from_id !== user.id) return;
+      Challenge.update(msg.challengeId, "cancelled");
+      if (ch.wager > 0) {
+        Wallet.credit(ch.from_id, ch.wager, "Defi annule - remboursement");
+        send(ws, walletPayload(ch.from_id));
+      }
+      send(ws, { type: "challenge_status", challengeId: msg.challengeId, status: "cancelled" });
+      const targeted = challengeFeed(ch.to_id);
+      sendUser(ch.to_id, { type: "challenges_update", challenges: targeted });
       break;
     }
     case "reject_challenge": {
@@ -892,7 +1113,7 @@ function handleWsMessage(ws, msg) {
       // Refund sender
       if (ch.wager > 0) {
         Wallet.credit(ch.from_id, ch.wager, "Defi refuse - remboursement");
-        sendUser(ch.from_id, { type: "wallet_update", balance: Wallet.getBalance(ch.from_id).balance });
+        sendUser(ch.from_id, walletPayload(ch.from_id));
       }
       sendUser(ch.from_id, { type: "challenge_status", challengeId: msg.challengeId, status: "rejected" });
       break;
@@ -939,6 +1160,14 @@ function createGameSession(p1Id, p2Id, mode, formatId, wager) {
     p2 = User.getById(p2Id);
   }
   const p1Obj = p1 || { id: 0, pseudo: "Spectateur", elo: 1000, region: "Madagascar" };
+  /* Apparences des pions des DEUX joueurs, posées sur les objets joueurs — comme le
+     reste du profil, et AVANT la construction de la session (l'état les publie dès
+     le premier `getState`). Le plateau se peint par propriétaire : sans l'apparence
+     de l'adversaire, le client n'aurait que la sienne et l'appliquerait aux pions
+     d'en face. L'IA (`id: 0`) n'a pas de compte : ses deux apparences sont celles de
+     `PION_DEFAULTS` (le pion Vato), jamais celles du joueur. */
+  p1Obj.pionStyles = PionStyle.get(p1Obj.id);
+  p2.pionStyles = p2.id ? PionStyle.get(p2.id) : { light: { ...DATA.PION_DEFAULTS.light }, dark: { ...DATA.PION_DEFAULTS.dark } };
   const gs = new GameSession(sessionId, p1Obj, p2, mode, format, wager);
   gs.gameRecordId = GameRecord.create(p1Obj.id, p2.id, mode, formatId, wager);
   sessions.set(sessionId, gs);
@@ -1002,18 +1231,37 @@ function handleGameEnd(session, winner, reason) {
 
   // Update user ELO
   const winnerId = winner === 1 ? session.player1.id : (isRealGame ? session.player2.id : null);
-  if (winner === 1) {
-    db.prepare("UPDATE users SET elo = elo + ?, wins = wins + 1 WHERE id = ?").run(deltas.delta1, session.player1.id);
-  } else {
-    db.prepare("UPDATE users SET elo = elo + ?, losses = losses + 1 WHERE id = ?").run(deltas.delta1, session.player1.id);
-  }
-  if (isRealGame) {
-    if (winner === 2) {
-      db.prepare("UPDATE users SET elo = elo + ?, wins = wins + 1 WHERE id = ?").run(deltas.delta2, session.player2.id);
+  /* Instantané AVANT/APRÈS (migration 006) : on lit l'Elo RÉELLEMENT en base juste
+     avant de l'écrire, et non celui mémorisé à l'ouverture de la session — un
+     joueur peut avoir enchaîné une autre partie entre-temps, et la décroissance
+     d'inactivité passe aussi par la base. L'interface pourra donc afficher
+     « 1120 → 1132 · +12 Elo » sans rien reconstituer. */
+  /* PARTIE CLASSÉE ou ENTRAÎNEMENT : seul le classé touche à l'Elo, aux victoires
+     et aux défaites. L'écran annonce « Entraînement — aucun impact Elo ni wallet »,
+     mais le camp du joueur était mis à jour SANS condition : une partie contre
+     l'IA faisait perdre 19 points d'Elo (constaté), ce qui contredisait le texte
+     affiché et faussait l'historique présenté comme ses vraies parties. */
+  const ranked = session.mode !== "ai";
+  const d1 = ranked ? deltas.delta1 : 0;
+  const d2 = ranked ? deltas.delta2 : 0;
+  const elo1Before = readElo(session.player1.id);
+  const elo2Before = isRealGame ? readElo(session.player2.id) : null;
+  if (ranked) {
+    if (winner === 1) {
+      db.prepare("UPDATE users SET elo = elo + ?, wins = wins + 1 WHERE id = ?").run(d1, session.player1.id);
     } else {
-      db.prepare("UPDATE users SET elo = elo + ?, losses = losses + 1 WHERE id = ?").run(deltas.delta2, session.player2.id);
+      db.prepare("UPDATE users SET elo = elo + ?, losses = losses + 1 WHERE id = ?").run(d1, session.player1.id);
     }
   }
+  if (isRealGame) {   // une partie réelle est toujours classée
+    if (winner === 2) {
+      db.prepare("UPDATE users SET elo = elo + ?, wins = wins + 1 WHERE id = ?").run(d2, session.player2.id);
+    } else {
+      db.prepare("UPDATE users SET elo = elo + ?, losses = losses + 1 WHERE id = ?").run(d2, session.player2.id);
+    }
+  }
+  const elo1After = elo1Before === null ? null : elo1Before + d1;
+  const elo2After = elo2Before === null ? null : elo2Before + d2;
 
   // Wager payout (defi mode)
   let gain = 0;
@@ -1029,8 +1277,15 @@ function handleGameEnd(session, winner, reason) {
 
   // Finish game record
   if (session.gameRecordId) {
-    GameRecord.finish(session.gameRecordId, winnerId, deltas.delta1, deltas.delta2, session.moves, reason);
+    GameRecord.finish(session.gameRecordId, winnerId, d1, d2, session.moves, reason, {
+      p1Before: elo1Before, p1After: elo1After, p2Before: elo2Before, p2After: elo2After,
+    });
   }
+  /* L'Elo a changé : les classements affichés ailleurs (onglet Classement,
+     accueil, profils) doivent suivre SANS rechargement. On ne diffuse que si un
+     Elo a réellement bougé — inutile de réveiller tous les clients pour une
+     partie qui n'a rien changé. */
+  if (d1 || (isRealGame && d2)) broadcast({ type: "leaderboard_update" });
   // Finish game session
   GameSessionStore.setStatus(session.sessionId, "finished", session.moves, winnerId);
 
@@ -1049,24 +1304,26 @@ function handleGameEnd(session, winner, reason) {
   }
 
   // Send results
+  /* Le delta ANNONCÉ est celui réellement enregistré (0 en entraînement) : le
+     joueur ne peut pas lire un gain d'Elo que la base n'a pas appliqué. */
   const result1 = {
     winner, reason, mode: session.mode, format: session.format, moves: session.moves.length,
     opponent: session.player2.pseudo, meLeft: p1Left, oppLeft: p2Left,
-    delta: deltas.delta1, gain: winner === 1 ? gain : 0,
+    delta: d1, gain: winner === 1 ? gain : 0,
   };
   if (session.player1.id !== 0) sendUser(session.player1.id, { type: "game_end", sessionId: session.sessionId, result: result1 });
   if (isRealGame && session.player2.id !== 0) {
-    const result2 = { ...result1, opponent: session.player1.pseudo, delta: deltas.delta2,
+    const result2 = { ...result1, opponent: session.player1.pseudo, delta: d2,
       meLeft: p2Left, oppLeft: p1Left, gain: winner === 2 ? gain : 0 };
     sendUser(session.player2.id, { type: "game_end", sessionId: session.sessionId, result: result2 });
   }
 
   // Update wallet for players
   const bal1 = Wallet.getBalance(session.player1.id);
-  if (bal1) sendUser(session.player1.id, { type: "wallet_update", balance: bal1.balance, bonusLock: bal1.bonus_lock });
+  if (bal1) sendUser(session.player1.id, walletPayload(session.player1.id));
   if (isRealGame && session.player2.id !== 0) {
     const bal2 = Wallet.getBalance(session.player2.id);
-    if (bal2) sendUser(session.player2.id, { type: "wallet_update", balance: bal2.balance, bonusLock: bal2.bonus_lock });
+    if (bal2) sendUser(session.player2.id, walletPayload(session.player2.id));
   }
 
   // Notifier les spectateurs de la fin du match
@@ -1305,7 +1562,7 @@ function gameLoop() {
     sendUser(c.from_id, { type: "challenge_status", challengeId: c.id, status: "expired" });
     if (c.wager > 0) {
       Wallet.credit(c.from_id, c.wager, "Defi expire - remboursement");
-      sendUser(c.from_id, { type: "wallet_update", balance: Wallet.getBalance(c.from_id).balance });
+      sendUser(c.from_id, walletPayload(c.from_id));
     }
   }
   // Auto-matchmake
@@ -1324,6 +1581,16 @@ function gameLoop() {
 function handleDisconnect(ws) {
   const conn = connections.get(ws);
   if (!conn) return;
+  /* Fermeture d'une socket DÉJÀ REMPLACÉE (rechargement de page, reconnexion) :
+     le joueur est toujours en ligne par sa nouvelle socket. Sans cette garde, la
+     fermeture tardive le sortait de la file d'attente et programmait un abandon
+     de la partie en cours — une partie qu'il était justement en train de jouer.
+     On se contente donc de retirer cette socket-là. */
+  const current = userSockets.get(conn.userId);
+  if (current && current !== ws && current.readyState === WebSocket.OPEN) {
+    connections.delete(ws);
+    return;
+  }
   for (const fmt of Object.keys(mmQueues)) mmQueues[fmt] = mmQueues[fmt].filter((e) => e.userId !== conn.userId);
   // Déconnexion ≠ abandon immédiat : laisser un délai de grâce pour la reconnexion.
   if (!disconnectTimers.has(conn.userId)) {
@@ -1344,7 +1611,13 @@ function handleDisconnect(ws) {
       }
     }
   }
-  userSockets.delete(conn.userId);
+  /* On ne retire l'entrée QUE si elle désigne ENCORE cette socket.
+     Un rechargement de page (ou une reconnexion) ouvre la NOUVELLE socket avant
+     que l'ancienne ne signale sa fermeture : la suppression inconditionnelle
+     effaçait l'entrée de la socket FRAÎCHE, et le joueur cessait alors
+     silencieusement de recevoir toutes les poussées (badge d'amis, classement,
+     état de partie) alors que son client se croyait connecté. */
+  if (userSockets.get(conn.userId) === ws) userSockets.delete(conn.userId);
   connections.delete(ws);
   // Retirer l'utilisateur des spectates en cours
   for (const [sid, set] of spectators) {

@@ -46,7 +46,7 @@ tokens.set(token, u.id);                 // session en mémoire vive
 | `POST /api/auth/login` | Connexion (compte existant) | Oui |
 | `POST /api/auth` | Alias historique de `login` — **exige un mot de passe** | Oui |
 | `POST /api/auth/register` | Création de compte | Oui |
-| `POST /api/auth/claim` | Définir le mot de passe d'un compte **hérité** | Oui |
+| `GET /api/auth/available` | Le pseudo est-il libre ? (réponse : `valid` / `available`) | Oui |
 | `POST /api/auth/logout` | Révoquer la session courante | — |
 | `POST /api/auth/password` | Changer de mot de passe (session requise) | Oui |
 ---
@@ -63,14 +63,16 @@ conformément à la règle « toute décision non confirmée doit être signalé
    un serveur de base à côté de l'application et cassé le mode hôte.
    Le choix du moteur reste ouvert : il conditionne tout le schéma.
 
-2. **Fenêtre de réclamation des comptes hérités activée par défaut.**
-   Les 96 comptes existants n'ont aucun mot de passe. Sans dispositif dédié,
-   leurs propriétaires seraient définitivement bloqués. `POST /api/auth/claim`
-   leur permet d'en définir un une seule fois.
-   ⚠️ **Risque assumé : le premier arrivé peut réclamer un compte hérité.**
-   C'est le dernier point faible connu. À fermer avec
-   `D_AONA_ALLOW_LEGACY_CLAIM=0` **avant** toute mise en service avec de
-   l'argent réel, une fois les comptes légitimes migrés.
+2. ~~**Fenêtre de réclamation des comptes hérités.**~~ **RETIRÉE.**
+   Elle existait pour les 96 comptes sans mot de passe créés avant la refonte
+   (`POST /api/auth/claim`, activée par défaut). Elle constituait le dernier
+   point faible connu : le premier arrivé pouvait réclamer un compte hérité en
+   connaissant seulement son pseudo.
+   La base ayant été **vidée** (et le seed ne la repeuplant plus, voir
+   `D_AONA_SEED`), plus aucun compte hérité n'existe : le parcours, sa route et
+   sa variable d'environnement ont été supprimés. Si des comptes hérités
+   devaient réapparaître (restauration d'une ancienne sauvegarde), il faudrait
+   les migrer — pas rouvrir une route de réclamation.
 
 3. **`D_AONA_TRUST_PROXY` désactivé par défaut.**
    Derrière le tunnel Cloudflare, l'IP réelle n'est pas celle du socket. Mais
@@ -186,8 +188,8 @@ Aucune commande destructive (`DROP`, `TRUNCATE`, suppression massive) ne doit
 
 Dans l'ordre recommandé :
 
-1. **Fermer la fenêtre de réclamation** (`D_AONA_ALLOW_LEGACY_CLAIM=0`) une
-   fois les comptes légitimes migrés.
+1. ~~**Fermer la fenêtre de réclamation** (`D_AONA_ALLOW_LEGACY_CLAIM=0`) une
+   fois les comptes légitimes migrés.~~ **Fait** : parcours et route supprimés.
 2. **Rôles et back-office** : introduire `users.role`, porter `ADMIN_DEMO`
    sur de vraies données.
 3. **Décider du moteur de base** (SQLite durci ou PostgreSQL) — cela

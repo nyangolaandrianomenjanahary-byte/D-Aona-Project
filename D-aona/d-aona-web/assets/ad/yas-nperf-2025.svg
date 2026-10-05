@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Visuel de SECOURS de la bannière partenaire du Profil (emplacement « Publicité »
+  de `adBannerHtml()`, fichier index.html).
+
+  Le visuel OFFICIEL est `yas-nperf-2025.jpg` : c'est lui que la page demande en
+  premier. Comme ce JPEG est aujourd'hui la rasterisation de CE fichier
+  (cf. _pub_rasteriser.js), c'est bien ce SVG qu'il faut retoucher. Le SVG n'est
+  servi directement qu'en repli `onerror`, si le JPEG vient à manquer, pour que
+  l'emplacement n'affiche jamais d'image cassée. Il reprend la composition de
+  l'annonce (fond jaune, tache bleue + logo yas, titre, logo nPerf, médaille nPerf
+  Awards 2025, www.yas.mg) ; la PHOTO du groupe est remplacée par une ILLUSTRATION
+  équivalente (six personnes attablées devant un téléphone, terrasse de café).
+  Écraser le JPEG publie la vraie photo, sans toucher au code.
+
+  Autonome : aucune ressource externe (police, image) — un SVG chargé par <img>
+  n'y aurait pas accès. Échelle : 2 304 × 864 (rapport 2,67:1), la taille de
+  l'annonce d'origine.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2304 864" width="2304" height="864">
+  <title>Yas, élu meilleur réseau mobile de Madagascar avec le trophée nPerf 2025</title>
+  <defs>
+    <!-- Flou de profondeur de champ : la terrasse est nette, l'arrière-plan non. -->
+    <filter id="flou" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+    <!-- Flou léger : les parasols doivent rester lisibles sous le groupe. -->
+    <filter id="flouLeger" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+    <linearGradient id="bois" x1="0" y1="0" x2="0.15" y2="1">
+      <stop offset="0" stop-color="#E0AE63"/>
+      <stop offset="0.45" stop-color="#C08536"/>
+      <stop offset="1" stop-color="#7A4C1E"/>
+    </linearGradient>
+    <linearGradient id="boisProche" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#A96B26"/>
+      <stop offset="1" stop-color="#5F3A14"/>
+    </linearGradient>
+    <linearGradient id="verdure" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#9CBE63"/>
+      <stop offset="0.6" stop-color="#79A146"/>
+      <stop offset="1" stop-color="#5C8433"/>
+    </linearGradient>
+    <linearGradient id="facade" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#C9703C"/>
+      <stop offset="1" stop-color="#9C4E27"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ===================================================================
+       1. LA SCÈNE (zone photo de l'annonce) : terrasse de café.
+          Dessinée sur toute la toile ; le champ jaune et la tache bleue la
+          recouvrent ensuite à gauche et en haut à droite. Les aplats
+          débordent de 40 px pour que le flou ne laisse pas de liseré.
+       =================================================================== -->
+  <g>
+    <!-- Arrière-plan flou : végétation, parasols, façade du commerce. -->
+    <g filter="url(#flou)">
+      <rect x="-120" y="-120" width="2544" height="680" fill="url(#verdure)"/>
+      <!-- feuillages : verts plus contrastés, pour que la terrasse ait de la profondeur -->
+      <circle cx="880" cy="70" r="150" fill="#4F7A2A" opacity="0.85"/>
+      <circle cx="1210" cy="140" r="130" fill="#9DBF62" opacity="0.8"/>
+      <circle cx="1520" cy="90" r="120" fill="#6E9A3F" opacity="0.75"/>
+      <circle cx="700" cy="240" r="150" fill="#3F6620" opacity="0.45"/>
+      <circle cx="300" cy="150" r="110" fill="#A9C878" opacity="0.45"/>
+      <!-- façade du café (à droite, derrière le groupe) -->
+      <rect x="1560" y="-40" width="784" height="470" fill="url(#facade)"/>
+      <rect x="1900" y="40" width="380" height="250" rx="20" fill="#E7DAB6" opacity="0.9"/>
+      <rect x="1960" y="110" width="260" height="24" rx="12" fill="#7FA84E" opacity="0.75"/>
+      <rect x="1980" y="160" width="220" height="20" rx="10" fill="#A8894F" opacity="0.6"/>
+      <!-- bandeau sombre sous la façade -->
+      <rect x="1560" y="330" width="784" height="200" fill="#33512C" opacity="0.9"/>
+    </g>
+    <!-- Parasols de la terrasse : flou LÉGER, ce sont eux qui situent la scène. -->
+    <g filter="url(#flouLeger)">
+      <path d="M980,36a304,172 0 0 1 608,0z" fill="#F7D94E"/>
+      <path d="M600,152a268,152 0 0 1 536,0z" fill="#F2CE33"/>
+      <path d="M1160,222a236,132 0 0 1 472,0z" fill="#E4B824"/>
+      <path d="M980,36a304,172 0 0 1 608,0" fill="none" stroke="#D8B410" stroke-width="6" opacity="0.45"/>
+      <path d="M600,152a268,152 0 0 1 536,0" fill="none" stroke="#C79E15" stroke-width="6" opacity="0.5"/>
+      <path d="M1160,222a236,132 0 0 1 472,0" fill="none" stroke="#C79E15" stroke-width="6" opacity="0.5"/>
+    </g>
+
+    <!-- Table de bois : surface (le groupe s'y accoude). -->
+    <path d="M900,540L2304,468L2304,864L520,864z" fill="url(#bois)"/>
+    <!-- Rainures des planches, en perspective. -->
+    <g stroke="#6B4218" stroke-opacity="0.32" stroke-width="4" fill="none">
+      <path d="M1000,536L720,864"/>
+      <path d="M1130,530L950,864"/>
+      <path d="M1260,524L1130,864"/>
+      <path d="M1390,518L1330,864"/>
+      <path d="M1520,512L1520,864"/>
+      <path d="M1650,506L1720,864"/>
+      <path d="M1780,500L1910,864"/>
+      <path d="M2040,488L2300,864"/>
+    </g>
+    <!-- Arête lointaine de la table (celle qui coupe les personnes) : filet clair
+         puis ombre portée, ce qui donne son épaisseur au plateau. -->
+    <path d="M900,540L2304,468" stroke="#F0CE96" stroke-opacity="0.7" stroke-width="8" fill="none"/>
+    <path d="M900,554L2304,482" stroke="#6B4218" stroke-opacity="0.22" stroke-width="16" fill="none"/>
+  </g>
+  <!-- ===================================================================
+       2. LE GROUPE attablé devant un téléphone (la photo de l'annonce).
+          Sept figures : deux femmes à gauche, deux hommes derrière, l'homme
+          au téléphone au centre, deux femmes à droite. Silhouettes plates
+          volontairement SOBRES — c'est un visuel de remplacement, pas la
+          photo du partenaire (voir l'en-tête du fichier).
+          Gabarit d'une figure, en coordonnées locales (0,0 = centre du
+          visage) : torse jusqu'à y=420 pour passer SOUS l'arête de la table.
+       =================================================================== -->
+  <g>
+    <!-- Rangée du fond : les deux hommes, puis la femme de droite. -->
+    <g transform="translate(1290,150) scale(1.12)">
+      <path d="M-84,420C-84,150 -44,44 0,44C44,44 84,150 84,420Z" fill="#D8912A" stroke="#00000020" stroke-width="3"/>
+      <circle cx="0" cy="-4" r="50" fill="#241812"/>
+      <circle cx="0" cy="8" r="40" fill="#A9703F"/>
+    </g>
+    <g transform="translate(1500,186) scale(1.05)">
+      <path d="M-84,420C-84,150 -44,44 0,44C44,44 84,150 84,420Z" fill="#DCD9D1" stroke="#00000020" stroke-width="3"/>
+      <circle cx="0" cy="-4" r="49" fill="#1E1410"/>
+      <circle cx="0" cy="8" r="39" fill="#9E6435"/>
+    </g>
+    <g transform="translate(1880,162) scale(1)">
+      <ellipse cx="0" cy="42" rx="62" ry="86" fill="#241812"/>
+      <path d="M-84,420C-84,150 -44,44 0,44C44,44 84,150 84,420Z" fill="#5C7FA8" stroke="#00000020" stroke-width="3"/>
+      <circle cx="0" cy="-4" r="50" fill="#241812"/>
+      <circle cx="0" cy="8" r="40" fill="#C68B55"/>
+    </g>
+
+    <!-- Rangée de devant, la plus proche de la table. -->
+    <g transform="translate(1105,312) scale(1)">
+      <ellipse cx="0" cy="42" rx="62" ry="86" fill="#1B1310"/>
+      <path d="M-84,420C-84,150 -44,44 0,44C44,44 84,150 84,420Z" fill="#2B3550" stroke="#00000020" stroke-width="3"/>
+      <circle cx="0" cy="-4" r="50" fill="#1B1310"/>
+      <circle cx="0" cy="8" r="40" fill="#C68B55"/>
+    </g>
+    <g transform="translate(1250,294) scale(1)">
+      <ellipse cx="0" cy="42" rx="64" ry="90" fill="#241812"/>
+      <path d="M-84,420C-84,150 -44,44 0,44C44,44 84,150 84,420Z" fill="#4E6D9B" stroke="#00000020" stroke-width="3"/>
+      <circle cx="0" cy="-4" r="50" fill="#241812"/>
+      <circle cx="0" cy="8" r="40" fill="#C98F5C"/>
+    </g>
+    <g transform="translate(1420,320) scale(1.02)">
+      <path d="M-84,420C-84,150 -44,44 0,44C44,44 84,150 84,420Z" fill="#8E2F4F" stroke="#00000020" stroke-width="3"/>
+      <circle cx="0" cy="-4" r="48" fill="#1C1209"/>
+      <circle cx="0" cy="8" r="39" fill="#8E5A2E"/>
+    </g>
+    <g transform="translate(1680,270) scale(1.08)">
+      <ellipse cx="0" cy="42" rx="62" ry="88" fill="#2A1A12"/>
+      <path d="M-84,420C-84,150 -44,44 0,44C44,44 84,150 84,420Z" fill="#7FA3CC" stroke="#00000020" stroke-width="3"/>
+      <circle cx="0" cy="-4" r="50" fill="#2A1A12"/>
+      <circle cx="0" cy="8" r="40" fill="#C68B55"/>
+    </g>
+  </g>
+
+  <!-- ===================================================================
+       3. PREMIER PLAN : arête de la table qui coupe les personnes, puis le
+          téléphone (tenu, donc au-dessus de la table et devant tout le reste).
+       =================================================================== -->
+  <path d="M470,660L2304,556L2304,864L300,864z" fill="url(#boisProche)"/>
+  <g stroke="#5E3A12" stroke-opacity="0.35" stroke-width="4" fill="none">
+    <path d="M760,640L700,864"/>
+    <path d="M1120,618L1180,864"/>
+    <path d="M1500,596L1700,864"/>
+    <path d="M1900,572L2220,864"/>
+  </g>
+  <path d="M470,660L2304,556" stroke="#EFC891" stroke-opacity="0.7" stroke-width="9" fill="none"/>
+
+  <!-- Le téléphone : main gauche derrière, appareil, main droite devant. -->
+  <ellipse cx="1372" cy="566" rx="28" ry="21" fill="#8E5A2E"/>
+  <g transform="translate(1410,556) rotate(-9)">
+    <rect x="-35" y="-54" width="70" height="108" rx="13" fill="#20242E"/>
+    <rect x="-29" y="-48" width="58" height="96" rx="9" fill="#35485F"/>
+    <rect x="-25" y="-44" width="50" height="48" rx="6" fill="#87B0DE" opacity="0.7"/>
+  </g>
+  <ellipse cx="1452" cy="592" rx="28" ry="21" fill="#8E5A2E"/>
+  <!-- ===================================================================
+       4. LA CHARTE DE L'ANNONCE : champ jaune, tache bleue et logo yas,
+          titre, logo nPerf, médaille nPerf Awards 2025, pictogramme 5G,
+          www.yas.mg. Teintes relevées sur le visuel partenaire.
+       =================================================================== -->
+  <!-- Champ jaune : bord droit courbe, avec le coin bas qui repart vers la
+       droite (la pointe qui porte la médaille). -->
+  <path d="M0,0H960C1050,150 1120,330 1010,470C940,560 1050,700 1150,864H0z" fill="#FFD200"/>
+
+  <!-- Tache bleue du coin supérieur droit (elle porte le logo yas). -->
+  <path d="M2304,0H1620C1500,90 1470,240 1600,350C1720,450 2000,470 2304,420z" fill="#0B2E6E"/>
+  <!-- Logo yas : triangle arrondi jaune obtenu par jointures rondes + « yas. » -->
+  <g transform="translate(0,0)">
+    <path d="M1950,243L2082,132L2200,300z" fill="#FFD200" stroke="#FFD200" stroke-width="52" stroke-linejoin="round"/>
+    <g transform="rotate(-8 2090,240)">
+      <text x="2004" y="284" font-family="Segoe UI, Roboto, Arial, Helvetica, sans-serif" font-size="92" font-weight="800" font-style="italic" letter-spacing="-4" fill="#12357F">yas.</text>
+    </g>
+  </g>
+
+  <!-- Titre et accroche (bleu de la charte, italique gras). -->
+  <g font-family="Segoe UI, Roboto, Arial, Helvetica, sans-serif" font-style="italic" fill="#12357F">
+    <text x="88" y="300" font-size="64" font-weight="800" letter-spacing="-1">Yas, élu meilleur réseau</text>
+    <text x="88" y="380" font-size="68" font-weight="800" letter-spacing="-1">mobile de Madagascar</text>
+    <text x="88" y="452" font-size="54" font-weight="700" fill="#4FADE8">avec le trophée nPerf</text>
+    <text x="88" y="722" font-size="40" font-weight="800" letter-spacing="-0.5">www.yas.mg</text>
+  </g>
+
+  <!-- Pictogramme 5G (coin supérieur gauche). -->
+  <g fill="none" stroke="#12357F" stroke-linecap="round">
+    <rect x="92" y="140" width="104" height="84" rx="18" stroke-width="7"/>
+    <path d="M170,140A26,26 0 0 0 196,114" stroke-width="7"/>
+    <path d="M150,140A46,46 0 0 0 196,94" stroke-width="7"/>
+  </g>
+  <text x="108" y="199" font-family="Segoe UI, Roboto, Arial, Helvetica, sans-serif" font-size="40" font-weight="800" fill="#12357F">5G</text>
+
+  <!-- Logo nPerf : cartouche blanche, marque verte, mot « perf ». -->
+  <rect x="88" y="486" width="344" height="90" rx="14" fill="#FFFFFF"/>
+  <path d="M124,552V522a14,14 0 0 1 14,-14h20a14,14 0 0 1 14,14v30" fill="none" stroke="#8CC63F" stroke-width="13" stroke-linecap="round"/>
+  <text x="186" y="556" font-family="Segoe UI, Roboto, Arial, Helvetica, sans-serif" font-size="54" font-weight="600" letter-spacing="-2" fill="#1A1A1A">perf</text>
+
+  <!-- Médaille « nPerf Awards 2025 » (No.1 mobile network performance). -->
+  <g>
+    <clipPath id="medaille"><circle cx="1148" cy="656" r="78"/></clipPath>
+    <circle cx="1148" cy="656" r="78" fill="#FFFFFF" stroke="#16233A" stroke-width="3"/>
+    <g clip-path="url(#medaille)">
+      <rect x="1070" y="694" width="156" height="42" fill="#B8933F"/>
+      <rect x="1070" y="692" width="156" height="4" fill="#FFFFFF"/>
+    </g>
+    <g fill="#16233A" font-family="Segoe UI, Roboto, Arial, Helvetica, sans-serif">
+      <!-- barres de signal -->
+      <g>
+        <rect x="1112" y="608" width="13" height="14" rx="2"/>
+        <rect x="1131" y="600" width="13" height="22" rx="2"/>
+        <rect x="1150" y="592" width="13" height="30" rx="2"/>
+        <rect x="1169" y="584" width="13" height="38" rx="2"/>
+      </g>
+      <text x="1148" y="650" font-size="28" font-weight="800" text-anchor="middle" letter-spacing="-1">No.1</text>
+      <text x="1148" y="668" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="0.4">MOBILE NETWORK</text>
+      <text x="1148" y="681" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="0.4">PERFORMANCE</text>
+      <text x="1148" y="693" font-size="13" font-weight="700" text-anchor="middle" letter-spacing="-0.3">nperf AWARDS</text>
+      <text x="1148" y="726" font-size="30" font-weight="700" text-anchor="middle" fill="#FFFFFF" letter-spacing="1">2025</text>
+    </g>
+  </g>
+</svg>
+

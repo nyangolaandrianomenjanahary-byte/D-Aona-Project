@@ -235,8 +235,17 @@ class GameSession {
       })),
       mode: this.mode,
       format: this.format,
-      player1: { id: this.player1.id, pseudo: this.player1.pseudo, elo: this.player1.elo },
-      player2: { id: this.player2.id, pseudo: this.player2.pseudo, elo: this.player2.elo },
+      /* `pionStyles` = l'apparence des pions DU compte, une par camp. Elle voyage avec
+         l'état parce que le plateau se peint par PROPRIÉTAIRE : sans elle, le client
+         n'aurait que la sienne et l'appliquerait aussi aux pions de l'adversaire
+         (c'était le cas). `game.js` ne lit pas la base — les apparences sont posées
+         sur les objets joueurs par `createGameSession` (server.js), avec le reste du
+         profil. `null` (IA sans compte, état d'avant la mise à jour) ⇒ le client
+         retombe sur le pion Vato du camp, jamais sur l'apparence de l'autre joueur. */
+      player1: { id: this.player1.id, pseudo: this.player1.pseudo, elo: this.player1.elo,
+                 pionStyles: this.player1.pionStyles || null },
+      player2: { id: this.player2.id, pseudo: this.player2.pseudo, elo: this.player2.elo,
+                 pionStyles: this.player2.pionStyles || null },
       opponent: this.phase === "choose" ? this.player2 : (this.turn === 1 ? this.player2 : this.player1),
       wage: this.wager,
     };

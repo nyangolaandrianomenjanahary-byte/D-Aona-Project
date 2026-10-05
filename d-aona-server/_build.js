@@ -2,7 +2,7 @@
 "use strict";
 const fs = require("node:fs");
 const PARTS = ["_p1.js", "_p2.js", "_p3.js", "_p4.js", "_p5.js", "_p6.js",
-               "_p7.js", "_p8.js", "_p9.js", "_p10.js", "_p11.js", "_p12.js"];
+               "_p7.js", "_p8.js", "_p9.js", "_p10.js", "_p11.js", "_p12.js", "_p13.js", "_p14.js"];
 const out = [];
 for (const p of PARTS) {
   if (!fs.existsSync(p)) throw new Error("morceau manquant : " + p);

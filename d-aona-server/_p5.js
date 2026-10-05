@@ -3,7 +3,8 @@
    ========================================================================= */
 const ROUTES = [
   ["home", "Accueil"], ["play", "Jeux"], ["match", "Matchs"], ["ranks", "Classement"],
-  ["wallet", "Wallet"], ["profile", "Profil"], ["friends", "Amis"], ["chat", "Messagerie"],
+  ["wallet", "Wallet"], ["profile", "Profil"], ["skins", "Boutique de skins"],
+  ["friends", "Amis"], ["chat", "Messagerie"],
   ["notifications", "Notifications"], ["tournament", "Tournois"],
 ];
 async function s2_nav(browser) {

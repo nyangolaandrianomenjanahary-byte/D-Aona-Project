@@ -196,21 +196,38 @@ async function phaseFonctionnel() {
   catch (e) { blocked = /ajout seul/i.test(e.message); }
   check("une modification du journal est REFUSEE par la base", blocked);
 
-  section("8. Compte herite (cree avant la refonte) -> reclamation");
+  section("8. Compte herite : parcours de reclamation SUPPRIME");
   const legacyPseudo = PREFIX + "Herite";
   db.prepare("INSERT INTO users (pseudo, elo, balance) VALUES (?, 1100, 5000)").run(legacyPseudo);
   const beforeLogin = await api("/api/auth/login", { method: "POST", body: { pseudo: legacyPseudo, password: PWD_OK } });
   check("un compte herite ne peut pas se connecter sans mot de passe", beforeLogin.status === 401, `code ${beforeLogin.status}`);
+  /* La route supprimée ne doit RIEN créer, quel que soit l'état de la session.
+     Sans session, la requête tombe sur le garde « Non authentifié » (401) ;
+     avec session, sur la 404 générale : dans les deux cas aucun mot de passe
+     n'est écrit et aucun jeton n'est délivré. */
+  const claimGone = await api("/api/auth/claim", { method: "POST", body: { pseudo: legacyPseudo, password: PWD_OK } });
+  check("reclamation sans session : rien n'est cree (aucun jeton)",
+    claimGone.status !== 200 && !(claimGone.json && claimGone.json.token), `code ${claimGone.status}`);
+  const claimGoneAuth = await api("/api/auth/claim", { method: "POST", body: { pseudo: legacyPseudo, password: PWD_OK }, token: token1 });
+  check("route de reclamation supprimee -> 404 pour un compte connecte", claimGoneAuth.status === 404, `code ${claimGoneAuth.status}`);
+  const stillNoPwd = await api("/api/auth/login", { method: "POST", body: { pseudo: legacyPseudo, password: PWD_OK } });
+  check("le compte herite n'a toujours aucun mot de passe (impossible a reclamer)", stillNoPwd.status === 401, `code ${stillNoPwd.status}`);
 
-  const claimed = await api("/api/auth/claim", { method: "POST", body: { pseudo: legacyPseudo, password: PWD_OK } });
-  check("reclamation -> 200 + jeton", claimed.status === 200 && !!claimed.json.token, `code ${claimed.status}`);
-  const claimAgain = await api("/api/auth/claim", { method: "POST", body: { pseudo: legacyPseudo, password: PWD_OK } });
-  check("une seconde reclamation est refusee -> 409", claimAgain.status === 409, `code ${claimAgain.status}`);
-  const claimUnknown = await api("/api/auth/claim", { method: "POST", body: { pseudo: PREFIX + "JamaisVu", password: PWD_OK } });
-  check("reclamation d'un pseudo inconnu : reponse identique (pas d'enumeration)",
-    claimUnknown.status === 409 && claimUnknown.json.error === claimAgain.json.error);
-  const afterClaim = await api("/api/auth/login", { method: "POST", body: { pseudo: legacyPseudo, password: PWD_OK } });
-  check("le compte herite reclame peut desormais se connecter", afterClaim.status === 200, `code ${afterClaim.status}`);
+  section("8b. Disponibilite du pseudo : lue dans la BASE, pas dans une liste");
+  const freePseudo = await api("/api/auth/available?pseudo=" + encodeURIComponent(PREFIX + "Libre"));
+  check("pseudo inconnu -> disponible", freePseudo.status === 200 && freePseudo.json.available === true, JSON.stringify(freePseudo.json));
+  const takenPseudo = await api("/api/auth/available?pseudo=" + encodeURIComponent(pseudo));
+  check("pseudo deja en base -> indisponible", takenPseudo.status === 200 && takenPseudo.json.available === false, JSON.stringify(takenPseudo.json));
+  const shortPseudo = await api("/api/auth/available?pseudo=ab");
+  check("pseudo trop court -> invalide", shortPseudo.status === 200 && shortPseudo.json.valid === false, JSON.stringify(shortPseudo.json));
+
+  section("8c. Unicite du telephone / email annoncee par l'interface");
+  const dblPhone = await api("/api/auth/register", { method: "POST",
+    body: { pseudo: PREFIX + "TelBis", password: PWD_OK, phone: "0340000000" } });
+  check("premier compte avec ce telephone -> 200", dblPhone.status === 200, `code ${dblPhone.status}`);
+  const dblPhone2 = await api("/api/auth/register", { method: "POST",
+    body: { pseudo: PREFIX + "TelTer", password: PWD_OK, phone: "0340000000" } });
+  check("meme telephone sur un autre compte -> 409", dblPhone2.status === 409, `code ${dblPhone2.status}`);
 
   section("9. WebSocket");
   const wsOk = await wsProbe(token1);

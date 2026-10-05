@@ -19,7 +19,7 @@
 
 const crypto = require("node:crypto");
 const argon2 = require("@node-rs/argon2");
-const { db, User } = require("./db");
+const { db, User, Skins } = require("./db");
 
 /* ---------- Paramètres de hachage -------------------------------------
    Argon2id est l'algorithme recommandé. `algorithm: 2` est explicite
@@ -313,30 +313,46 @@ function listSessions(userId) {
                      FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`).all(userId);
 }
 
-/* ---------- Réclamation des comptes hérités --------------------------
-   La base contient des comptes créés AVANT cette refonte : ils n'ont
-   aucun mot de passe. Sans dispositif dédié, leurs propriétaires ne
-   pourraient plus se connecter. `claim` leur permet de définir un mot de
-   passe une seule fois.
-
-   ️ Fenêtre de risque assumée : le premier arrivé peut réclamer un
-   compte hérité. À DÉSACTIVER (D_AONA_ALLOW_LEGACY_CLAIM=0) avant toute
-   mise en service avec de l'argent réel — c'est explicitement documenté
-   dans SECURITE_AUTH.md. */
-const ALLOW_LEGACY_CLAIM = process.env.D_AONA_ALLOW_LEGACY_CLAIM !== "0";
+/* ---------- Réclamation des comptes hérités : SUPPRIMÉE ---------------
+   Il existait ici un parcours « Définir mon mot de passe » (route
+   /api/auth/claim + D_AONA_ALLOW_LEGACY_CLAIM) réservé aux comptes créés avant
+   la refonte de sécurité, c'est-à-dire sans mot de passe en base. Fenêtre de
+   risque assumée : le premier arrivé pouvait réclamer n'importe quel compte
+   hérité en connaissant seulement son pseudo. Comme la base a été vidée (et
+   que le seed ne la repeuple plus), plus aucun compte hérité n'existe : le
+   dispositif, et son risque, ont été retirés — la fonctionnalité n'avait plus
+   d'objet. Voir SECURITE_AUTH.md. */
 
 /* Message unique : ne révèle jamais si un pseudo existe (anti-énumération). */
 const GENERIC_CREDENTIALS_ERROR = "Pseudo ou mot de passe incorrect.";
 
 /* ---------- Inscription ---------------------------------------------- */
-async function register({ pseudo, password, province = null, phone = null, userAgent = null, ip = null }) {
+async function register({ pseudo, password, province = null, phone = null, email = null, userAgent = null, ip = null }) {
   const p = normalizePseudo(pseudo);
   if (!isValidPseudo(p)) {
+    audit({ event: "register_fail", pseudo: p, ip, userAgent, detail: "pseudo invalide" });
     return { ok: false, status: 400, error: "Pseudo invalide : 3 à 14 caractères (lettres, chiffres, . _ -)." };
   }
   const check = validatePassword(password);
   if (!check.ok) return { ok: false, status: 400, error: check.error, missing: check.missing };
-  if (User.getByPseudo(p)) return { ok: false, status: 409, error: "Ce pseudo est déjà pris." };
+  /* Refus AUDITÉS. Sans cette trace, un échec d'inscription était
+     indiagnosticable : le journal ne consignait que les succès (et les échecs
+     de connexion), donc un refus 400/409 ne laissait AUCUNE trace serveur. */
+  if (User.getByPseudo(p)) {
+    audit({ event: "register_fail", pseudo: p, ip, userAgent, detail: "pseudo déjà pris" });
+    return { ok: false, status: 409, error: "Ce pseudo est déjà pris." };
+  }
+  /* « Compte unique par numéro / email » annoncé par l'interface : sans ce
+     contrôle, deux comptes pouvaient partager le même email ou le même numéro. */
+  const cleanEmail = email ? String(email).trim().slice(0, 120).toLowerCase() : null;
+  const cleanPhone = phone ? String(phone).slice(0, 24) : null;
+  const already = db.prepare(
+    "SELECT id FROM users WHERE (email <> '' AND email = ?) OR (phone <> '' AND phone = ?) LIMIT 1"
+  ).get(cleanEmail, cleanPhone);
+  if (already) {
+    audit({ event: "register_fail", userId: already.id, pseudo: p, ip, userAgent, detail: "email ou téléphone déjà utilisé" });
+    return { ok: false, status: 409, error: "Cet email ou ce numéro de téléphone est déjà utilisé par un compte." };
+  }
 
   // Le hachage (volontairement lent) est calculé AVANT la transaction :
   // une transaction SQLite ne doit pas rester ouverte pendant un calcul async.
@@ -345,47 +361,37 @@ async function register({ pseudo, password, province = null, phone = null, userA
   let userId = null;
   db.exec("BEGIN");
   try {
+    /* email est écrit ICI : la colonne existait dans le schéma mais aucune
+       requête ne l'alimentait, alors que l'écran d'inscription propose
+       « Email ou téléphone » — l'adresse saisie était silencieusement jetée. */
     const info = db.prepare(
-      "INSERT INTO users (pseudo, elo, balance, province, phone, last_seen) VALUES (?, 1100, 5000, ?, ?, ?)"
-    ).run(p, province ? String(province).slice(0, 40) : "Antananarivo", phone ? String(phone).slice(0, 24) : null, nowIso());
+      "INSERT INTO users (pseudo, elo, balance, province, phone, email, last_seen) VALUES (?, 1100, 5000, ?, ?, ?, ?)"
+    ).run(p, province ? String(province).slice(0, 40) : "Antananarivo", cleanPhone, cleanEmail, nowIso());
     userId = Number(info.lastInsertRowid);
-    db.prepare("INSERT OR IGNORE INTO equipped_skins (user_id, pions, plateau, effet) VALUES (?, 'pions-classique', NULL, NULL)").run(userId);
-    db.prepare("INSERT OR IGNORE INTO user_skins (user_id, skin_id) VALUES (?, 'pions-classique')").run(userId);
+    /* Skins gratuits + emplacements par défaut : une SEULE définition
+       (`Skins.ensureDefaults`), partagée avec `User.createOrUpdate` — sans
+       cela, les deux chemins d'inscription finissaient par diverger. */
+    Skins.ensureDefaults(userId);
     db.prepare(`INSERT INTO auth_credentials (user_id, password_hash, algo, password_changed_at, updated_at)
                 VALUES (?,?,?,?,?)`).run(userId, hash, ALGO_LABEL, nowIso(), nowIso());
     db.exec("COMMIT");
   } catch (err) {
     try { db.exec("ROLLBACK"); } catch (_) {}
-    // Course sur le pseudo : la contrainte UNIQUE de `users.pseudo` tranche.
-    if (/UNIQUE/i.test(err.message)) return { ok: false, status: 409, error: "Ce pseudo est déjà pris." };
+    /* Course en écriture : ce sont les index UNIQUE de la base qui tranchent
+       (le contrôle applicatif ci-dessus ne suffit pas si deux inscriptions
+       partent en même temps). Le message de SQLite nomme l'index en cause. */
+    if (/UNIQUE/i.test(err.message)) {
+      if (/idx_users_(phone|email)/i.test(err.message)) {
+        return { ok: false, status: 409, error: "Cet email ou ce numéro de téléphone est déjà utilisé par un compte." };
+      }
+      return { ok: false, status: 409, error: "Ce pseudo est déjà pris." };
+    }
     throw err;
   }
 
   const session = createSession(userId, { userAgent, ip });
   audit({ event: "register", userId, pseudo: p, sessionId: session.sessionId, ip, userAgent });
   return { ok: true, token: session.token, expiresAt: session.expiresAt, user: User.getById(userId), newUser: true };
-}
-
-/* ---------- Réclamation d'un compte hérité --------------------------- */
-async function claim({ pseudo, password, userAgent = null, ip = null }) {
-  if (!ALLOW_LEGACY_CLAIM) {
-    return { ok: false, status: 403, error: "La définition du mot de passe pour un compte ancien est désactivée." };
-  }
-  const p = normalizePseudo(pseudo);
-  const check = validatePassword(password);
-  if (!check.ok) return { ok: false, status: 400, error: check.error, missing: check.missing };
-
-  const user = User.getByPseudo(p);
-  // Même réponse que le compte existe ou non, et qu'il ait déjà un mot de passe
-  // ou non : impossible d'énumérer les comptes par cette route.
-  const failure = { ok: false, status: 409, error: "Pseudo inconnu, ou mot de passe déjà défini pour ce compte." };
-  if (!user) { audit({ event: "claim", pseudo: p, ip, userAgent, detail: "pseudo inconnu" }); return failure; }
-  if (hasPassword(user.id)) { audit({ event: "claim", userId: user.id, pseudo: p, ip, userAgent, detail: "mot de passe déjà défini" }); return failure; }
-
-  await setPasswordHash(user.id, password);
-  const session = createSession(user.id, { userAgent, ip });
-  audit({ event: "claim", userId: user.id, pseudo: p, sessionId: session.sessionId, ip, userAgent });
-  return { ok: true, token: session.token, expiresAt: session.expiresAt, user: User.getById(user.id) };
 }
 
 /* ---------- Connexion -------------------------------------------------
@@ -482,9 +488,9 @@ module.exports = {
   /* identifiants */
   getCredentials, hasPassword, setPasswordHash, isLocked, lockRemainingSeconds,
   /* flux */
-  register, login, claim, logout, changePassword,
+  register, login, logout, changePassword,
   /* audit + limitation */
   audit, rateLimit, RATE_MAX_ATTEMPTS, RATE_WINDOW_MS,
   /* divers */
-  ALLOW_LEGACY_CLAIM, GENERIC_CREDENTIALS_ERROR,
+  GENERIC_CREDENTIALS_ERROR,
 };

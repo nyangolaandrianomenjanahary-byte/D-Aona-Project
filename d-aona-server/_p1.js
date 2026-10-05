@@ -44,7 +44,16 @@ function snapshotDb() {
 function startServer(dbPath) {
   const child = spawn(process.execPath, ["server.js"], {
     cwd: __dirname,
-    env: { ...process.env, D_AONA_PORT: String(PORT), D_AONA_DB_PATH: dbPath },
+    env: {
+      ...process.env,
+      D_AONA_PORT: String(PORT),
+      D_AONA_DB_PATH: dbPath,
+      /* Le quota d'authentification n'est PAS ce que ces scénarios mesurent
+         (test_auth.js s'en charge, sur le serveur réel). Une campagne qui inscrit
+         une dizaine de comptes depuis la même IP finissait par se limiter
+         elle-même en 429, et l'échec se propageait à tout le scénario suivant. */
+      D_AONA_AUTH_RATE_MAX: process.env.D_AONA_AUTH_RATE_MAX || "400",
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.on("data", () => {});
@@ -78,7 +87,8 @@ function cleanup() {
    La base réelle ne contient que des tournois dont l'heure de début est déjà
    passée (leur statut reste pourtant « inscriptions »). Pour pouvoir tester
    l'inscription côté interface, on ajoute — sur la COPIE uniquement — un
-   tournoi réellement ouvert (début dans 30 minutes, rang Bronze, mise 1 000). */
+   tournoi réellement ouvert (début dans 30 minutes, mise 1 000 ; la colonne
+   `min_rank` garde une valeur historique mais ne conditionne plus rien). */
 const TID_UI = 9101;
 function prepareFixture(dbPath) {
   const d = new DatabaseSync(dbPath);
