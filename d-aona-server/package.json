@@ -2,9 +2,12 @@
   "name": "d-aona-server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "migrate": "node migrate.js",
+    "backup": "node backup_db.js",
+    "test": "node test_scenarios.js && node test_auth.js"
   },
   "keywords": [],
   "author": "",

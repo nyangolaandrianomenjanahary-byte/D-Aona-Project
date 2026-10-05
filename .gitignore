@@ -59,3 +59,8 @@ d-aona-server/_*.js
 !d-aona-server/_p[0-9]*.js
 d-aona-server/_*.err
 d-aona-server/test_ui_scenarios.fixed.js
+
+# Brouillons racine et artefacts d'outillage local (jamais du code de l'app)
+tasks/
+_graphify_ver.txt
+_tmp_listen.txt

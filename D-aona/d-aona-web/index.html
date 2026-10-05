@@ -9789,13 +9789,10 @@ const App = (() => {
      l'apparence « clairs » peut donc habiller n'importe lequel des deux joueurs. Un
      skin est rangé dans une catégorie par son `type`, et il ne peut être équipé QUE
      dans l'emplacement correspondant. */
-  const PION_SKINS  = () => SKINS_CATALOG.filter((s) => s.kind === "pions");
   const OTHER_SKINS = () => SKINS_CATALOG.filter((s) => s.kind !== "pions");
   const isOwned     = (id) => (S.skins.owned || []).includes(id);
   const isEquipped  = (sk) => !!(S.skins.equipped && S.skins.equipped[skinSlotOf(sk)] === sk.id);
   const typeLabel   = (t) => (t === "LIGHT" ? "pions clairs" : t === "DARK" ? "pions sombres" : "");
-  const typePill    = (sk) => (sk.kind === "pions"
-    ? `<span class="pill ${sk.type === "LIGHT" ? "light" : "dark"}">${sk.type === "LIGHT" ? "Clairs" : "Sombres"}</span>` : "");
 
   /* Carte « Plateau & effets » — style VITRINE du prototype validé : vignette
      sombre à halo, reflet au survol, tag de type, prix et action. Achat et
@@ -11535,7 +11532,6 @@ const App = (() => {
       const rounds = {};
       for (const m of d.matches) (rounds[m.round] = rounds[m.round] || []).push(m);
       const maxRound = Math.max(0, ...d.matches.map((m) => m.round));
-      const nameFor = (r) => { const nb = (rounds[r] || []).length; return nb === 1 ? "Finale" : nb === 2 ? "Demi-finales" : nb === 4 ? "Quarts" : "1er tour"; };
       const champion = d.matches.find((m) => m.round === maxRound && m.winner_pseudo);
       const myNext = d.matches.find((m) => (m.p1_id === S.id || m.p2_id === S.id) && (m.status === "confirmation" || m.status === "a_venir"));
       root.innerHTML = `

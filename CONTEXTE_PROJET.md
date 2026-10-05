@@ -124,6 +124,16 @@
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
 
+## 2026-10-05 — Lot hygiène : code mort, scripts npm réels, .gitignore, purge des logs (entrée MANUELLE)
+
+**Demande :** dernier lot du programme d'audit — l'entretien : ce qui traîne, ce qui ment, ce qui s'accumule.
+
+**Ce qui a été fait.** (1) **Code mort SUPPRIMÉ — après vérification rigoureuse** : `PION_SKINS`, `typePill` et `nameFor` (définitions jamais appelées, confirmées par grep sur tout le dépôt, fragments de campagne compris). À l'inverse, `OTHER_SKINS` et `typeLabel` que l'audit initial donnait pour morts sont BEL ET BIEN UTILISÉS (écran skins, toasts d'achat/équipement) — conservés : le constat d'audit était faux, la vérification l'a corrigé. Les exports `window` de démonstration (OPPONENT_POOL, LEADERBOARD_POOL…) sont délibérés → conservés. (2) **`package.json` honnête** : `main` → `server.js` (l'ancien pointait vers un `index.js` inexistant) ; scripts réels : `start`, `migrate`, `backup`, et `test` = `test_scenarios.js && test_auth.js` (l'ancien affichait « Error: no test specified »). **`npm test` passe désormais pour de vrai.** (3) **`.gitignore` racine** : `tasks/`, `_graphify_ver.txt`, `_tmp_listen.txt` — `git status` ne montre plus AUCUN fichier non suivi. (4) **Purge des logs** : 98 fichiers `.log` de plus d'un jour supprimés (109 → 11, ceux de la session conservés). Les ~100 sondes `_*.js` et relevés `_*.txt` sont CONSERVÉS : ce sont les outils de preuve référencés par les journaux des lots précédents.
+
+**Contrôles.** `node _check_html.js` OK après suppressions · **`npm test` exit=0** (Tous les scénarios passent ; TOUS LES TESTS PASSENT) · `git status` : plus aucun non-suivi · campagne UI finale relancée.
+
+**Clôture du programme.** Lots 0→6 exécutés : sauvegarde → XSS → durcissement serveur → robustesse → performances → architecture → hygiène. Chaque lot : preuve chiffrée, journal, graphe, commit. Reste noté pour plus tard : migration CSP stricte (nonces, suppression progressive des `onclick=` en ligne).
+
 ## 2026-10-05 — Lot architecture : découpage de `db.js` (816 l.) et extraction de `http.js` (entrée MANUELLE)
 
 **Demande :** suite du programme d'audit — Lot 5 : le rapport graphify demandait explicitement « Should server.js / db.js be split into smaller, more focused modules? » (cohésions 0,08 / 0,06).
@@ -2778,6 +2788,8 @@ du Bureau reste inchangé (référence de style).
 **Ajoutés :** `plateau_clean.webp`, `012_perf_indexes.sql`, `avatar_41_1791229182404.jpg`, `avatar_50_1791229510871.png`, `_idxcheck.js`, `_idxlist.js`, `_perf_probe.js`, `_webp_board.py`, `ed03dd62ff1cd77cdb268686603c1ebaef36d065b321673ad643cc33c515791b.json`
 **Modifiés :** `db.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `server.js`
 **Ajoutés :** `core.js`, `schema.js`, `stores.js`, `9611d1d636fb757e3d10d78530b94f6ebedb40c16fc721bc3bc283a513a91e50.json`, `http.js`, `avatar_45_1791229734060.jpg`, `avatar_53_1791229864593.png`, `avatar_54_1791229842355.png`, `_smoke_db.js`, `_split_db.js`, `_split_http.js`, `0481e8b3f15482d9794c751f7e9326cef48420053405b67825e45fa26f55b0f5.json`, `3413c0a03ef6656c18c965a94a274d66406e946d3afbdddb13abe4188df59b8d.json`
+**Modifiés :** `.gitignore`, `index.html`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `package.json`, `_inline.js`
+**Ajoutés :** `avatar_53_1791230190475.jpg`, `avatar_58_1791230211704.png`, `avatar_62_1791230239772.png`, `79f989acb00855b9afeeb1bc3a044417f525d859b2bacf420839d9dc2d007883.json`
 
 ## 2026-09-27
 **Modifiés :** `index.html`, `data.js`, `db.js`, `server.js`, `test_scenarios.js`, `test_ui_scenarios.js`, `_inline.js`, `_layout_fill.js`, `_layout_fill_report.txt`, `_p10.js`, `_p12.js`, `_p2.js`, `_p5.js`, `_probe_profil_v3.js`, `_revue_ui.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `last_query_stamp`, `stat-index.json`, `graph.html`, `desktop-1440x900-home.png`, `desktop-1440x900-match-tournois.png`, `desktop-1440x900-match.png`, `desktop-1440x900-ranks.png`, `desktop-1440x900-wallet.png`, `mobile-360x760-home.png`, `mobile-360x760-match.png`, `mobile-390x844-home.png`, `mobile-390x844-match.png`
