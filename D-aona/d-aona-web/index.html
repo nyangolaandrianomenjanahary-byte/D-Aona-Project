@@ -2119,6 +2119,86 @@ html[data-theme="light"] .badge-chip { color: var(--b-ink-day, var(--text-strong
 }
 html[data-theme="night"] .wl-adv input, html[data-theme="night"] .wl-adv select { color-scheme: dark; }
 .wl-adv input:focus, .wl-adv select:focus { border-color: var(--brand); }
+/* --- Champ « Dates » + calendrier de plage (style Airbnb) -------------------
+   Le champ remplace la double saisie Du/Au ; les <input type=date> cachés
+   (tx-from/tx-to) restent LA source de vérité — le calendrier les remplit et
+   déclenche leurs `change` existants, donc wl/pastille/rechargement ne
+   changent pas de chemin. Le panneau est un <dialog> NON modal, posé en FIXE
+   au niveau du body (z-index 250 ; #screens est en z-index 1 — un show() non
+   modal n'est PAS dans la top-layer du navigateur) : il échappe au
+   `contain: layout paint` du panneau historique (qui rognerait un popover
+   descendant) et n'ajoute aucun scrollWidth fantôme mobile
+   (fermé = display none). Toutes les couleurs viennent des jetons jour/nuit. */
+.wl-cal-field { position: relative; display: grid; gap: 5px; font-size: 11px; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); min-width: 0; }
+.wl-cal-btn {
+  display: flex; align-items: center; width: 100%; min-width: 0; height: 40px;
+  padding: 0 36px 0 11px; border: .5px solid var(--line); border-radius: var(--r-sm);
+  background: var(--panel); color: var(--text-strong); font-family: inherit;
+  font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer; outline: none;
+}
+.wl-cal-btn .wl-cal-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-cal-btn:not(.is-set) .wl-cal-txt { color: var(--muted); font-weight: 500; }
+.wl-cal-btn:focus-visible, .wl-cal-btn[aria-expanded="true"] { border-color: var(--brand); }
+.wl-cal-x {
+  position: absolute; right: 8px; bottom: 8px; width: 24px; height: 24px;
+  display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: transparent; color: var(--muted); font-size: 12px; line-height: 1; cursor: pointer;
+}
+.wl-cal-x:hover { color: var(--text-strong); background: var(--panel-2); }
+.wl-cal-x[hidden] { display: none !important; }
+.wl-cal {
+  position: fixed; inset: auto; margin: 0; padding: 0; z-index: 250;
+  border: .5px solid var(--line-strong); border-radius: 16px;
+  background: var(--panel); color: var(--text);
+  box-shadow: 0 18px 48px rgba(10, 30, 22, .22);
+  width: min(640px, calc(100vw - 16px)); max-width: none;
+  max-height: calc(100vh - 20px); overflow: auto;
+}
+html[data-theme="night"] .wl-cal { box-shadow: 0 18px 48px rgba(0, 0, 0, .55); }
+.wl-cal-inner { padding: 12px 14px 10px; }
+.wl-cal-nav { display: flex; align-items: flex-start; gap: 2px; }
+.wl-cal-nav > button {
+  flex: none; width: 34px; height: 34px; margin-top: 2px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: transparent; color: var(--text);
+  font-size: 17px; line-height: 1; cursor: pointer;
+}
+.wl-cal-nav > button:hover { background: var(--panel-2); }
+.wl-cal-mois { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; min-width: 0; }
+.wl-cal-m { min-width: 0; }
+.wl-cal-m h4 { margin: 6px 0 8px; text-align: center; font-size: 13.5px; font-weight: 700; color: var(--text-strong); }
+.wl-cal-j { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.wl-cal-j span { text-align: center; font-size: 10.5px; font-weight: 600; color: var(--muted); padding: 2px 0 6px; }
+.wl-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 2px; }
+.wl-cal-day {
+  position: relative; height: 38px; padding: 0; border: 0; background: transparent;
+  color: var(--text); font-family: inherit; font-size: 12.5px; font-weight: 500;
+  cursor: pointer; display: grid; place-items: center; z-index: 0;
+}
+.wl-cal-day::before { content: ""; position: absolute; inset: 1px 0; background: transparent; z-index: -1; }
+.wl-cal-day.est-dans::before { background: var(--panel-2); }
+.wl-cal-day.est-bord-g::before { border-radius: 19px 0 0 19px; }
+.wl-cal-day.est-bord-d::before { border-radius: 0 19px 19px 0; }
+.wl-cal-day.est-bord-g.est-bord-d::before { border-radius: 19px; }
+.wl-cal-day > i {
+  position: relative; z-index: 1; font-style: normal;
+  width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%;
+}
+.wl-cal-day.est-pt > i { background: var(--text-strong); color: var(--panel); font-weight: 700; }
+.wl-cal-day:hover > i, .wl-cal-day:focus-visible > i { box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.wl-cal-day.est-pt:hover > i, .wl-cal-day.est-pt:focus-visible > i { box-shadow: none; }
+.wl-cal-day:disabled { visibility: hidden; }
+.wl-cal-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 2px 2px; }
+.wl-cal-chip {
+  height: 33px; padding: 0 13px; border: .5px solid var(--line-strong); border-radius: var(--r-pill);
+  background: var(--panel); color: var(--text); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.wl-cal-chip.is-on { border-color: var(--text-strong); box-shadow: inset 0 0 0 1px var(--text-strong); }
+.wl-cal-chip:disabled { opacity: .45; cursor: default; }
+/* Mobile : un mois à la fois (le second est masqué), la flèche avance d'un mois. */
+@media (max-width: 640px) {
+  .wl-cal-mois { grid-template-columns: minmax(0, 1fr); }
+  .wl-cal-m2 { display: none; }
+}
 .wl-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; }
 .wl-tags:empty { margin: 0; }
 .wl-tag { display: inline-flex; align-items: center; gap: 7px; min-height: 28px; padding: 0 9px; border: .5px solid var(--line); border-radius: var(--r-pill); background: var(--panel-2); color: var(--text); font-size: 11.5px; font-weight: 600; cursor: pointer; }
@@ -2164,8 +2244,9 @@ html[data-theme="night"] .wl-adv input, html[data-theme="night"] .wl-adv select 
 .wl-det .row b { color: var(--text-strong); font-weight: 600; text-align: right; overflow-wrap: anywhere; }
 /* --- Filtres de l'historique (période · type) --------------------------------
    Même grammaire que la barre d'outils du Classement : .chips/.chip pour les
-   valeurs, .searchbar compact (SearchToggle) pour la recherche. Dates, moyen
-   et statut vivent dans le panneau « Plus de filtres » (.wl-adv) — toutes les
+   valeurs, .searchbar compact (SearchToggle) pour la recherche. La plage de
+   dates (calendrier à la Airbnb), le moyen et le statut vivent dans le panneau
+   « Plus de filtres » (.wl-adv) — toutes les
    couleurs viennent des jetons existants. */
 /* Barre d'outils de l'historique (maquette : recherche + selects + filtres) */
 .tx-filters { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin: 10px 0; }
@@ -4899,6 +4980,28 @@ body.is-fill #screens {
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal" id="modal"></div>
 </div>
+<!-- Calendrier de plage du filtre wallet (style Airbnb). <dialog> NON modal,
+     posé en FIXE (z-index 250) directement sous body : hors des panneaux
+     (jamais rogné par leur `contain: layout paint` — un show() non modal n'est
+     pas dans la top-layer) et zéro scrollWidth fantôme — il ne participe pas à
+     la mise en page tant qu'il est fermé. -->
+<dialog class="wl-cal" id="wl-cal" aria-label="Choisir une plage de dates">
+  <div class="wl-cal-inner">
+    <div class="wl-cal-nav">
+      <button type="button" id="wl-cal-prev" aria-label="Mois précédents">‹</button>
+      <div class="wl-cal-mois" id="wl-cal-mois"></div>
+      <button type="button" id="wl-cal-next" aria-label="Mois suivants">›</button>
+    </div>
+    <div class="wl-cal-chips" id="wl-cal-chips">
+      <button type="button" class="wl-cal-chip is-on" data-wlpad="0">Dates exactes</button>
+      <button type="button" class="wl-cal-chip" data-wlpad="1">± 1 jour</button>
+      <button type="button" class="wl-cal-chip" data-wlpad="2">± 2 jours</button>
+      <button type="button" class="wl-cal-chip" data-wlpad="3">± 3 jours</button>
+      <button type="button" class="wl-cal-chip" data-wlpad="7">± 7 jours</button>
+      <button type="button" class="wl-cal-chip" data-wlpad="14">± 14 jours</button>
+    </div>
+  </div>
+</dialog>
 <div class="toasts" id="toasts"></div>
 
 <!-- ==================== LANCER DE PIÈCE « PILE OU FACE » ====================
@@ -6680,6 +6783,211 @@ const App = (() => {
     wlPaintControls();
     wlLoad();
   }
+  /* ---- Sélecteur de plage de dates « à la Airbnb » --------------------------
+     Remplace la double saisie Du/Au : un champ qui ouvre un calendrier 2 mois
+     (1 mois en mobile), extrémités en pastille sombre, plage sur bande grise,
+     et des puces « Dates exactes / ± N jours » qui ÉLARGISSENT la plage.
+     Règles tenues :
+       · aucun état caché — à l'ouverture, le calendrier se dérive de
+         wl.from/wl.to (ce que le champ affiche = ce qui filtre) ;
+       · les <input type=date> cachés (tx-from/tx-to) restent LA source de
+         vérité : le calendrier les remplit et déclenche leur `change` existant,
+         donc wl, la pastille période et le rechargement ne changent pas de
+         chemin ;
+       · le panneau est un <dialog> NON modal, FIXE en z-index 250 au niveau du
+         body : hors des panneaux (jamais rogné par le `contain: layout paint`
+         du panneau historique — un show() non modal n'est pas dans la
+         top-layer) et zéro scrollWidth fantôme (fermé = display: none). */
+  const WL_MONTHS_LONG = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+  let wlCal = { debut: "", fin: "", pad: 0, survol: "", vue: "" };
+  let wlCalEcoute = false;   // écouteurs globaux posés une seule fois, au 1er dépliage
+  const wlCalDlg = () => document.getElementById("wl-cal");
+  const wlCalCourt = (iso) => { const [, m, d] = String(iso).split("-"); return (+d) + " " + (WL_MONTHS[+m - 1] || ""); };
+  const wlCalJourAjout = (iso, n) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+  };
+  const wlCalAujourdhui = () => {
+    const n = new Date();
+    return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0");
+  };
+  /* « 2026-10 » + n mois — l'année suit (décembre → janvier). */
+  const wlCalMoisPlus = (ym, n) => {
+    let [y, m] = ym.split("-").map(Number);
+    m += n; y += Math.floor((m - 1) / 12); m = ((m - 1) % 12 + 12) % 12 + 1;
+    return y + "-" + String(m).padStart(2, "0");
+  };
+  const wlCalEtroit = () => window.matchMedia("(max-width: 640px)").matches;
+  /* Un mois : titre + en-têtes L M M J V S D + jours. Les jours de la plage
+     portent la bande ( ::before ) ; les BORDS de plage ou de semaine arrondissent
+     leurs coins — l'effet « segments » des calendriers Airbnb. */
+  function wlCalMoisHtml(ym, lo, hi) {
+    const [y, m] = ym.split("-").map(Number);
+    const decal = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;   // lundi = 0
+    const nJours = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const cases = [];
+    for (let i = 0; i < decal; i++) cases.push('<button class="wl-cal-day" type="button" disabled tabindex="-1"></button>');
+    for (let d = 1; d <= nJours; d++) {
+      const iso = ym + "-" + String(d).padStart(2, "0");
+      const emplacement = (decal + d - 1) % 7;
+      const dans = !!(lo && iso >= lo && iso <= hi);
+      const classe = ["wl-cal-day"];
+      if (dans) classe.push("est-dans");
+      if (dans && (emplacement === 0 || iso === lo)) classe.push("est-bord-g");
+      if (dans && (emplacement === 6 || iso === hi)) classe.push("est-bord-d");
+      if (iso === wlCal.debut || iso === wlCal.fin) classe.push("est-pt");
+      cases.push(`<button class="${classe.join(" ")}" type="button" data-jour="${iso}" aria-label="${d} ${WL_MONTHS_LONG[m - 1]} ${y}"><i>${d}</i></button>`);
+    }
+    return `<h4>${WL_MONTHS_LONG[m - 1]} ${y}</h4>
+      <div class="wl-cal-j"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+      <div class="wl-cal-grid">${cases.join("")}</div>`;
+  }
+  function wlCalRendu() {
+    const box = document.getElementById("wl-cal-mois");
+    if (!box) return;
+    const cols = wlCalEtroit() ? 1 : 2;
+    const a = wlCal.debut, b = wlCal.fin || (wlCal.debut ? wlCal.survol : "");
+    const lo = a && b ? (a <= b ? a : b) : "";
+    const hi = a && b ? (a <= b ? b : a) : "";
+    let html = "";
+    for (let i = 0; i < cols; i++) html += `<div class="wl-cal-m${i ? " wl-cal-m2" : ""}">${wlCalMoisHtml(wlCalMoisPlus(wlCal.vue, i), lo, hi)}</div>`;
+    box.innerHTML = html;
+  }
+  /* Puces ±N : actives seulement sur une plage COMPLÈTE ; « Dates exactes » est
+     l'état par défaut (pad 0). La puce active est celle du pad courant. */
+  function wlCalChips() {
+    const box = document.getElementById("wl-cal-chips");
+    if (!box) return;
+    const complet = !!(wlCal.debut && wlCal.fin);
+    box.querySelectorAll(".wl-cal-chip").forEach((c) => {
+      const v = Number(c.dataset.wlpad) || 0;
+      c.disabled = !complet && v !== 0;
+      c.classList.toggle("is-on", v === (complet ? wlCal.pad : 0));
+    });
+  }
+  /* Application : passe par les <input type=date> cachés + leur `change` — le
+     filtre appliqué est TOUJOURS la plage élargie (pad), jamais une sélection
+     en cours (le champ n'affiche que l'appliqué). */
+  function wlCalAppliquer() {
+    let from = wlCal.debut, to = wlCal.fin;
+    if (from && to && wlCal.pad) { from = wlCalJourAjout(from, -wlCal.pad); to = wlCalJourAjout(to, wlCal.pad); }
+    const f = document.getElementById("tx-from"), t = document.getElementById("tx-to");
+    if (f) { f.value = from || ""; f.dispatchEvent(new Event("change")); }
+    if (t) { t.value = to || ""; t.dispatchEvent(new Event("change")); }
+  }
+  /* Ancrage : sous le champ, recadré dans la fenêtre ; bascule au-dessus s'il
+     n'y a pas la place en dessous. */
+  function wlCalPoser() {
+    const dlg = wlCalDlg(), btn = document.getElementById("wl-cal-btn");
+    if (!dlg || !btn) return;
+    const r = btn.getBoundingClientRect(), marge = 8;
+    const w = dlg.offsetWidth, h = dlg.offsetHeight;
+    const left = Math.min(Math.max(marge, r.left), Math.max(marge, window.innerWidth - w - marge));
+    let top = r.bottom + 8;
+    if (top + h > window.innerHeight - marge) top = Math.max(marge, r.top - h - 8);
+    dlg.style.left = left + "px";
+    dlg.style.top = top + "px";
+  }
+  function wlCalFermer() {
+    const dlg = wlCalDlg();
+    if (dlg && dlg.open) dlg.close();
+    const btn = document.getElementById("wl-cal-btn");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  }
+  function wlCalOuvrir() {
+    const dlg = wlCalDlg(), btn = document.getElementById("wl-cal-btn");
+    if (!dlg || !btn) return;
+    /* Dérivé de l'état APPLIQUÉ : plage complète → les deux bornes ; une seule
+       borne (pastille retirée à la main) → reprise en attente de la fin. */
+    wlCal = {
+      debut: wl.from || wl.to || "",
+      fin: wl.from && wl.to ? wl.to : "",
+      pad: 0, survol: "",
+      vue: (wl.from || wl.to || wlCalAujourdhui()).slice(0, 7),
+    };
+    wlCalRendu(); wlCalChips();
+    if (!dlg.open) dlg.show();
+    wlCalPoser();
+    btn.setAttribute("aria-expanded", "true");
+    if (!wlCalEcoute) { wlCalEcoute = true; wlCalEcouter(); }
+  }
+  /* Clic jour : le 1er clic pose le début ; le 2e ferme la plage — un jour
+     ANTÉRIEUR au début l'inverse puis l'applique (comme Airbnb), un jour égal
+     donne une plage d'UN jour. Toute nouvelle plage repasse à « Dates exactes ». */
+  function wlCalChoisirJour(iso) {
+    if (!wlCal.debut || wlCal.fin) { wlCal.debut = iso; wlCal.fin = ""; }
+    else if (iso < wlCal.debut) { wlCal.fin = wlCal.debut; wlCal.debut = iso; }
+    else { wlCal.fin = iso; }
+    wlCal.survol = "";
+    wlCal.pad = 0;
+    wlCalRendu(); wlCalChips();
+    if (wlCal.fin) {
+      wlCalAppliquer();
+      wlCalFermer();
+      const btn = document.getElementById("wl-cal-btn");
+      if (btn) btn.focus();
+    }
+  }
+  /* Écouteurs du panneau (statique, monté une fois) + écouteurs globaux posés
+     paresseusement : fermé, le calendrier ne coûte rien. */
+  function wlCalEcouter() {
+    const box = document.getElementById("wl-cal-mois");
+    if (box) {
+      box.addEventListener("click", (e) => {
+        const b = e.target.closest(".wl-cal-day[data-jour]");
+        if (b) wlCalChoisirJour(b.dataset.jour);
+      });
+      box.addEventListener("pointerover", (e) => {
+        const b = e.target.closest(".wl-cal-day[data-jour]");
+        if (!b || !wlCal.debut || wlCal.fin) return;
+        if (wlCal.survol === b.dataset.jour) return;
+        wlCal.survol = b.dataset.jour;
+        wlCalRendu();
+      });
+      box.addEventListener("pointerleave", () => { if (wlCal.survol) { wlCal.survol = ""; wlCalRendu(); } });
+    }
+    const prev = document.getElementById("wl-cal-prev"), next = document.getElementById("wl-cal-next");
+    if (prev) prev.onclick = () => { wlCal.vue = wlCalMoisPlus(wlCal.vue, wlCalEtroit() ? -1 : -2); wlCalRendu(); };
+    if (next) next.onclick = () => { wlCal.vue = wlCalMoisPlus(wlCal.vue, wlCalEtroit() ? 1 : 2); wlCalRendu(); };
+    const chips = document.getElementById("wl-cal-chips");
+    if (chips) chips.addEventListener("click", (e) => {
+      const c = e.target.closest(".wl-cal-chip");
+      if (!c || c.disabled) return;
+      wlCal.pad = Number(c.dataset.wlpad) || 0;
+      wlCalChips();
+      if (wlCal.debut && wlCal.fin) wlCalAppliquer();
+    });
+    document.addEventListener("pointerdown", (e) => {
+      const dlg = wlCalDlg();
+      if (!dlg || !dlg.open) return;
+      const btn = document.getElementById("wl-cal-btn");
+      if (dlg.contains(e.target) || (btn && btn.contains(e.target))) return;
+      wlCalFermer();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const dlg = wlCalDlg();
+      if (dlg && dlg.open) wlCalFermer();
+    });
+    window.addEventListener("resize", () => {
+      const dlg = wlCalDlg();
+      if (!dlg || !dlg.open) return;
+      wlCalRendu(); wlCalPoser();
+    });
+    /* Tout défilement (page ou panneau) RECOLLE le popover à son champ : un
+       popover ancré ne doit pas rester planté au-dessus d'un champ qui a
+       bougé — et il ne se referme que si le champ sort de l'écran. */
+    window.addEventListener("scroll", (e) => {
+      const dlg = wlCalDlg();
+      if (!dlg || !dlg.open || dlg.contains(e.target)) return;
+      const btn = document.getElementById("wl-cal-btn");
+      if (!btn) { wlCalFermer(); return; }
+      const r = btn.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) wlCalFermer();
+      else wlCalPoser();
+    }, true);
+    window.addEventListener("hashchange", () => { const dlg = wlCalDlg(); if (dlg && dlg.open) wlCalFermer(); });
+  }
   /* Barre d'outils : les selects reflètent l'état — le select de période passe à
      « Période personnalisée » dès qu'une date est posée ; le badge de filtres
      avancés se compte ; « Réinitialiser » n'apparaît que sur un écran filtré. */
@@ -6695,6 +7003,19 @@ const App = (() => {
       const adv = (wl.from ? 1 : 0) + (wl.to ? 1 : 0) + (wl.method !== "all" ? 1 : 0) + (wl.status !== "all" ? 1 : 0);
       n.hidden = adv === 0;
       n.textContent = adv;
+    }
+    /* Champ « Dates » (style Airbnb) : il affiche la plage APPLIQUÉE — jamais
+       une sélection en cours — « Quand ? » tant qu'aucune date, et le ✕
+       seulement quand une plage filtre. */
+    const cbtn = document.getElementById("wl-cal-btn");
+    if (cbtn) {
+      const txt = document.getElementById("wl-cal-txt");
+      const xb = document.getElementById("wl-cal-x");
+      if (txt) txt.textContent = (wl.from && wl.to) ? "Du " + wlCalCourt(wl.from) + " au " + wlCalCourt(wl.to)
+        : wl.from ? "Du " + wlCalCourt(wl.from)
+        : wl.to ? "Jusqu'au " + wlCalCourt(wl.to) : "Quand ?";
+      cbtn.classList.toggle("is-set", !!(wl.from || wl.to));
+      if (xb) xb.hidden = !(wl.from || wl.to);
     }
   }
   /* Fiche détail (clic sur une ligne) : toutes les valeurs viennent de la ligne
@@ -9314,6 +9635,9 @@ const App = (() => {
      solde et les frais lisent l'état S ; l'historique est rechargé du serveur
      (wlLoad) — aucune liste fabriquée localement. */
   function renderWallet() {
+    /* Le panneau calendrier vit hors du panneau historique : il se referme si
+       la barre est reconstruite (Réinitialiser, autre écran, retour wallet). */
+    wlCalFermer();
     const available = Math.max(0, S.balance - S.bonusLock);
     document.getElementById("wallet-root").innerHTML = `
       <svg width="0" height="0" style="position:absolute" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
@@ -9405,8 +9729,13 @@ const App = (() => {
             <button class="wl-link" id="tx-reset" type="button" hidden>Réinitialiser</button>
           </div>
           <div class="wl-adv" id="wl-adv" hidden>
-            <label>Du<input type="date" id="tx-from" value="${escHtml(wl.from)}" aria-label="Transactions à partir de cette date"></label>
-            <label>Au<input type="date" id="tx-to" value="${escHtml(wl.to)}" aria-label="Transactions jusqu'à cette date"></label>
+            <div class="wl-cal-field">
+              <span>Dates</span>
+              <button class="wl-cal-btn" id="wl-cal-btn" type="button" aria-haspopup="dialog" aria-controls="wl-cal" aria-expanded="false" aria-label="Choisir une plage de dates"><span class="wl-cal-txt" id="wl-cal-txt">Quand ?</span></button>
+              <button class="wl-cal-x" id="wl-cal-x" type="button" aria-label="Effacer les dates" hidden>✕</button>
+            </div>
+            <input type="date" id="tx-from" value="${escHtml(wl.from)}" tabindex="-1" aria-hidden="true" hidden>
+            <input type="date" id="tx-to" value="${escHtml(wl.to)}" tabindex="-1" aria-hidden="true" hidden>
             <label>Moyen
               <select id="wl-method" aria-label="Filtrer par moyen de paiement">
                 <option value="all">Tous les moyens</option>
@@ -9470,10 +9799,23 @@ const App = (() => {
     const fromEl = $w("tx-from"), toEl = $w("tx-to");
     if (fromEl) fromEl.onchange = onDate(fromEl, "from");
     if (toEl) toEl.onchange = onDate(toEl, "to");
+    /* Champ Dates (style Airbnb) : ouvre/ferme le calendrier ; ✕ efface la
+       plage via les MÊMES `change` que la saisie d'antan — un seul chemin. */
+    const cbtn = $w("wl-cal-btn");
+    if (cbtn) cbtn.onclick = () => { const dlg = wlCalDlg(); if (dlg && dlg.open) wlCalFermer(); else wlCalOuvrir(); };
+    const cxb = $w("wl-cal-x");
+    if (cxb) cxb.onclick = () => {
+      wlCal = { debut: "", fin: "", pad: 0, survol: "", vue: wlCalAujourdhui().slice(0, 7) };
+      const dlg = wlCalDlg();
+      if (dlg && dlg.open) { wlCalRendu(); wlCalChips(); }
+      const f = $w("tx-from"), t = $w("tx-to");
+      if (f) { f.value = ""; f.dispatchEvent(new Event("change")); }
+      if (t) { t.value = ""; t.dispatchEvent(new Event("change")); }
+    };
     const mSel = $w("wl-method"), sSel = $w("wl-status");
     if (mSel) mSel.onchange = () => { wl.method = mSel.value; wl.page = 1; wlLoad(); };
     if (sSel) sSel.onchange = () => { wl.status = sSel.value; wl.page = 1; wlLoad(); };
-    /* « Plus de filtres » déplie la rangée Du/Au/Moyen/Statut — ouverte d'office
+    /* « Plus de filtres » déplie la rangée Dates/Moyen/Statut — ouverte d'office
        si l'un des filtres qu'elle porte est actif. */
     const advBtn = $w("wl-adv-toggle"), advPanel = $w("wl-adv");
     const advOpen = wl.method !== "all" || wl.status !== "all" || !!wl.from || !!wl.to;
@@ -9496,16 +9838,20 @@ const App = (() => {
       wl = { page: 1, size: wl.size, period: "all", from: "", to: "", kind: "all", q: "", method: "all", status: "all", sort: wl.sort };
       renderWallet();
     };
-    /* Période : « Période personnalisée » ouvre la rangée Du/Au (le seul endroit
-       où des dates se saisissent) ; toute autre valeur efface la plage — un seul
+    /* Période : « Période personnalisée » ouvre le panneau ET le calendrier
+       (le seul endroit où des dates se choisissent) ; toute autre valeur efface
+       la plage — un seul
        filtre de période à la fois. */
     const perEl = $w("tx-period");
     if (perEl) perEl.onchange = () => {
       if (perEl.value === "custom") {
         if (advPanel) advPanel.hidden = false;
         if (advBtn) advBtn.setAttribute("aria-expanded", "true");
-        const f = $w("tx-from");
-        if (f) f.focus();
+        /* Le seul endroit où des dates se choisissent est désormais le
+           calendrier : « Période personnalisée » EST la demande — il s'ouvre. */
+        const cbtnCal = $w("wl-cal-btn");
+        if (cbtnCal) cbtnCal.focus();
+        wlCalOuvrir();
         return;
       }
       wl.period = perEl.value;
