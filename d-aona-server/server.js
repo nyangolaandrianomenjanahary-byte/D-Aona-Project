@@ -21,11 +21,7 @@ const PORT = parseInt(process.env.D_AONA_PORT || process.env.PORT || "8080", 10)
 const TICK_MS = 1000;
 
 /* ---------- State serveur (in-memory) ---------- */
-/* Les jetons de session ne sont PLUS conservés ici. L'ancienne Map
-   `tokens` (token -> userId) perdait toutes les sessions au redémarrage,
-   ne savait ni les faire expirer ni les révoquer, et vivait donc en
-   contradiction avec les promesses de l'interface. Les sessions sont
-   désormais en base (table `sessions`, jeton stocké haché). */
+/* Sessions en base (table `sessions`, jeton haché) : aucune Map de jetons ici. */
 const connections = new Map();     // ws -> { userId, pseudo }
 const userSockets = new Map();     // userId -> ws
 const sessions = new Map();        // sessionId -> GameSession (engine)
@@ -55,12 +51,15 @@ function sanitizeUser(u) {
   return { id: u.id, pseudo: u.pseudo, elo: u.elo, wins: u.wins, losses: u.losses,
     balance: u.balance, bonus_lock: u.bonus_lock, kyc: !!u.kyc, province: u.province || "Antananarivo",
     avatar: u.avatar || null,
-    bonus_used: !!u.bonus_used, withdrawn_today: u.withdrawn_today || 0,
+    bonus_used: !!u.bonus_used,
+    /* Somme des retraits du JOUR, calculée sur l'historique (Wallet.withdrawnToday) :
+       la colonne `withdrawn_today` n'était entretenue par personne et restait à 0. */
+    withdrawn_today: Wallet.withdrawnToday(u.id),
     rank: rank || null,
     badge: badge ? { name: badge.name, icon: badge.icon, color: badge.color } : null };
 }
 
-/* ---------- Limitation de débit du chat (lot S10) ----------
+/* ---------- Limitation de débit du chat ----------
    Un fil de discussion n'a aucune raison d'accepter des dizaines de messages
    par seconde : fenêtre glissante simple par joueur (20 messages / 10 s).
    Les entrées des joueurs inactifs sont purgées à chaque tick (gameLoop). */
@@ -75,7 +74,7 @@ function allowChatMessage(userId) {
   return e.count <= CHAT_RATE_MAX;
 }
 
-/* ---------- Signature binaire des images (upload d'avatar, lot S10) ----------
+/* ---------- Signature binaire des images (upload d'avatar) ----------
    Le type DÉCLARÉ (extension du dataURL) doit correspondre au CONTENU réel :
    sans ce contrôle, un fichier HTML renommé « .png » serait stocké puis servi
    depuis la même origine. Les formats acceptés sont déjà sans SVG (liste du
@@ -90,14 +89,12 @@ function imageMagicOk(buf, ext) {
 }
 
 /* ---------- Seed de la base ----------
-   DÉSACTIVÉ PAR DÉFAUT. Le seed réécrivait 98 comptes de référence et 5 tournois
-   à CHAQUE démarrage : vider la base était donc sans effet, tout revenait au
-   redémarrage suivant. Réactivation explicite, pour une base de démonstration :
-   D_AONA_SEED=1 (sinon la base reste exactement dans l'état où elle est). */
+   Désactivé par défaut : la base reste dans l'état où elle est. Réactivation
+   explicite pour une base de démonstration : D_AONA_SEED=1. */
 const SEED_ENABLED = process.env.D_AONA_SEED === "1";
 function seedDatabase() {
   if (!SEED_ENABLED) return;
-  // 1. Seed all reference users FIRST (so tournament registrations can find them)
+  // 1. Comptes de référence d'abord (les inscriptions aux tournois doivent les trouver)
   const seen = new Set();
   const allPlayers = [];
   for (const p of [...DATA.LEADERBOARD_POOL, ...DATA.OPPONENT_POOL]) {
@@ -112,7 +109,7 @@ function seedDatabase() {
     db.prepare("UPDATE users SET elo = ?, wins = ?, losses = ?, balance = 5000, province = ? WHERE id = ?")
       .run(p.elo, p.wins || 0, (p.games || 0) - (p.wins || 0), province, user.id);
   }
-  // 2. Seed tournaments (registrations will now find existing users)
+  // 2. Tournois (les inscrits sont désormais en base)
   Tournament.seed();
   // 3. Pénalité d'inactivité (−30 Elo / mois après 30 j) puis vérification quotidienne
   applyInactivityDecay();
@@ -155,7 +152,7 @@ function acceptFriendRequest(res, requestId, acceptingUser) {
   Friend.add(acceptingUser.id, sender.id);
   Friend.add(sender.id, acceptingUser.id);
   // Message automatique « D-aona » : envoyé par celui qui accepte → celui qui a demandé
-  const autoText = "D-aona ! 🤝 J'ai accepté ta demande d'ami — on se fait une partie ?";
+  const autoText = "D-aona ! 🤝 Demande d'ami acceptée — on joue ?";
   Chat.saveMessage(acceptingUser.id, sender.id, autoText);
   const at = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   sendUser(sender.id, { type: "chat_message", from: acceptingUser.pseudo, text: autoText, at });
@@ -196,8 +193,7 @@ function leaderboardForClient(userId) {
   });
 }
 
-/* ---------- HTTP : serveStatic, clientIp, bearerToken, authMiddleware,
-   isRateLimited, readBody, respond — extraits dans http.js (lot S13). */
+/* ---------- HTTP : utilitaires extraits dans http.js ---------- */
 const { serveStatic, clientIp, bearerToken, authMiddleware, isRateLimited, readBody, respond } = require("./http");
 
 function handleRest(req, res, url, userId) {
@@ -295,14 +291,10 @@ function handleRest(req, res, url, userId) {
       const t = Tournament.get(parseInt(payload.tournamentId));
       if (!t) return respond(res, { error: "Tournoi introuvable" }, 404);
       if (Tournament.isRegistered(user.id, t.id)) return respond(res, { error: "Deja inscrit" }, 400);
-      /* Un tournoi dont l'heure de début est passée ne doit plus accepter
-         d'inscription (l'ancien contrôle ne regardait que le statut, resté
-         « inscriptions » : on pouvait s'inscrire à un tournoi déjà commencé). */
+      /* Un tournoi dont l'heure de début est passée n'accepte plus d'inscription. */
       if (t.starts_at && new Date(t.starts_at).getTime() <= Date.now())
         return respond(res, { error: "Tournoi déjà commencé" }, 400);
-      /* Le rang minimum (`tournaments.min_rank`) n'est PLUS une condition d'accès :
-         le système de rang a été retiré — tout compte vérifié peut s'inscrire.
-         La colonne reste en base (données historiques) mais n'est jamais lue. */
+      /* La colonne `tournaments.min_rank` reste en base (historique) mais n'est jamais lue. */
       const count = db.prepare("SELECT COUNT(*) as c FROM tournament_registrations WHERE tournament_id = ?").get(t.id).c;
       if (count >= t.max_players) return respond(res, { error: "Tournoi complet" }, 400);
       if (user.balance < t.entry) return respond(res, { error: `Solde insuffisant` }, 400);
@@ -315,7 +307,7 @@ function handleRest(req, res, url, userId) {
       Wallet.spend(user.id, t.entry, `Mise entree - ${t.name}`);
       const bal = Wallet.getBalance(user.id);
       sendUser(user.id, walletPayload(user.id));
-      Notification.create(user.id, "inscription", { text: `✅ Inscription confirmée au tournoi « ${t.name} »`, tournamentId: t.id, startsAt: t.starts_at });
+      Notification.create(user.id, "inscription", { text: `✅ Inscrit au tournoi « ${t.name} »`, tournamentId: t.id, startsAt: t.starts_at });
       // Si le tournoi vient d'être complété → générer le bracket et notifier
       const newCount = db.prepare("SELECT COUNT(*) as c FROM tournament_registrations WHERE tournament_id = ?").get(t.id).c;
       if (newCount >= t.max_players) {
@@ -415,14 +407,11 @@ function handleRest(req, res, url, userId) {
       const payload = await readBody(req);
       const sk = DATA.SKINS_CATALOG.find((s) => s.id === payload.skinId);
       if (!sk) return respond(res, { error: "Skin introuvable" }, 404);
-      /* Déjà possédé : refus AVANT tout débit. L'ancien code ignorait le verdict
-         de Skins.buy et débitait quand même — un double clic (ou un appel
-         répété) retirait le prix du solde sans rien apporter en plus. */
+      /* Déjà possédé : refus AVANT tout débit — un double appel ne peut pas
+         retirer le prix deux fois. */
       if (Skins.listOwned(user.id).includes(sk.id))
         return respond(res, { error: "Skin deja possede" }, 400);
-      /* Chaque skin a son propre identifiant et son propre prix : acheter la
-         version claire n'attribue jamais la version sombre (et inversement) —
-         ce sont deux transactions distinctes, chacune débitée une fois. */
+      /* Un skin clair et son pendant sombre : deux transactions distinctes. */
       if (sk.price && sk.price > 0) {
         if (user.balance < sk.price) return respond(res, { error: "Solde insuffisant" }, 400);
         Wallet.spend(user.id, sk.price, `Achat ${sk.name}`);
@@ -452,9 +441,44 @@ function handleRest(req, res, url, userId) {
       return respond(res, { ok: true, slot, equipped: Skins.getEquipped(user.id) });
     }
 
-    // GET /api/transactions
-    if (method === "GET" && pathname === "/api/transactions")
-      return respond(res, { transactions: Wallet.getTransactions(user.id) });
+    // GET /api/transactions — historique paginé de l'écran Wallet.
+    // Paramètres (tous facultatifs) : page, size (nombre ou « all »), period
+    // (all|recent|old), from/to (AAAA-MM-JJ), kind, q, method, status, sort
+    // (asc|desc). Sans paramètre, le comportement historique est conservé :
+    // les 50 derniers mouvements. Chaque ligne porte son `kind` (famille) et
+    // son `method` (moyen), calculés par le serveur — le client affiche.
+    if (method === "GET" && pathname === "/api/transactions") {
+      const qs = new URL(req.url, "http://x").searchParams;
+      const w = (key) => qs.get(key);
+      const result = Wallet.history(user.id, {
+        page: w("page"), size: w("size"), period: w("period"), from: w("from"),
+        to: w("to"), kind: w("kind"), q: w("q"), method: w("method"),
+        status: w("status"), sort: w("sort"),
+      });
+      return respond(res, { transactions: result.items, total: result.total, page: result.page, size: result.size });
+    }
+
+    // GET /api/transactions/export — même historique que l'écran (mêmes
+    // filtres) mais COMPLET et en CSV, généré côté serveur : l'export ne
+    // dépend donc pas de la page affichée. Le nom de fichier n'expose que le
+    // pseudo translittéré (un en-tête HTTP ne transporte pas d'accent).
+    if (method === "GET" && pathname === "/api/transactions/export") {
+      const qs = new URL(req.url, "http://x").searchParams;
+      const w = (key) => qs.get(key);
+      const { items } = Wallet.history(user.id, {
+        size: "all", period: w("period"), from: w("from"), to: w("to"),
+        kind: w("kind"), q: w("q"), method: w("method"), status: w("status"), sort: w("sort"),
+      });
+      const slug = String(user.pseudo || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24);
+      res.writeHead(200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="d-aona-transactions${slug ? "-" + slug : ""}.csv"`,
+        "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
+      });
+      return res.end(DATA.txCsv(items));
+    }
 
     // GET /api/chat/contacts
     if (method === "GET" && pathname === "/api/chat/contacts") {
@@ -494,9 +518,8 @@ function handleRest(req, res, url, userId) {
     }
 
     // POST /api/friends/seen — « j'ai vu l'écran Amis » : le badge retombe à zéro
-    /* Le repère est persisté EN BASE (migration 007) et non dans le navigateur :
-       après un rechargement, le badge doit rester éteint — sinon il se rallumerait
-       à chaque visite, ce qui est précisément ce qu'on veut éviter. */
+    /* Repère persisté en BASE (migration 007) : le badge doit rester éteint
+       après un rechargement, sinon il se rallumerait à chaque visite. */
     if (method === "POST" && pathname === "/api/friends/seen") {
       const w = FriendRequest.markSeen(user.id);
       return respond(res, { ok: true, newIncoming: 0, newSinceId: w.seen });
@@ -693,6 +716,12 @@ function handleRest(req, res, url, userId) {
       const payload = await readBody(req);
       const amount = parseInt(payload.amount) || 0;
       if (amount < 1000) return respond(res, { error: "Minimum 1000 Ar" }, 400);
+      /* Plafond QUOTIDIEN (500 000 Ar/jour) appliqué côté serveur, sur la somme
+         réelle des retraits du jour : le formulaire client l'affiche, la règle
+         vit ici. */
+      const withdrawnToday = Wallet.withdrawnToday(user.id);
+      if (amount > 500000 - withdrawnToday)
+        return respond(res, { error: "Plafond quotidien de retrait atteint (max. 500 000 Ar/jour)" }, 400);
       const bal = Wallet.getBalance(user.id);
       const available = bal.balance - bal.bonus_lock;
       if (amount > available) return respond(res, { error: "Solde insuffisant" }, 400);
@@ -828,9 +857,7 @@ function handleWsMessage(ws, msg) {
 
   // Auth is always allowed
   if (msg.type === "auth") {
-    /* Validation EN BASE : la session doit exister, ne pas être expirée ni
-       révoquée (déconnexion, changement de mot de passe, incident).
-       L'ancien code lisait une Map en mémoire, vidée à chaque redémarrage. */
+    /* Validation EN BASE : session existante, non expirée, non révoquée. */
     const session = Auth.resolveSession(msg.token);
     if (!session) { send(ws, { type: "error", message: "Session invalide ou expirée" }); return; }
     const user = User.getById(session.userId);
@@ -974,7 +1001,7 @@ function handleWsMessage(ws, msg) {
     case "chat_message": {
       /* Bornes SERVEUR : un client modifié peut ignorer les limites du
          formulaire — type, longueur et caractères de contrôle se vérifient ici.
-         (L'échappement HTML, lui, vit au rendu côté client : lot S9.) */
+         (L'échappement HTML vit au rendu côté client.) */
       if (typeof msg.toPseudo !== "string" || typeof msg.text !== "string") {
         send(ws, { type: "error", message: "Message invalide" }); return;
       }
@@ -1409,7 +1436,7 @@ function processTournamentMatches() {
     for (const uid of [m.p1_id, m.p2_id]) {
       const opp = User.getById(uid === m.p1_id ? m.p2_id : m.p1_id);
       notify(uid, "confirmation_requise", {
-        text: `⏰ Confirmation requise : match vs ${opp ? opp.pseudo : "?"} à ${matchDateLabel(m.starts_at)}. Confirmez avant ${matchDateLabel(m.confirm_deadline)} sous peine de forfait.`,
+        text: `⏰ Confirmez votre présence — match contre ${opp ? opp.pseudo : "?"} à ${matchDateLabel(m.starts_at)}, avant ${matchDateLabel(m.confirm_deadline)} (sinon forfait).`,
         tournamentId: m.tournament_id, matchId: m.id, startsAt: m.starts_at, confirmDeadline: m.confirm_deadline,
       });
     }
@@ -1465,7 +1492,7 @@ function processTournamentMatches() {
     const winner = User.getById(winnerId);
     const loserId = winnerId === m.p1_id ? m.p2_id : m.p1_id;
     if (loserId) notify(loserId, "forfait", {
-      text: `❌ Forfait : présence non confirmée à temps. ${winner ? winner.pseudo : ""} avance.`,
+      text: `❌ Forfait — présence non confirmée. ${winner ? winner.pseudo : ""} avance.`,
       tournamentId: m.tournament_id, matchId: m.id,
     });
     if (winnerId) notify(winnerId, "forfait_adverse", {
@@ -1574,7 +1601,7 @@ function start() {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
-    /* ---------- En-têtes de sécurité (lot S10) ----------
+    /* ---------- En-têtes de sécurité ----------
        Posés pour TOUTES les réponses (API + statique). La CSP laisse
        'unsafe-inline' à script/style : le fichier mono-page contient trois
        <script> en ligne et de nombreux gestionnaires `onclick=` — leur
@@ -1619,7 +1646,6 @@ function start() {
     ws.on("message", (data) => {
       try {
         const msg = JSON.parse(data.toString());
-        if (typeof msg === "string") { /* raw string, parse */ }
         handleWsMessage(ws, typeof msg === "string" ? JSON.parse(data.toString()) : msg);
       } catch (err) {
         send(ws, { type: "error", message: "Message invalide" });

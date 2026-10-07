@@ -50,7 +50,7 @@
 | Fichier | Rôle |
 |---|---|
 | [server.js](d-aona-server/server.js) | 🧠 **Cœur** : API REST, WebSocket, matchmaking, moteur tournoi (bracket, confirmations, forfaits auto), notifications |
-| [db.js](d-aona-server/db.js) | Couche SQLite : schéma + accès (users, games, tournois, wallet, notifications, bracket…) — applique aussi les migrations versionnées au démarrage |
+| [db.js](d-aona-server/db.js) | Couche SQLite : câblage public + application des migrations au démarrage. Le code vit dans [db/core.js](d-aona-server/db/core.js) (connexion), [db/schema.js](d-aona-server/db/schema.js) (schéma) et [db/stores.js](d-aona-server/db/stores.js) (magasins métier) |
 | [auth.js](d-aona-server/auth.js) | 🔐 **Authentification** : Argon2id, sessions opaques révocables, verrouillage progressif, limitation de débit, journal d'audit |
 | [migrate.js](d-aona-server/migrate.js) | Exécuteur de migrations versionnées (`node migrate.js --status`) |
 | [migrations/](d-aona-server/migrations) | Migrations SQL versionnées (`001`…`011` : auth, sessions, audit, contacts uniques, clés étrangères des skins, instantané d'Elo, filigrane Amis, types de pions clairs/sombres, apparence du pion, **apparences PAR CAMP (clairs / sombres)** et cohérence des groupes) |
@@ -123,6 +123,48 @@
 
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
+
+## 2026-10-07 — Onglet Wallet refondu (maquette « wallet-desktop ») : historique servi par le backend (entrée MANUELLE)
+
+**Demande.** « Prends inspiration du fichier html dans le dossier … change l'onglet wallet. Adapte tous les backends. » (maquette `wallet-desktop.html` fournie hors dépôt).
+
+**Écran (`index.html`).** Carte de solde (pastille « Disponible », ligne du bonus verrouillé) · carte « Frais transparents » (0 % interne / 25 % cashprizes, « Voir limites et conditions » dépliable avec « Retiré aujourd'hui : X / 500 000 Ar », bouton KYC) · historique en TABLEAU (Opération · Date et heure triables · Type · Moyen · Statut · Montant) : recherche anti-rebond 180 ms, pastilles période et type, panneau « Plus de filtres » (Du/Au/Moyen/Statut), pastilles de filtres actifs retirables, compteur « X / Y mouvements », pagination 10/20/tout, fiche détail en modale, export CSV. Aucun ton nouveau (jetons jour/nuit, pastilles `.pill` déjà mesurées AA) ; à 360 px le tableau défile DANS son conteneur (`docW = winW`) ; correctif `[hidden]` (les `display` de `.wl-adv` / `.wl-rules` / bouton Réinitialiser écrasaient l'attribut).
+
+**Backend.** `data.js` : familles `txKind`, moyens `txMethod` (déduits du libellé), CSV `txCsv` — source de vérité unique ; chaque ligne d'historique repart étiquetée `kind`/`method`. `db/stores.js` : `Wallet.history()` (période/dates/statut/tri en SQL — famille/moyen/recherche après lecture — pagination + total) et `Wallet.withdrawnToday()` (somme réelle des retraits du jour). `server.js` : `/api/transactions` paramétré (page, size, period, from, to, kind, q, method, status, sort — le défaut « 50 derniers » est conservé pour compatibilité), nouvel `/api/transactions/export` (CSV complet, mêmes filtres, BOM + « ; », nom de fichier translittéré), plafond quotidien de retrait 500 000 Ar APPLIQUÉ (400 explicite), `withdrawn_today` CALCULÉ dans `/api/user` (la colonne n'était entretenue par personne). Client : `S.txs` et le filtrage local supprimés ; état `wl` + garde anti-réponses tardives (`wlSeq`).
+
+**Preuves.** `node --check` 4/4 · `_check_html.js` OK · `test_scenarios` **257/257** (+6 : pagination, filtre famille, recherche, export CSV, plafond, retiré du jour) · `_probe_profil_v3` **41/41** (wallet + mobile 360 px) · campagne d'interface **115/115** · `_dbg_wallet.js` réparé (politique mot de passe 12+ ; jetons, solde réel, « 2 / 2 mouvements », zéro erreur JS) · jetables supprimés · graphe graphify à jour.
+
+**Re-vérifié le 07/10 après la dernière retouche d'`index.html`** : `node --check` 5/5 · `_check_html.js` OK (7 039 lignes, balises équilibrées, syntaxe compilée) · `test_scenarios` **257/257** · `_dbg_wallet.js` (4 lignes, « 4 / 4 mouvements », zéro erreur JS) · nouvelle sonde `_wallet_shots.js` : captures desktop jour/nuit, fiche détail (modale `#modal-overlay` ouverte, référence TX-61), filtre « Dépôts » **2/2**, mobile 360 jour/nuit, `docW = winW` (1440 px et 360 px), tableau défilant DANS son cadre — dans `%TEMP%\daona_shots\wallet-*.png`.
+
+## 2026-10-06 — Minimalisme : inscription & connexion (entrée MANUELLE)
+
+**Demande.** « Même cas dans la partie inscription et connexion. »
+
+**Textes.** Note de l'écran de connexion réduite à l'essentiel (la liste « Nouveautés interface » disparaît) ; bouton « Entrer dans l'arène 🎮 » → « Se connecter », « Créer mon compte ✨ » → « Créer mon compte » ; sous-titres resserrés (« Rejoignez l'arène. », « Compte Google lié — complétez votre profil. ») ; étape 2/2 « Sécurité & localisation » → « Sécurité » ; libellé « Confirmation du mot de passe » → « Confirmer le mot de passe » ; le sous-titre de connexion est désormais identique entre le balisage et le JS (il restait l'ancienne version longue côté script). Serveur : messages d'authentification raccourcis (« Email ou téléphone déjà utilisés. », « Compte verrouillé — réessayez dans X min. », « Trop de tentatives — réessayez dans X s. »).
+
+**Preuves.** `node --check` OK (auth.js, http.js) · `_check_html.js` OK · `test_scenarios` 251/251 · `test_auth` TOUS LES TESTS PASSENT · campagne d'interface 115/115, zéro erreur JavaScript · graphe graphify à jour.
+
+## 2026-10-06 — Textes minimalistes sur toute l'interface (entrée MANUELLE)
+
+**Demande.** « Simplifier les longs textes partout — être minimaliste », frontend ET backend, sans changer la logique.
+
+**Périmètre (≈ 60 textes réécrits plus courts).** Sous-titres d'écrans (Accueil, Jeux, Classement, Wallet, Profil, Boutique, Messagerie, Amis) ; écran « Bon retour » ; modales (KYC, dépôt, retrait, défi envoyé, recherche d'adversaire, répartition du cashprice, invitation, règles du Fanorona, tirage au sort, service client) ; états vides (En direct, Défis reçus/envoyés, Départs, Messagerie, Amis) ; aide de la personnalisation des pions ; toasts. Côté serveur : notifications (inscription, confirmation, forfait) et message automatique d'amitié. Suppressions : explication dupliquée PILE/FACE (elle ne vit plus que dans les règles), valeurs de maquette résiduelles (« ML », « 1100 Elo »), mention statique « membre depuis août 2026 ». Tous les libellés fonctionnels sont intacts (boutons, statuts, erreurs — « introuvable », « complet », « incompatible », « inscrit »…) : les campagnes le prouvent.
+
+**Preuves.** `_check_html.js` OK · `test_scenarios` **251/251** · `test_auth` TOUS LES TESTS PASSENT · **campagne d'interface navigateur 115/115, zéro erreur JavaScript** · `index.html` 11 839 → 11 837 lignes (réduction en mots, pas en lignes) · graphe graphify à jour.
+
+## 2026-10-06 — Nettoyage production : frontend + backend débarrassés des scories (entrée MANUELLE)
+
+**Demande.** Nettoyer l'ensemble du projet (textes, commentaires, logs, scories) sans toucher à la logique ni au comportement.
+
+**Frontend (`index.html`, 11 998 → 11 839 lignes).** Données mortes de la phase maquette supprimées (aucune référence — recherche exhaustive) : `OPPONENT_POOL`, `LEADERBOARD_POOL`, `TOURNAMENTS_SEED`, `CHAT_THREADS`, `CHAT_REPLIES`, `ADMIN_DEMO` (+ retrait de l'`Object.assign`), CSS `.admin-tabs` et `.footer-note` (éléments disparus). Textes temporaires retirés de l'interface : note « Maquette de démonstration » (Accueil), pseudo « Tsiry_RN » pré-rempli du formulaire de connexion, initiales « TR » du balisage, « Vérification (démo locale) » du volet KYC ; toast du mot de passe oublié reformulé (« Réinitialisation par SMS non disponible pour le moment. » — la fonction n'est pas active). Commentaires : narrations historiques (« ARBITRAGE INVERSÉ », « l'ancien… », « ne sont PLUS ») ramenées au présent ; étiquettes de process (« revue §…, lot S… ») retirées ; les mesures de contraste AA sont conservées (elles justifient les jetons).
+
+**Backend.** `data.js` : `CHAT_REPLIES`, `fmtAr`, `countdownParts`, `eloDelta` supprimés (aucun appelant — vérifié sur tous les `.js`). `server.js` : ligne morte `if (typeof msg === "string") { }` retirée ; commentaires historiques condensés. `auth.js`, `http.js`, `db/core.js`, `db/schema.js`, `db/stores.js`, `check_wallet.js` : références « lot S13 » et narrations d'anciens défauts condensées. Aucune logique modifiée hors la ligne morte.
+
+**Scories locales.** 87 fichiers de session supprimés (sorties de sondes `_*.txt`/`_*.err`/`*.out.log`/`*.err.log`, copie `test_ui_scenarios.fixed.js`, `_tmp_listen.txt`) ; les outils `_*.js` documentés et `_run_server.*.log` (serveur en cours) sont conservés.
+
+**Incident de campagne + garde-fou.** Une campagne `test_scenarios` lancée en parallèle de `test_auth` (même port 8099) a tourné contre le serveur de `test_auth` — qui utilise la **base réelle** — et y a écrit 5 comptes ZzS (5 sessions, 10 skins, 5 équipements, 4 amitiés, 3 messages, 3 demandes d'ami ; aucune partie, aucun tournoi). Traces supprimées (21 → 16 comptes, 0 orphelin revérifié table par table ; 6 lignes du journal d'audit conservées — append-only par conception). `test_scenarios.js` refuse désormais de démarrer si le port 8099 est déjà occupé (garde-fou anti-collision). Règle : lancer les deux campagnes SÉQUENTIELLEMENT.
+
+**Preuves.** `node --check` 9/9 fichiers touchés · `test_scenarios` **251/251** (exit 0) · `test_auth` TOUS LES TESTS PASSENT · `_check_html.js` OK (script compilé, balises équilibrées) · HTTP 200 sur :8080, page servie sans aucun texte retiré · base réelle : 16 comptes, 0 trace ZzS · `py -m graphify update .` OK (686 nœuds, 1159 arêtes) · diff : 10 fichiers, +153/−394 lignes.
 
 ## 2026-10-05 — Correctif bug : le brouillon de saisie ne s'efface plus quand un message arrive (surtout mobile) (entrée MANUELLE)
 

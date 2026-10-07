@@ -32,7 +32,7 @@ Le client communique avec le serveur via l'API REST (`/api/*`) et le WebSocket
 | Système Elo (K=32), classement par place et badges (paliers de rang retirés), règles de saison | §3 |
 | Classement national / régional / par jeu / saisonnier | §9 |
 | Tournois : mise remboursable top 3, répartition 50/25/0 + commission 25%, bracket auto, **simulation complète** avec distribution et contrôle d'équilibre du pool | §2.5 Mode 2, §4.3 |
-| Wallet : dépôt/retrait MVola · Orange Money · Airtel Money (~2% opérateur), 0% commission interne, retrait min 1 000 / max 500 000 Ar/j, bonus de bienvenue 1 000 Ar non retirable, historique horodaté | §4 |
+| Wallet : dépôt/retrait MVola · Orange Money · Airtel Money (~2% opérateur), 0% commission interne, retrait min 1 000 / max 500 000 Ar/j (plafond **appliqué côté serveur**), bonus de bienvenue non retirable, carte « Frais transparents » + historique **paginé et filtré par le serveur** (période, type, moyen, statut, recherche), fiche détail et export CSV | §4 |
 | KYC par photo CIN obligatoire avant toute transaction réelle (flux simulé) | §4.4 |
 | Skins et pions — **deux apparences par joueur** (une pour le camp clair, une pour le camp sombre), appliquées à **SES** pions selon le camp que le tirage lui donne : couleur × motif indépendants (8 + 8 couleurs, 9 motifs — **4 illustrés** servis par `assets/pions/`, 5 silhouettes SVG), et l'adversaire garde la sienne — la vôtre ne l'habille **jamais** (elle voyage avec l'état du match) + skins de plateau, trace lumineuse, animation de victoire | §2.7, §8.1 |
 | Chat textuel restreint aux contacts connus | §12 |

@@ -1,14 +1,11 @@
 /* =========================================================
    D-aôna — Authentification et sessions
    ---------------------------------------------------------
-   Remplace l'ancien mécanisme « pseudo seul » (POST /api/auth créait ou
-   ouvrait un compte sans aucune preuve d'identité) par :
-
-     - mot de passe haché en Argon2id (bibliothèque @node-rs/argon2,
-       paramètres OWASP : m=19 MiB, t=2, p=1) ;
-     - jetons de session OPAQUES, stockés uniquement sous forme
-       d'empreinte SHA-256 en base, expirants et révocables ;
-     - verrouillage progressif du compte après échecs répétés ;
+     - mot de passe haché en Argon2id (@node-rs/argon2, paramètres OWASP :
+       m=19 MiB, t=2, p=1) ;
+     - jetons de session opaques, stockés hachés (SHA-256) en base,
+       expirants et révocables ;
+     - verrouillage progressif après échecs répétés ;
      - limitation de débit par adresse IP ;
      - journal d'audit en ajout seul (auth_audit_log).
 
@@ -313,16 +310,6 @@ function listSessions(userId) {
                      FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`).all(userId);
 }
 
-/* ---------- Réclamation des comptes hérités : SUPPRIMÉE ---------------
-   Il existait ici un parcours « Définir mon mot de passe » (route
-   /api/auth/claim + D_AONA_ALLOW_LEGACY_CLAIM) réservé aux comptes créés avant
-   la refonte de sécurité, c'est-à-dire sans mot de passe en base. Fenêtre de
-   risque assumée : le premier arrivé pouvait réclamer n'importe quel compte
-   hérité en connaissant seulement son pseudo. Comme la base a été vidée (et
-   que le seed ne la repeuple plus), plus aucun compte hérité n'existe : le
-   dispositif, et son risque, ont été retirés — la fonctionnalité n'avait plus
-   d'objet. Voir SECURITE_AUTH.md. */
-
 /* Message unique : ne révèle jamais si un pseudo existe (anti-énumération). */
 const GENERIC_CREDENTIALS_ERROR = "Pseudo ou mot de passe incorrect.";
 
@@ -335,15 +322,12 @@ async function register({ pseudo, password, province = null, phone = null, email
   }
   const check = validatePassword(password);
   if (!check.ok) return { ok: false, status: 400, error: check.error, missing: check.missing };
-  /* Refus AUDITÉS. Sans cette trace, un échec d'inscription était
-     indiagnosticable : le journal ne consignait que les succès (et les échecs
-     de connexion), donc un refus 400/409 ne laissait AUCUNE trace serveur. */
+  /* Refus AUDITÉS : un 400/409 d'inscription doit laisser une trace au journal. */
   if (User.getByPseudo(p)) {
     audit({ event: "register_fail", pseudo: p, ip, userAgent, detail: "pseudo déjà pris" });
     return { ok: false, status: 409, error: "Ce pseudo est déjà pris." };
   }
-  /* « Compte unique par numéro / email » annoncé par l'interface : sans ce
-     contrôle, deux comptes pouvaient partager le même email ou le même numéro. */
+  /* Compte unique par email / numéro (annoncé par l'interface). */
   const cleanEmail = email ? String(email).trim().slice(0, 120).toLowerCase() : null;
   const cleanPhone = phone ? String(phone).slice(0, 24) : null;
   const already = db.prepare(
@@ -351,7 +335,7 @@ async function register({ pseudo, password, province = null, phone = null, email
   ).get(cleanEmail, cleanPhone);
   if (already) {
     audit({ event: "register_fail", userId: already.id, pseudo: p, ip, userAgent, detail: "email ou téléphone déjà utilisé" });
-    return { ok: false, status: 409, error: "Cet email ou ce numéro de téléphone est déjà utilisé par un compte." };
+    return { ok: false, status: 409, error: "Email ou téléphone déjà utilisés." };
   }
 
   // Le hachage (volontairement lent) est calculé AVANT la transaction :
@@ -361,16 +345,13 @@ async function register({ pseudo, password, province = null, phone = null, email
   let userId = null;
   db.exec("BEGIN");
   try {
-    /* email est écrit ICI : la colonne existait dans le schéma mais aucune
-       requête ne l'alimentait, alors que l'écran d'inscription propose
-       « Email ou téléphone » — l'adresse saisie était silencieusement jetée. */
+    /* L'email est enregistré ici : l'écran d'inscription le propose. */
     const info = db.prepare(
       "INSERT INTO users (pseudo, elo, balance, province, phone, email, last_seen) VALUES (?, 1100, 5000, ?, ?, ?, ?)"
     ).run(p, province ? String(province).slice(0, 40) : "Antananarivo", cleanPhone, cleanEmail, nowIso());
     userId = Number(info.lastInsertRowid);
-    /* Skins gratuits + emplacements par défaut : une SEULE définition
-       (`Skins.ensureDefaults`), partagée avec `User.createOrUpdate` — sans
-       cela, les deux chemins d'inscription finissaient par diverger. */
+    /* Skins gratuits + emplacements par défaut : définition unique, partagée
+       avec `User.createOrUpdate` (les deux chemins ne peuvent pas diverger). */
     Skins.ensureDefaults(userId);
     db.prepare(`INSERT INTO auth_credentials (user_id, password_hash, algo, password_changed_at, updated_at)
                 VALUES (?,?,?,?,?)`).run(userId, hash, ALGO_LABEL, nowIso(), nowIso());
@@ -382,7 +363,7 @@ async function register({ pseudo, password, province = null, phone = null, email
        partent en même temps). Le message de SQLite nomme l'index en cause. */
     if (/UNIQUE/i.test(err.message)) {
       if (/idx_users_(phone|email)/i.test(err.message)) {
-        return { ok: false, status: 409, error: "Cet email ou ce numéro de téléphone est déjà utilisé par un compte." };
+        return { ok: false, status: 409, error: "Email ou téléphone déjà utilisés." };
       }
       return { ok: false, status: 409, error: "Ce pseudo est déjà pris." };
     }
@@ -428,7 +409,7 @@ async function login({ pseudo, password, userAgent = null, ip = null }) {
     audit({ event: "login_fail", userId: user.id, pseudo: p, ip, userAgent, detail: "compte verrouillé" });
     return {
       ok: false, status: 429,
-      error: `Compte temporairement verrouillé après trop d'échecs. Réessayez dans ${Math.ceil(sec / 60)} min.`,
+      error: `Compte verrouillé — réessayez dans ${Math.ceil(sec / 60)} min.`,
     };
   }
 

@@ -1,9 +1,8 @@
 /* =========================================================
    D-aôna — Base de données : connexion (SQLite)
    ---------------------------------------------------------
-   Extraite de db.js (lot S13) : chemin, ouverture, PRAGMA.
-   Le reste du module vit dans db.js (câblage), db/schema.js
-   (schéma) et db/stores.js (magasins métier).
+   Chemin, ouverture, PRAGMA. Le reste du module vit dans db.js
+   (câblage), db/schema.js (schéma) et db/stores.js (magasins métier).
    ========================================================= */
 "use strict";
 

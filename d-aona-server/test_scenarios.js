@@ -432,6 +432,37 @@ async function phasePortefeuille() {
     labels.some((l) => /Retrait MVola/i.test(l)), JSON.stringify(labels));
   check("historique : chaque ligne porte une date", tx.json.transactions.every((t) => !!t.created_at));
 
+  /* Historique PAGINÉ et FILTRÉ côté serveur — l'écran Wallet s'appuie dessus
+     (page, famille, recherche au clavier, export CSV, plafond du jour). */
+  const page1 = await api("/api/transactions?size=2&page=1", { token: A });
+  check("historique paginé : 2 lignes sur 4, total annoncé",
+    page1.status === 200 && page1.json.transactions.length === 2 && page1.json.total === 4,
+    JSON.stringify(page1.json));
+
+  const byKind = await api("/api/transactions?kind=withdraw", { token: A });
+  check("filtre par famille : seuls les retraits, chacun étiqueté",
+    byKind.json.total === 1 && byKind.json.transactions.every((t) => t.kind === "withdraw"),
+    JSON.stringify(byKind.json));
+
+  const byQ = await api("/api/transactions?q=orange", { token: A });
+  check("recherche « orange » : le dépôt Orange Money seul",
+    byQ.json.total === 1 && /Orange Money/i.test(byQ.json.transactions[0].label),
+    JSON.stringify(byQ.json));
+
+  const csvRes = await fetch(BASE + "/api/transactions/export", { headers: { Authorization: "Bearer " + A } });
+  const csvText = await csvRes.text();
+  check("export CSV : en-tête français et une ligne par mouvement",
+    csvRes.status === 200 && /"Opération";"Type";"Moyen"/.test(csvText) && /"Retrait MVola"/.test(csvText) && csvText.split("\r\n").length === 5,
+    "code " + csvRes.status + " · " + csvText.slice(0, 80));
+
+  const cap = await api("/api/withdraw", { method: "POST", body: { amount: 500001, operator: "MVola" }, token: A });
+  check("plafond quotidien : retrait refusé au-delà de 500 000 Ar/jour",
+    cap.status === 400 && /Plafond/i.test(cap.json.error || ""), JSON.stringify(cap.json));
+
+  const meCap = await api("/api/user", { token: A });
+  check("le profil expose le total retiré du jour (17 000 Ar)",
+    meCap.json.user.withdrawn_today === 17000, JSON.stringify(meCap.json.user.withdrawn_today));
+
   const kyc = await api("/api/kyc/verify", { method: "POST", token: A });
   check("vérification KYC persistée", kyc.status === 200 && kyc.json.kyc === true);
   const after = await api("/api/user", { token: A });
@@ -1381,6 +1412,14 @@ async function main() {
   console.log("=====================================");
   let child = null;
   try {
+    /* Garde-fou anti-collision : la campagne ne doit JAMAIS travailler contre
+       un serveur étranger. Si quelque chose écoute déjà sur le port de test
+       (autre campagne lancée en parallèle, serveur oublié), ce serveur
+       répondrait aux requêtes de la campagne — et s'il utilise la base
+       réelle, les comptes de test y seraient écrits. On refuse de démarrer. */
+    let portBusy = false;
+    try { await fetch(BASE + "/api/user", { signal: AbortSignal.timeout(1500) }); portBusy = true; } catch (e) {}
+    if (portBusy) throw new Error("port " + PORT + " déjà occupé — arrêtez l'autre serveur de test (test_auth.js ?) et relancez la campagne.");
     const dbPath = snapshotDb();
     console.log("Base de travail (copie jetable) : " + dbPath);
     prepareFixture(dbPath);

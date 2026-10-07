@@ -2,9 +2,8 @@
    D-aôna — Magasins de données : utilisateurs, parties, tournois,
    portefeuille, chat, amis, skins, défis, sessions, notifications
    ---------------------------------------------------------
-   Extrait de db.js (lot S13), copie VERBATIM : mêmes requêtes, mêmes
-   commentaires. Les magasins ne font AUCUN effet de bord au chargement —
-   le schéma et les migrations sont appliqués par db.js avant tout usage.
+   Les magasins ne font AUCUN effet de bord au chargement — le schéma
+   et les migrations sont appliqués par db.js avant tout usage.
    ========================================================= */
 "use strict";
 
@@ -13,6 +12,9 @@ const DATA = require("../data");
 
 /* ---------- Helpers ---------- */
 function now() { return new Date().toISOString(); }
+/* Comparaison de libellé insensible à la casse ET aux accents, pour la
+   recherche de l'historique du wallet (« depot » retrouve « Depot MVola »). */
+const fold = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 /* ---------- Utilisateurs ---------- */
 const User = {
@@ -203,6 +205,59 @@ const Wallet = {
   },
   getTransactions(userId, limit = 50) {
     return db.prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?").all(userId, limit);
+  },
+  /* Historique FILTRÉ et PAGINÉ de l'écran Wallet. Les dates, le statut et le
+     tri sont résolus en SQL ; les familles (kind), les moyens (method) et la
+     recherche (q) reposent sur des motifs et sont donc appliqués après la
+     lecture — les mêmes règles que celles renvoyées au client (DATA.txKind /
+     DATA.txMethod), donc filtre et étiquette ne peuvent pas diverger.
+     `size` accepte un nombre ou « all » (0 = tout afficher) ; sans valeur, le
+     défaut historique de 50 est conservé. Chaque ligne repart étiquetée. */
+  history(userId, opts = {}) {
+    const page = Math.max(1, parseInt(opts.page, 10) || 1);
+    let size = opts.size === "all" ? 0 : parseInt(opts.size, 10);
+    if (!Number.isFinite(size)) size = 50;
+    if (size < 0) size = 50;
+    const sort = opts.sort === "asc" ? "ASC" : "DESC";
+    const period = opts.period || "all";
+    const from = /^\d{4}-\d{2}-\d{2}$/.test(opts.from || "") ? opts.from : null;
+    const to = /^\d{4}-\d{2}-\d{2}$/.test(opts.to || "") ? opts.to : null;
+
+    let sql = "SELECT * FROM transactions WHERE user_id = ?";
+    const args = [userId];
+    if (from) { sql += " AND date(created_at) >= ?"; args.push(from); }
+    if (to) { sql += " AND date(created_at) <= ?"; args.push(to); }
+    if (!from && !to && period === "recent") sql += " AND datetime(created_at) >= datetime('now', '-30 days')";
+    if (!from && !to && period === "old") sql += " AND datetime(created_at) < datetime('now', '-30 days')";
+    const status = opts.status || "all";
+    if (status === "pending") sql += " AND status = 'pending'";
+    else if (status === "success") sql += " AND (status IS NULL OR status = '' OR status = 'success')";
+    sql += ` ORDER BY datetime(created_at) ${sort}, id ${sort}`;
+
+    let rows = db.prepare(sql).all(...args);
+    const kind = opts.kind || "all";
+    if (kind !== "all") rows = rows.filter((r) => DATA.txKind(r.label) === kind);
+    const method = opts.method || "all";
+    if (method !== "all") rows = rows.filter((r) => DATA.txMethod(r.label) === method);
+    const q = fold(opts.q);
+    if (q) rows = rows.filter((r) => fold(r.label).includes(q));
+
+    const total = rows.length;
+    const slice = size > 0 ? rows.slice((page - 1) * size, page * size) : rows;
+    return {
+      items: slice.map((r) => ({ ...r, kind: DATA.txKind(r.label), method: DATA.txMethod(r.label) })),
+      total, page, size: size > 0 ? size : total,
+    };
+  },
+  /* Somme des retraits du JOUR (jour UTC de created_at, celui qui est
+     affiché) : sert au plafond quotidien de 500 000 Ar et au profil.
+     Calculée depuis l'historique — la seule source de vérité — plutôt que lue
+     d'une colonne que personne ne maintenait. */
+  withdrawnToday(userId) {
+    const row = db.prepare(
+      "SELECT COALESCE(SUM(amount), 0) AS s FROM transactions WHERE user_id = ? AND dir = 'out' AND label LIKE 'Retrait%' AND date(created_at) = date('now')"
+    ).get(userId);
+    return row ? row.s : 0;
   },
 };
 

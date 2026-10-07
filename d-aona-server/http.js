@@ -1,9 +1,7 @@
 /* =========================================================
-   D-aôna — Utilitaires HTTP : fichiers statiques, corps borné,
-   IP cliente, jetons Bearer, limitation de débit, réponses JSON
-   ---------------------------------------------------------
-   Extrait de server.js (lot S13), copie VERBATIM — mêmes protections
-   (anti-traversée, plafond du corps, no-store) et mêmes commentaires.
+   D-aôna — Utilitaires HTTP : fichiers statiques (anti-traversée),
+   corps borné, IP cliente, jetons Bearer, limitation de débit,
+   réponses JSON.
    ========================================================= */
 "use strict";
 
@@ -16,11 +14,8 @@ const ROOT = path.resolve(__dirname, "../D-aona/d-aona-web");
 /* ---------- Static file serving ---------- */
 const MIME = { ".html":"text/html",".css":"text/css",".js":"application/javascript",
   ".json":"application/json",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",
-  /* Le visuel du partenaire est un WebP (`assets/ad/yas-nperf-2025.webp`) : sans
-     cette entrée il partait en `application/octet-stream` et l'image ne
-     s'affichait pas. Le type est déclaré pour ce qu'il est, plutôt que de
-     renommer le fichier en `.jpg` — un mensonge que le navigateur devrait
-     rattraper par reniflage. */
+  /* Le visuel du partenaire est un WebP (`assets/ad/`) : sans ce type déclaré,
+     il partait en `application/octet-stream` et l'image ne s'affichait pas. */
   ".webp":"image/webp",
   ".svg":"image/svg+xml",".ico":"image/x-icon",".woff":"font/woff",".woff2":"font/woff2",".txt":"text/plain" };
 function serveStatic(req, res) {
@@ -83,7 +78,7 @@ function authMiddleware(req) {
 function isRateLimited(req, res) {
   const rl = Auth.rateLimit(clientIp(req));
   if (rl.allowed) return false;
-  respond(res, { error: `Trop de tentatives depuis ce réseau. Réessayez dans ${rl.retryAfter} s.` }, 429);
+  respond(res, { error: `Trop de tentatives — réessayez dans ${rl.retryAfter} s.` }, 429);
   return true;
 }
 
@@ -112,11 +107,8 @@ function readBody(req, maxBytes = 64 * 1024) {
   });
 }
 function respond(res, obj, code = 200) {
-  /* `no-store` explicite : un classement ou un historique mis en cache par le
-     navigateur (ou par un proxy/CDN, le serveur pouvant être exposé derrière le
-     tunnel Cloudflare) afficherait un nouveau joueur en retard d'une visite —
-     exactement le symptôme « le classement ne se met pas à jour ». Une réponse
-     d'API ne doit jamais être servie depuis un cache. */
+  /* `no-store` : une réponse d'API (classement, historique) ne doit jamais être
+     servie depuis un cache navigateur ou proxy. */
   res.writeHead(code, {
     "Content-Type": "application/json",
     "Cache-Control": "no-store",

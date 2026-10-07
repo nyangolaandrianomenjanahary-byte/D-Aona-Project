@@ -2,12 +2,10 @@
    D-aôna — Contrôle du portefeuille (LECTURE SEULE)
    ---------------------------------------------------------
    Repère les comptes au solde incohérent : solde négatif, ou solde
-   incohérent avec les mouvements enregistrés dans `transactions`.
-
-   Sert à mesurer l'impact du défaut de double débit de Wallet.spend()
-   (corrigé le 2026-09-14) : chaque dépense — retrait, achat de skin,
-   entrée de tournoi, mise de défi — retirait DEUX FOIS le montant du
-   solde, ce qui pouvait le faire passer en négatif.
+   incohérent avec les mouvements enregistrés dans `transactions`
+   (un écart signale un débit non tracé — l'ancien défaut de double
+   débit de Wallet.spend(), corrigé le 2026-09-14, peut avoir laissé
+   des traces).
 
    Aucune écriture : le script ouvre la base en lecture seule.
 

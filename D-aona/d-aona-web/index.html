@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>D-aôna — Plateforme compétitive de jeux malgaches traditionnels</title>
-<meta name="description" content="D-aôna : Fanorona compétitif, tournois à cashprice en Ariary, classement Elo national — écran « Bon retour » adaptatif (bureau & mobile), recherche dépliable en pastille, barre d'onglets lumineuse. PRD v1.2.">
+<title>D-aôna — Fanorona compétitif en ligne</title>
+<meta name="description" content="D-aôna — Fanorona compétitif : tournois en Ariary, défis et classement Elo.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231D9E75'/%3E%3Ccircle cx='11' cy='11' r='3' fill='%23F7EAD0'/%3E%3Ccircle cx='21' cy='21' r='3' fill='%230A0A0F'/%3E%3Ccircle cx='16' cy='16' r='1.1' fill='%23F5C25E'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,11 +21,10 @@
   --panel-3: #DDE0EA;
   --text: #3A3D4D;
   --text-strong: #14141F;
-  /* --muted (texte secondaire, libellés, horodatages) : #6B6E80 donnait 5,04:1 sur
-     blanc mais 4,23:1 sur --panel-2 et 4,35:1 sur --panel-3 — sous le seuil dès que
-     la surface est teintée (revue UX/UI §3, lot S3). #5C5F72 mesure 6,30:1 sur
-     blanc, 5,28:1 sur --panel-2 et 4,77:1 sur --panel-3 (le fond le plus sombre de
-     la charte claire). */
+  /* --muted (texte secondaire, libellés, horodatages) : #6B6E80 tombait sous le
+     seuil dès que la surface était teintée (4,23:1 sur --panel-2, 4,35:1 sur
+     --panel-3). #5C5F72 mesure 6,30:1 sur blanc, 5,28:1 sur --panel-2 et 4,77:1
+     sur --panel-3 (le fond le plus sombre de la charte claire). */
   --muted: #5C5F72;
   --line: rgba(15, 15, 30, 0.10);
   --brand: #15775a;
@@ -97,8 +96,8 @@
         --mt-filter-lift avance de la rangée de filtres des tournois, reprise par
                          « Prochains départs » (une seule valeur, deux usages). */
   --mt-green: #15803D; --mt-green-2: #16A34A; --mt-green-3: #22C55E;
-  /* 1er arrêt à #15803D (et non #1FA357) : correctif AA — le paragraphe du héro
-     (13 px, blanc 92 %) passe de 3,00:1 à 4,51:1, le blanc pur à 5,02:1. */
+  /* 1er arrêt à #15803D (et non #1FA357) : contraste AA — le paragraphe du héro
+     (13 px, blanc 92 %) mesure 4,51:1, le blanc pur 5,02:1. */
   --mt-grad-green: linear-gradient(150deg, #15803D 0%, #0F5132 82%);
   --mt-gold: #B45309; --mt-gold-2: #D97706;
   /* Arrêts assombris par rapport à la maquette (#F59E0B → #C2670A) : un dégradé
@@ -133,9 +132,9 @@ html[data-theme="light"] .home-hero {
 html[data-theme="light"] .home-hero .pill.green { background: rgba(21, 119, 90, .16); color: #0f5f47; border-color: rgba(21, 119, 90, .4); }
 html[data-theme="light"] .pill.amber { background: rgba(217, 119, 6, .14); color: #92400e; border-color: rgba(217, 119, 6, .4); }
 /* Encre dédiée sur teinte de marque : l'ambre ne tient pas 4,5:1 en petit texte
-   sur son propre fond clair (prix des skins de plateau et d'effets — 2,67:1,
-   revue UX/UI §3, lot S2). Même teinte, plus foncée ; le thème nuit garde la
-   teinte claire, qui y donne 8,7:1 sur le noir. */
+   sur son propre fond clair (prix des skins de plateau et d'effets — 2,67:1).
+   Même teinte, plus foncée ; le thème nuit garde la teinte claire, qui y donne
+   8,7:1 sur le noir. */
 html[data-theme="light"] .skin-card .amber { color: #92400e; }
 /* Filtre actif (Classement, boutique) : #04150e ne donnait que 4,33:1 sur le vert
    clair, un fond trop clair pour n'importe quelle encre de petit texte. Le fond
@@ -165,21 +164,21 @@ html[data-theme="light"] .turn-banner.me { color: var(--brand); }
 /* ============ THÈME NUIT 🌃 (OLED, noir pur, lumière réduite) ============ */
 html[data-theme="night"] {
   --bg: #000000;
-  /* Échelle des surfaces relevée d'un cran (revue UX/UI §5, lot S7) : #0A0A0C ne
-     se détachait du fond noir que de 1,06:1 et les tuiles internes de 1,04:1 —
-     la hiérarchie reposait alors sur les seules bordures. Nouvelle échelle :
-     1,09:1 (--panel), 1,19:1 (--panel-2), 1,28:1 (--panel-3). Le noir OLED reste
-     pur en fond, et --muted garde 4,57:1 sur la surface la plus claire. */
+  /* Échelle des surfaces relevée d'un cran : #0A0A0C ne se détachait du fond
+     noir que de 1,06:1 et les tuiles internes de 1,04:1 — la hiérarchie
+     reposait alors sur les seules bordures. Nouvelle échelle : 1,09:1 (--panel),
+     1,19:1 (--panel-2), 1,28:1 (--panel-3). Le noir OLED reste pur en fond, et
+     --muted garde 4,57:1 sur la surface la plus claire. */
   --panel: #0E0E12;
   --panel-2: #18181F;
   --panel-3: #1F1F28;
   --text: #9C9EAE;
   --text-strong: #E6E1D6;
   /* --muted (texte secondaire, libellés, titres de panneaux) : #5E6072 mesurait
-     3,20:1 sur --panel et 2,94:1 sur --panel-3 — tout était sous le seuil AA
-     (revue UX/UI du 23/09/2026). #85879A mesure 5,59:1 sur --panel, 5,13:1 sur
-     --panel-3 et 4,53:1 même sur une teinte de marque ; il reste nettement plus
-     sombre que --text, la hiérarchie est conservée. */
+     3,20:1 sur --panel et 2,94:1 sur --panel-3 — tout était sous le seuil AA.
+     #85879A mesure 5,59:1 sur --panel, 5,13:1 sur --panel-3 et 4,53:1 même sur
+     une teinte de marque ; il reste nettement plus sombre que --text, la
+     hiérarchie est conservée. */
   --muted: #85879A;
   --line: rgba(255, 255, 255, 0.05);
   --brand: #17825f;
@@ -573,7 +572,7 @@ html[data-theme="night"] .lgtab {
 }
 /* La pastille de saison ne s'étire pas sur toute la largeur du héro quand
    celui-ci devient une colonne flex (mode plein écran) : elle se dimensionne
-   sur son texte (revue §5, lot S7). */
+   sur son texte. */
 .home-hero > .pill { align-self: flex-start; }
 .home-hero h2 { font-size: 24px; color: var(--text-strong); font-weight: 700; max-width: 420px; }
 .home-hero p { color: var(--muted); max-width: 400px; margin: 8px 0 18px; }
@@ -926,8 +925,8 @@ html[data-theme="night"] #modal .rp-btn-ghost:hover { background: rgba(43, 163, 
 .pg-dots { display: flex; gap: 0; align-items: center; }
 /* WCAG 2.2 (2.5.8) — toute cible tactile mesure au moins 24×24 px : le point visuel
    garde sa taille (9 px, 30 px pour l'étape active) mais il est dessiné au centre
-   d'une boîte cliquable de 24×24 (revue UX/UI §4.10, lot S4). Le gap passe à 0 pour
-   que l'espacement perçu entre les points reste proche de l'ancien. */
+   d'une boîte cliquable de 24×24. Le gap passe à 0 pour que l'espacement perçu
+   entre les points reste proche de l'ancien. */
 .pg-dot {
   position: relative; width: 24px; height: 24px; border: none; padding: 0; background: none;
   cursor: pointer;
@@ -1133,11 +1132,9 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
 .turn-banner #turn-banner-name { color: var(--text-strong); font-weight: 800; }
 
 /* --- Lancer de pièce « pile ou face » ---
-   Il était annoncé ici par une bande NON modale (lot S8, arbitrage du §18) : elle
-   est RETIRÉE le 03/10/2026. Le lancer se joue désormais AVANT que le plateau ne
-   serve, en voile plein écran, et il montre l'attribution des deux faces aux deux
-   joueurs. Tout est dans la section « Lancer de pièce », plus bas (`.coin-toss`),
-   où l'arbitrage inversé est argumenté. */
+   Le lancer se joue AVANT que le plateau ne serve, en voile plein écran, et il
+   montre l'attribution des deux faces aux deux joueurs. Tout est dans la section
+   « Lancer de pièce », plus bas (`.coin-toss`). */
 
 /* Surbrillance de la barre du joueur dont c'est le tour */
 .player-bar { transition: border-color .25s, box-shadow .25s, opacity .25s, filter .25s; }
@@ -1864,7 +1861,7 @@ html[data-theme="night"] .mt-chip-gold { color: var(--mt-gold-2); }
 .mt-state__acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
 /* L'état vide de « Dernières parties » (Accueil) est monté DANS la zone de
    défilement : en mise en page plein écran il la remplit et se centre, sinon il
-   flotterait en haut d'un panneau d'environ 440 px (revue §4.6, lot S5). */
+   flotterait en haut d'un panneau d'environ 440 px. */
 body.is-fill .hg-scroll > .mt-state { height: 100%; justify-content: center; }
 
 /* --- Règles du format (colonne « Comment ça marche » des tournois) ---
@@ -1938,8 +1935,8 @@ body.is-fill .hg-scroll > .mt-state { height: 100%; justify-content: center; }
 .pod.p2 { background: linear-gradient(180deg, rgba(154, 163, 173, .12), transparent), var(--panel-2); }
 .pod.p3 { background: linear-gradient(180deg, rgba(138, 90, 59, .14), transparent), var(--panel-2); }
 .pod .crown { font-size: 18px; }
-/* Avatar du podium : la table voisine en affiche, le podium n'en avait aucun
-   (revue §5, lot S7). Le pseudo reste le seul lien cliquable. */
+/* Avatar du podium : présent comme dans la table voisine ; le pseudo reste le
+   seul lien cliquable. */
 .pod .pod-av { width: 34px; height: 34px; font-size: 12px; margin: 6px auto 0; cursor: default; }
 .pod .pn { font-weight: 700; color: var(--text-strong); font-size: 12.5px; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pod .pe { font-family: var(--mono); font-size: 12px; color: var(--amber); }
@@ -2080,10 +2077,10 @@ html[data-theme="light"] .badge-chip { color: var(--b-ink-day, var(--text-strong
 .op-dot { width: 38px; height: 38px; border-radius: var(--r-sm); display: grid; place-items: center; font-weight: 800; font-size: 15px; color: #fff; flex: none; }
 .op-card b { display: block; font-size: 14px; color: var(--text-strong); text-align: left; }
 .op-card span { font-size: 12px; color: var(--muted); }
-/* La ligne d'opérateur SÉLECTIONNE (elle ne navigue pas) : le chevron « › » de la
-   maquette a cédé la place à une COCHE, affichée sur la ligne active seulement —
-   l'affordance dit vrai, et MVola présélectionné se voit au lieu de se deviner
-   (revue §5, lot S6). La coche est décorative : l'état passe par `aria-pressed`. */
+/* La ligne d'opérateur SÉLECTIONNE (elle ne navigue pas) : une COCHE s'affiche
+   sur la ligne active seulement — l'affordance dit vrai, et MVola présélectionné
+   se voit au lieu de se deviner. La coche est décorative : l'état passe par
+   `aria-pressed`. */
 .op-card .op-check {
   margin-left: auto; flex: none; width: 22px; height: 22px; border-radius: 50%;
   display: grid; place-items: center; font-size: 11px; font-weight: 700;
@@ -2094,31 +2091,83 @@ html[data-theme="light"] .badge-chip { color: var(--b-ink-day, var(--text-strong
 .amount-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
 .amt-chip { padding: 11px 6px; text-align: center; font-family: var(--mono); font-size: 13px; font-weight: 600; border: .5px solid var(--line); border-radius: var(--r-pill); background: var(--panel-2); cursor: pointer; color: var(--text); }
 .amt-chip.on { border: 1.5px solid var(--brand); color: var(--brand-ink); background: rgba(29, 158, 117, .08); }
-.tx-row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: .5px solid var(--line); }
-.tx-row:last-child { border-bottom: 0; }
-.tx-ic { width: 34px; height: 34px; border-radius: var(--r-sm); display: grid; place-items: center; flex: none; }
-.tx-info { flex: 1; min-width: 0; }
-.tx-info .t { font-weight: 600; color: var(--text); font-size: 13.5px; }
-.tx-info .d { color: var(--muted); font-size: 11.5px; }
-.tx-amt { font-family: var(--mono); font-weight: 700; font-size: 13.5px; }
-.tx-status { font-size: 10.5px; padding: 2px 8px; border-radius: var(--r-pill); margin-left: 8px; }
-/* --- Filtres de l'historique (date · type · libellé) -------------------------
-   Même grammaire que la barre d'outils du Classement : .chips/.chip pour les
-   valeurs, .searchbar compact (SearchToggle) pour le libellé. Les dates
-   passent par les champs natifs <input type="date"> — aucune dépendance.
-   Toutes les couleurs viennent des jetons existants. */
-.tx-filters { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin: 4px 0 10px; }
-.tx-filters .lbl { font-size: 11px; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); }
-.tx-filters input[type="date"] {
-  background: var(--panel-2); border: .5px solid var(--line); border-radius: var(--r-sm);
-  padding: 0 10px; height: 42px; min-width: 0;
+/* --- Historique v2 : table, badges, pagination (écran Wallet) ---------------
+   Présentation reprise de la maquette « wallet-desktop » : opération, date,
+   type, moyen, statut, montant. En mobile le tableau devient une zone à
+   défilement horizontal (jamais un débordement de page). Les couleurs passent
+   par les jetons des thèmes jour/nuit — aucun ton nouveau. */
+.wl-bal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.wl-fee-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: .5px solid var(--line); font-size: 13px; color: var(--text); }
+.wl-fee-row:last-of-type { border-bottom: 0; }
+.wl-fee-row b { font-family: var(--mono); font-size: 14px; }
+.wl-rules { display: grid; gap: 6px; margin-top: 8px; }
+.wl-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.wl-head-actions { display: flex; align-items: center; gap: 10px; }
+.wl-moves { color: var(--muted); font-size: 12.5px; }
+.wl-moves strong { color: var(--text-strong); font-family: var(--mono); }
+.wl-adv { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px 12px; padding: 12px 13px; margin: 2px 0 10px; border: .5px solid var(--line); border-radius: var(--r-md); background: var(--panel-2); }
+/* L'attribut `hidden` doit GAGNER sur les `display` des composants : l'origine
+   auteur prime sur la règle `[hidden]` du navigateur, sans quoi le panneau
+   resterait visible (et déborderait en mobile). */
+.wl-adv[hidden], .wl-rules[hidden], #wallet-root .btn[hidden] { display: none !important; }
+.wl-adv label { display: grid; gap: 5px; font-size: 11px; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); }
+.wl-adv input, .wl-adv select {
+  background: var(--panel); border: .5px solid var(--line); border-radius: var(--r-sm);
+  height: 40px; padding: 0 10px; min-width: 0;
   color: var(--text-strong); font-family: inherit; font-size: 13px; outline: none;
   color-scheme: light;
 }
-html[data-theme="night"] .tx-filters input[type="date"] { color-scheme: dark; }
-.tx-filters input[type="date"]:focus { border-color: var(--brand); }
-.tx-filters input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
-.tx-count { margin-left: auto; }
+html[data-theme="night"] .wl-adv input, html[data-theme="night"] .wl-adv select { color-scheme: dark; }
+.wl-adv input:focus, .wl-adv select:focus { border-color: var(--brand); }
+.wl-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; }
+.wl-tags:empty { margin: 0; }
+.wl-tag { display: inline-flex; align-items: center; gap: 7px; min-height: 28px; padding: 0 9px; border: .5px solid var(--line); border-radius: var(--r-pill); background: var(--panel-2); color: var(--text); font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.wl-tag:hover { border-color: var(--brand); color: var(--text-strong); }
+.wl-tablewrap { overflow-x: auto; }
+.wl-table { width: 100%; min-width: 660px; border-collapse: collapse; }
+.wl-table th { padding: 8px 10px; text-align: left; font-size: 10.5px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); font-weight: 600; border-bottom: .5px solid var(--line); white-space: nowrap; }
+.wl-table th:first-child, .wl-table td:first-child { padding-left: 2px; }
+.wl-table th:last-child, .wl-table td:last-child { padding-right: 2px; }
+.wl-table td { padding: 10px; border-bottom: .5px solid var(--line); font-size: 13px; color: var(--text); vertical-align: middle; }
+.wl-table tr:last-child td { border-bottom: 0; }
+.wl-th-sort { display: inline-flex; align-items: center; gap: 5px; border: 0; padding: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.wl-th-sort:hover { color: var(--text-strong); }
+.wl-col-amt { text-align: right !important; }
+.wl-op-in { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.wl-date { font-family: var(--mono); font-size: 12.5px; color: var(--text); }
+.wl-time { color: var(--muted); font-size: 11.5px; }
+.wl-method { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.wl-badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: var(--r-pill); font-size: 11px; font-weight: 600; border: .5px solid var(--line); color: var(--muted); background: var(--panel-2); white-space: nowrap; }
+.wl-badge.green { color: var(--brand-ink); border-color: rgba(29, 158, 117, .4); background: rgba(29, 158, 117, .1); }
+.wl-badge.amber { color: var(--amber); border-color: rgba(229, 158, 39, .4); background: var(--amber-soft); }
+.wl-table .tx-row { cursor: pointer; }
+.wl-table .tx-row:hover td { background: var(--panel-2); }
+.wl-table .tx-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.tx-ic { width: 34px; height: 34px; border-radius: var(--r-sm); display: grid; place-items: center; flex: none; font-size: 15px; }
+.tx-info { min-width: 0; }
+.tx-info .t { display: block; font-weight: 600; color: var(--text-strong); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-info .d { display: block; color: var(--muted); font-size: 11.5px; }
+.tx-amt { font-family: var(--mono); font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+.wl-empty { padding: 26px 8px !important; text-align: center; color: var(--muted); font-size: 13px; }
+.wl-loading { opacity: .5; }
+.wl-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 12px; }
+.wl-pager { display: flex; align-items: center; gap: 6px; }
+.wl-sel { height: 38px; padding: 0 8px; border: .5px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2); color: var(--text); font-size: 12.5px; }
+.wl-pgbtn { min-width: 38px; height: 38px; display: grid; place-items: center; border: .5px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2); color: var(--text-strong); font-size: 16px; cursor: pointer; }
+.wl-pgbtn:hover:not(:disabled) { border-color: var(--brand); }
+.wl-pgbtn:disabled { opacity: .4; cursor: default; }
+.wl-pgind { min-width: 54px; text-align: center; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.wl-det { display: grid; margin: 10px 0 4px; }
+.wl-det .row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: .5px solid var(--line); font-size: 13.5px; }
+.wl-det .row:last-child { border-bottom: 0; }
+.wl-det .row span { color: var(--muted); flex: none; }
+.wl-det .row b { color: var(--text-strong); font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+/* --- Filtres de l'historique (période · type) --------------------------------
+   Même grammaire que la barre d'outils du Classement : .chips/.chip pour les
+   valeurs, .searchbar compact (SearchToggle) pour la recherche. Dates, moyen
+   et statut vivent dans le panneau « Plus de filtres » (.wl-adv) — toutes les
+   couleurs viennent des jetons existants. */
+.tx-filters { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin: 4px 0 10px; }
 
 /* ============ Profil ============ */
 .profile-layout { display: grid; grid-template-columns: 330px 1fr; gap: 16px; align-items: start; }
@@ -2612,12 +2661,6 @@ body.is-fill #skins-root .side-stack { padding-bottom: 48px; }
   #skins-root .stage-real .view-hint { display: none; }
 }
 
-/* Variante compacte de la carte de solde : elle vit dans la colonne latérale
-   du profil (330 px) au lieu de l'écran Wallet. */
-.balance-card.mini { padding: 16px 18px; }
-.balance-card.mini .amount { font-size: 24px; }
-.balance-card.mini .balance-actions { margin-top: 12px; gap: 8px; }
-
 /* --- Profil v3a « carte unique » ------------------------------------------------
    Rangées et cartes reprises de la maquette (wallet façon carte bancaire,
    bannière publicitaire, sélecteur de période rond, strip de jours, CTA
@@ -2671,8 +2714,7 @@ body.is-fill #skins-root .side-stack { padding-bottom: 48px; }
    flex à hauteur imposée ; sans cette garde, `overflow:hidden` réduit la
    taille minimale automatique à 0 et la bannière était écrasée à 44 px.
    `overflow: hidden` garde son second rôle : rogner l'image aux angles
-   arrondis de la carte (un élément rogné n'est pas un débordement pour la
-   revue UI, qui le vérifie). */
+   arrondis de la carte. */
 .pf3-ad { position: relative; overflow: hidden; flex: 0 0 auto; border-radius: var(--radius-card); box-shadow: var(--shadow-1); background: var(--panel); }
 /* `line-height: 0` : sans lui, la ligne de base laisserait une fente de ~4 px
    sous l'image (comportement d'une image en ligne) au-dessus du coin arrondi. */
@@ -2699,9 +2741,8 @@ body.is-fill #skins-root .side-stack { padding-bottom: 48px; }
 }
 .pf3-ad-eyebrow { position: absolute; top: 10px; left: 10px; z-index: 1; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; color: #fff; background: rgba(8, 12, 26, .62); padding: 3px 10px; border-radius: 999px; }
 .pf3-ad-close { position: absolute; top: 10px; right: 10px; z-index: 2; width: 26px; height: 26px; border-radius: 50%; border: none; background: rgba(0, 0, 0, .38); color: #fff; font-size: 11px; cursor: pointer; }
-/* Zone de touche portée à 44 px autour du ✕ (visuel inchangé) : la cible était
-   à 26 px, sous le minimum tactile — défaut relevé par la revue, ici corrigé au
-   passage puisque le bloc est retouché. */
+/* Zone de touche portée à 44 px autour du ✕ (visuel inchangé) : la cible
+   mesurait 26 px, sous le minimum tactile. */
 .pf3-ad-close::after { content: ""; position: absolute; inset: -9px; }
 
 /* Sélecteur de période rond (maquette) : D aujourd'hui, S 7 j, M 30 j, A tout. */
@@ -2819,12 +2860,12 @@ body.is-fill #skins-root .side-stack { padding-bottom: 48px; }
 .msg { max-width: 70%; padding: 9px 13px; border-radius: var(--r-md); font-size: 13.5px; }
 .msg.them { align-self: flex-start; background: var(--panel-2); border: .5px solid var(--line); border-bottom-left-radius: 4px; }
 .msg.me { align-self: flex-end; background: rgba(29, 158, 117, .18); border: .5px solid rgba(29,158,117,.4); border-bottom-right-radius: 4px; }
-/* Horodatage à 11 px (plancher de lisibilité de l'interface) : 10 px était sous le
-   reste de l'app — revue UX/UI §4.10, lot S4. */
+/* Horodatage à 11 px : plancher de lisibilité de l'interface (10 px était en
+   dessous du reste de l'app). */
 .msg .at { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
 /* Dans la bulle de mes messages, l'horodatage se pose sur une teinte de marque :
-   le gris secondaire y tombait à 4,39:1 en nuit après le relèvement des surfaces
-   (revue §5, lot S7) — il prend l'encre du texte (5,8:1 nuit, 7,5:1 jour). */
+   le gris secondaire y tombait à 4,39:1 en nuit — il prend l'encre du texte
+   (5,8:1 nuit, 7,5:1 jour). */
 .msg.me .at { color: var(--text); }
 .chat-input { display: flex; gap: 9px; padding: 11px; border-top: .5px solid var(--line); }
 
@@ -3361,8 +3402,6 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
   .wb-steps-label { animation: none; transition: none; }
 }
 
-/* ============ Admin ============ */
-.admin-tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
 .kpi { background: var(--panel-2); border: .5px solid var(--line); border-radius: var(--r-md); padding: 13px; }
 .kpi .v { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--brand-ink); }
@@ -3373,7 +3412,6 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
 .mini-btn { padding: 5px 10px; font-size: 11.5px; border-radius: var(--r-sm); }
 
 /* ============ Divers ============ */
-.footer-note { text-align: center; color: var(--muted); font-size: 11px; margin: 26px 0 6px; }
 .rules-list { font-size: 13px; color: var(--muted); padding-left: 0; list-style: none; }
 .rules-list li { padding: 6px 0 6px 24px; position: relative; border-bottom: .5px dashed var(--line); }
 .rules-list li::before { content: "◆"; position: absolute; left: 2px; color: var(--amber); font-size: 9px; top: 10px; }
@@ -3389,12 +3427,9 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
    thèmes, et c'est le fichier qui décide de la forme (aucun `border-radius`). */
 
 /* ============ Lancer de pièce « pile ou face » (AVANT la partie) ============
-   ARBITRAGE INVERSÉ le 03/10/2026 — il supplante la bande du lot S8, retirée.
-   La demande : « l'animation de pile ou face se fait D'ABORD, et montre quel joueur
-   a pile et quelle personne a face ». Le lancer est donc un voile plein écran, joué
-   AVANT que le plateau ne serve, et il dit l'attribution des DEUX faces aux DEUX
-   joueurs — information qui n'existait nulle part (le serveur l'expose pourtant :
-   `state.toss.choices`, cf. `game.js`).
+   Le lancer est un voile plein écran, joué AVANT que le plateau ne serve : il
+   montre quel joueur a PILE et quel joueur a FACE (le serveur expose cette
+   attribution dans `state.toss.choices`, cf. `game.js`).
    L'image de référence fournie montre une pièce en l'air, au centre, sur fond adouci :
    la scène est assombrie, la pièce s'élève en tournant puis retombe sur la face que le
    SERVEUR a tirée, et le verdict laisse la place au panneau d'attribution.
@@ -3617,10 +3652,10 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
     scrollbar-width: thin; scrollbar-color: var(--line) transparent;
   }
   /* Air en fin de course : sans cette réserve, la dernière carte de la colonne
-     finissait au ras du conteneur (mesuré 0 px sur l'écran Amis, −1 px sur la
-     colonne Boutique du Profil — revue UX/UI §4.4, lot S7). 16 px laissent un
-     air franc une fois la liste défilée jusqu'en bas ; la réserve de la barre
-     d'onglets, elle, est portée par #screens. */
+     finissait au ras du conteneur (0 px sur l'écran Amis, −1 px sur la colonne
+     Boutique du Profil). 16 px laissent un air franc une fois la liste défilée
+     jusqu'en bas ; la réserve de la barre d'onglets, elle, est portée par
+     #screens. */
   body.is-fill :is(.mt-split, .rank-layout, .wallet-layout, .profile-layout, .skins-layout) > *,
   body.is-fill #friends-root,
   body.is-fill #notifications-root,
@@ -3637,7 +3672,6 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
      sont des rangées `auto`, les blocs souples se partagent le reste — et cela
      reste juste si « Mes tournois » est absent (« Dernières parties » prend
      alors toute la hauteur). */
-  body.is-fill #screen-home .footer-note { display: none; }   /* la note reste sur mobile */
   body.is-fill #home-root { height: 100%; min-height: 0; }
   body.is-fill .home-grid {
     grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
@@ -3691,12 +3725,11 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
   .home-row { grid-template-columns: 1fr; }
   .rank-row { grid-template-columns: 30px 1fr 76px 44px; }
   .rank-row .wr { display: none; }
-  /* Barre haute sur UNE ligne : elle en occupait deux (107 px) avec un
-     regroupement qui paraissait accidentel (revue §5, lot S7). Le nom de
-     l'application cède la place au logo (il est déjà dans les titres d'écran),
-     la pastille KYC se réduit à sa coche — son intitulé complet reste dans
-     l'infobulle, le nom accessible et l'écran Profil — et les contrôles se
-     resserrent. Rien ne déborde : la pastille wallet peut se tronquer. */
+  /* Barre haute sur UNE ligne : le nom de l'application cède la place au logo
+     (il est déjà dans les titres d'écran), la pastille KYC se réduit à sa coche
+     — son intitulé complet reste dans l'infobulle, le nom accessible et l'écran
+     Profil — et les contrôles se resserrent. Rien ne déborde : la pastille
+     wallet peut se tronquer. */
   .topbar { flex-wrap: nowrap; gap: 6px; padding: 8px 12px; }
   .logo-name { display: none; }
   .icon-btn { width: 34px; height: 34px; border-radius: var(--r-sm); }
@@ -4069,7 +4102,7 @@ body.is-fill #screens {
        .chat-pop .cp-btn / .cp-input button
      · --r-pill (999) pastilles : .chip · .pill · .mt-chip* · .mt-filter · .mt-seg ·
        .pg-chip · .wb-seg · .searchbar · .wallet-chip · .kyc-badge · .resume-bar ·
-       .amt-chip · .tx-status · .badge-chip · .switch · .chain-bar
+       .amt-chip · .badge-chip · .switch · .chain-bar · .wl-badge · .wl-tag
    EXCEPTIONS ASSUMÉES (inchangées, hors échelle) : les cercles (50 % : avatars,
    points, pions, tuiles D/S/M/A) ; les formes ACCROCHÉES À UN BORD, dont le
    rayon est partiel par nature (.chat-pop · .chat-panel · .chat-fab · .pod ·
@@ -4121,7 +4154,7 @@ body.is-fill #screens {
           </svg>
         </div>
         <h1>Bon <em>retour</em></h1>
-        <p class="wb-subtitle">Connectez-vous pour reprendre la partie — D-aôna, l'arène du Fanorona.</p>
+        <p class="wb-subtitle">Connectez-vous — l'arène du Fanorona vous attend.</p>
         <div class="wb-deco" aria-hidden="true">
           <span class="wb-mini">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.5 3.5"/></svg>
@@ -4146,7 +4179,7 @@ body.is-fill #screens {
               <span class="f-icon" aria-hidden="true">
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </span>
-              <input id="auth-id" type="text" placeholder="Tsiry_RN" value="Tsiry_RN" maxlength="14"
+              <input id="auth-id" type="text" placeholder="Votre pseudo ou téléphone" maxlength="14"
                      autocomplete="username" spellcheck="false" aria-label="Pseudo ou numéro de téléphone">
             </div>
           </div>
@@ -4177,7 +4210,7 @@ body.is-fill #screens {
 
           <!-- Bouton connexion : idle → loading → succès -->
           <button class="wb-btn" id="auth-enter" type="submit">
-            <span class="lbl">Entrer dans l'arène 🎮</span>
+            <span class="lbl">Se connecter</span>
             <span class="spin wb-spin" aria-hidden="true"></span>
             <svg class="tick" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
           </button>
@@ -4202,10 +4235,9 @@ body.is-fill #screens {
             <button class="wb-link" type="button" id="wb-signup">S'inscrire</button>
           </p>
 
-          <!-- Instructions du site (mises à jour avec les nouvelles fonctionnalités) -->
+          <!-- Note d'entrée : l'essentiel pour un nouveau joueur -->
           <p class="wb-note">
-            <b>Nouveautés interface</b> — écran « Bon retour » adaptatif (bureau &amp; mobile) · recherche dépliable en pastille · barre d'onglets lumineuse.<br>
-            Compte unique par numéro / email / Google · Vérification OTP par SMS · KYC (photo CIN) requis avant toute transaction réelle — l'entraînement contre l'IA reste libre.
+            Compte unique par email ou téléphone · KYC requis avant les mises — l'entraînement IA reste libre.
           </p>
         </form>
 
@@ -4326,7 +4358,7 @@ body.is-fill #screens {
             </div>
           </div>
           <div class="wb-group" style="margin-top:12px;">
-            <div class="wb-field-head"><label for="su-pass2">Confirmation du mot de passe *</label></div>
+            <div class="wb-field-head"><label for="su-pass2">Confirmer le mot de passe *</label></div>
             <div class="wb-field" id="su-pass2-f">
               <span class="f-icon" aria-hidden="true">
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><path d="m9 16 2 2 4-4"/></svg>
@@ -4350,7 +4382,7 @@ body.is-fill #screens {
               <span class="lbl">Retour</span>
             </button>
             <button class="wb-btn" id="su-enter" type="submit">
-              <span class="lbl">Créer mon compte ✨</span>
+              <span class="lbl">Créer mon compte</span>
               <span class="spin wb-spin" aria-hidden="true"></span>
               <svg class="tick" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
             </button>
@@ -4446,12 +4478,12 @@ body.is-fill #screens {
     <span class="notif-dot hidden" id="notif-dot"></span>
   </button>
   <!-- Pastille wallet : l'unité « Ar » n'est portée que par l'icône — le montant
-       l'affichait aussi (« Ar 150 000 Ar », revue §5, lot S5). -->
+       l'affichait aussi (« Ar 150 000 Ar »). -->
   <div class="wallet-chip" id="tb-wallet" role="button" tabindex="0" title="Ouvrir le wallet" aria-label="Ouvrir le wallet">
     <span class="wc-ic">Ar</span>
     <b id="tb-balance">0</b>
   </div>
-  <div class="avatar" id="tb-avatar" role="button" tabindex="0" title="Mon profil" aria-label="Mon profil">TR</div>
+  <div class="avatar" id="tb-avatar" role="button" tabindex="0" title="Mon profil" aria-label="Mon profil">—</div>
 </header>
 
 <!-- ==================== ÉCRANS ==================== -->
@@ -4460,18 +4492,17 @@ body.is-fill #screens {
   <!-- Accueil -->
   <section class="screen" id="screen-home">
     <div class="page-head">
-      <div><h1>Accueil</h1><div class="sub">Vue d'ensemble — wallet, tournois, jeux et classement</div></div>
+      <div><h1>Accueil</h1><div class="sub">Wallet · tournois · jeux · classement</div></div>
       <span class="pill">📍 Antananarivo · Saison 2</span>
     </div>
     <div id="home-root"></div>
-    <p class="footer-note">Maquette de démonstration — D-aôna PRD v1.2 (Sept. 2026) · écran « Bon retour » adaptatif, recherche dépliable, barre d'onglets lumineuse · Fanorona numérisé, scores validés côté serveur.</p>
   </section>
 
   <!-- Jeux -->
   <section class="screen" id="screen-play">
     <div class="page-head">
-      <div><h1>Jeux</h1><div class="sub">Choisissez un mode, un format — puis lancez la partie</div></div>
-      <span class="pill green">✓ Scores validés serveur (anti-triche)</span>
+      <div><h1>Jeux</h1><div class="sub">Choisissez un mode, puis un format</div></div>
+      <span class="pill green">✓ Scores validés par le serveur</span>
     </div>
     <div id="play-root"></div>
   </section>
@@ -4494,10 +4525,10 @@ body.is-fill #screens {
       <div>
         <!-- Adversaire -->
         <div class="player-bar opp">
-          <div class="avatar" id="hud-opp-avatar">ML</div>
+          <div class="avatar" id="hud-opp-avatar">—</div>
           <div class="pb-info">
             <div class="pb-name"><span id="hud-opp-name">Adversaire</span><span class="pb-camp" id="hud-opp-camp" hidden></span></div>
-            <div class="pb-sub mono" id="hud-opp-elo">1100 Elo</div>
+            <div class="pb-sub mono" id="hud-opp-elo">— Elo</div>
           </div>
           <span class="captured" id="cap-opp" title="Vos pions capturés par l'adversaire">×0</span>
           <span class="turn-flag" id="hud-turn-opp">À jouer</span>
@@ -4522,8 +4553,7 @@ body.is-fill #screens {
         <!-- Joueur -->
         <div class="player-bar">
           <!-- Joueur — les valeurs sont posées par fillHudMe() à chaque entrée sur le
-               plateau (partie serveur, entraînement IA, spectateur) : le balisage ne
-               porte plus de valeurs de maquette (revue §4.2, lot S6). La pastille
+               plateau (partie serveur, entraînement IA, spectateur). La pastille
                `pb-camp` est posée par updateCamps() dès que le tirage est résolu :
                elle dit si ce joueur joue les pions clairs ou les sombres. -->
           <div class="avatar" id="hud-me-avatar">—</div>
@@ -4588,7 +4618,7 @@ body.is-fill #screens {
       <div class="mt-hero__head">
         <div class="mt-hero__lead">
           <h1>Match</h1>
-          <p>Adversaires, parties en direct et tournois — tout se joue en temps réel.</p>
+          <p>Adversaires, direct et tournois — en temps réel.</p>
         </div>
         <span class="mt-chip"><span class="mt-pulse" aria-hidden="true"></span>TEMPS RÉEL</span>
         <button class="mt-status" id="mt-status" type="button">✓ Rien d'urgent</button>
@@ -4617,7 +4647,7 @@ body.is-fill #screens {
   <!-- Classement -->
   <section class="screen" id="screen-ranks">
     <div class="page-head">
-      <div><h1>Classement</h1><div class="sub">National · régional · par jeu · saisonnier — données joueurs collectées</div></div>
+      <div><h1>Classement</h1><div class="sub">National · régional · par jeu</div></div>
       <span class="pill">🗓️ Saison 2 · juil. → déc. 2026</span>
     </div>
     <div id="ranks-root"></div>
@@ -4626,7 +4656,7 @@ body.is-fill #screens {
   <!-- Wallet -->
   <section class="screen" id="screen-wallet">
     <div class="page-head">
-      <div><h1>Wallet</h1><div class="sub">Portefeuille interne en Ariary · MVola · Orange Money · Airtel Money</div></div>
+      <div><h1>Wallet</h1><div class="sub">Vos Ariary — MVola · Orange Money · Airtel Money</div></div>
       <span class="pill green">✓ 0% de commission interne</span>
     </div>
     <div id="wallet-root"></div>
@@ -4635,8 +4665,8 @@ body.is-fill #screens {
   <!-- Profil -->
   <section class="screen" id="screen-profile">
     <div class="page-head">
-      <div><h1>Profil</h1><div class="sub">Statistiques, badges, skins et vérification KYC</div></div>
-      <span class="pill">ID joueur unique · journal d'audit complet</span>
+      <div><h1>Profil</h1><div class="sub">Stats, badges, skins et KYC</div></div>
+      <span class="pill">ID joueur unique</span>
     </div>
     <div id="profile-root"></div>
   </section>
@@ -4646,7 +4676,7 @@ body.is-fill #screens {
        CTA du Profil mène ici. -->
   <section class="screen" id="screen-skins">
     <div class="page-head">
-      <div><h1>Boutique de skins</h1><div class="sub">Couleur et motif des pions — deux choix indépendants, à combiner librement</div></div>
+      <div><h1>Boutique de skins</h1><div class="sub">La couleur et le motif des pions</div></div>
       <a class="btn mini-btn" href="#/profile" id="skins-back">← Profil</a>
     </div>
     <div id="skins-root"></div>
@@ -4655,8 +4685,8 @@ body.is-fill #screens {
   <!-- Chat -->
   <section class="screen" id="screen-chat">
     <div class="page-head">
-      <div><h1>Messagerie</h1><div class="sub">Chat textuel restreint aux contacts ajoutés</div></div>
-      <span class="pill">🔒 Aucune messagerie entre inconnus</span>
+      <div><h1>Messagerie</h1><div class="sub">Discussions avec vos contacts</div></div>
+      <span class="pill">🔒 Entre contacts uniquement</span>
     </div>
     <div id="chat-root"></div>
   </section>
@@ -4664,8 +4694,7 @@ body.is-fill #screens {
   <!-- Amis -->
   <section class="screen" id="screen-friends">
     <div class="page-head">
-      <div><h1>Amis</h1><div class="sub">Recherchez, ajoutez et gérez vos amis</div></div>
-      <span class="pill green">👥 Réseau de joueurs</span>
+      <div><h1>Amis</h1><div class="sub">Recherchez et gérez vos amis</div></div>
     </div>
     <div id="friends-root"></div>
   </section>
@@ -4720,12 +4749,10 @@ body.is-fill #screens {
 <div class="toasts" id="toasts"></div>
 
 <!-- ==================== LANCER DE PIÈCE « PILE OU FACE » ====================
-     ARBITRAGE INVERSÉ le 03/10/2026 : le lancer se joue D'ABORD, en voile plein
-     écran, et il montre les DEUX faces attribuées aux DEUX joueurs en même temps que
-     celle que la pièce a sortie. Le lot S8 en faisait une bande non modale au-dessus
-     du plateau (elle est retirée) : le plateau reste visible derrière le voile
-     assombri, mais il ne reçoit plus les clics pendant le lancer — c'est la
-     contrepartie assumée du « d'abord ».
+     Le lancer se joue D'ABORD, en voile plein écran, et il montre les DEUX faces
+     attribuées aux DEUX joueurs en même temps que celle que la pièce a sortie.
+     Le plateau reste visible derrière le voile assombri, mais il ne reçoit plus
+     les clics pendant le lancer — contrepartie assumée du « d'abord ».
      Le bloc reste affiché jusqu'au clic sur « Commencer » (ou Échap, ou clic sur le
      fond), avec un repli automatique à 12 s : le joueur lit qui a PILE et qui a FACE
      aussi longtemps qu'il le souhaite. Les deux <img> sont les MÊMES fichiers que les
@@ -5037,7 +5064,7 @@ window.SearchToggle = SearchToggle;
 <script>
 // ===== DATA =====
 /* =========================================================
-   D-aôna — Données de démonstration (PRD v1.1)
+   D-aôna — Données de référence (provinces, catalogues, badges)
    ========================================================= */
 "use strict";
 
@@ -5054,9 +5081,6 @@ function escHtml(s) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-/* Les paliers de rang (Bronze → Grand Maître) ont été RETIRÉS : il ne reste que
-   l'Elo et le classement par place, avec ses badges (BADGES / badgeFor). */
-
 const PROVINCES = [
   "Antananarivo", "Antsiranana", "Fianarantsoa",
   "Mahajanga", "Toamasina", "Toliara",
@@ -5064,14 +5088,14 @@ const PROVINCES = [
 
 /* --- Badges de classement national (6 au total) ---
    `color` = teinte décorative : fond à 8 %, bordure à 40 %, et encre du thème
-   NUIT (elle tient ≈ 9:1 sur le noir) · `ink` = encre du thème JOUR, plus
-   foncée : seule à tenir 4,5:1 sur la teinte claire du badge (revue UX/UI §3,
-   lot S2 — l'or tombait à 1,86:1). La règle CSS choisit selon le thème. */
+   NUIT (elle tient ≈ 9:1 sur le noir) · `ink` = encre du thème JOUR, seule à
+   tenir 4,5:1 sur la teinte claire du badge (l'or tombait à 1,86:1).
+   La règle CSS choisit selon le thème. */
 const BADGES = [
   { name: "Remenabila",  icon: "👑", color: "#e3b23c", ink: "#7a5a00", min: 1,  max: 1 },
   { name: "Malaso",      icon: "⚔️", color: "#9aa3ad", ink: "#48525c", min: 2,  max: 2 },
-  /* Bronze éclairci (#b0703c → #bc7a44) : sur les surfaces de nuit relevées, l'encre
-     du badge tombait à 4,46:1 — la teinte décorative suit l'encre (revue §5, lot S7). */
+  /* Bronze éclairci (#b0703c → #bc7a44) : l'encre du badge tombait à 4,46:1
+     sur les surfaces de nuit — la teinte décorative suit l'encre. */
   { name: "Dahalo",      icon: "🗡️", color: "#bc7a44", ink: "#7a4210", min: 3,  max: 3 },
   { name: "Totakely",    icon: "🛡️", color: "#4f8ff7", ink: "#1e40af", min: 4,  max: 25 },
   { name: "Akofa",       icon: "🎋", color: "#22c55e", ink: "#0f6b33", min: 26, max: 50 },
@@ -5084,94 +5108,22 @@ function badgeFor(rank) {
 const GAMES_CATALOG = [
   {
     id: "fanorona", name: "Fanorona", type: "Stratégie / Plateau", status: "mvp",
-    desc: "Le jeu de plateau national malgache. Captures par approche ou par retrait, prises en chaîne obligatoires. Véritable école de la tactique.",
+    desc: "Le jeu de plateau national — captures par approche ou retrait.",
   },
   {
     id: "katro", name: "Katro", type: "Stratégie", status: "soon",
-    desc: "Variante malgache du Mancala — comptage et anticipation. Prévu post-MVP.",
+    desc: "Variante malgache du Mancala — comptage et anticipation.",
   },
   {
     id: "points", name: "Jeu de points", type: "Stratégie", status: "soon",
-    desc: "Troisième titre du catalogue, en cours d'évaluation avec les développeurs.",
+    desc: "Troisième titre du catalogue, en évaluation.",
   },
 ];
 
 const FORMATS = [
-  { id: "blitz",  name: "Blitz",  time: 600,  label: "10 min",  desc: "Partie rapide, idéale pour le matchmaking classé." },
-  { id: "rapide", name: "Rapide", time: 3600, label: "60 min",  desc: "Format standard pour tournois et défis." },
-  { id: "pro",    name: "Pro",    time: 7200, label: "2 h",     desc: "Format long — tournois à cagnotte et défis sérieux." },
-];
-
-const OPPONENT_POOL = [
-  { pseudo: "MamyLeo",    elo: 1080, province: "Antananarivo" },
-  { pseudo: "NirinaZ",    elo: 1150, province: "Antananarivo" },
-  { pseudo: "HeryTana",   elo: 1210, province: "Antananarivo" },
-  { pseudo: "RijaRM",     elo: 1175, province: "Toamasina" },
-  { pseudo: "TokyRabe",   elo: 1055, province: "Mahajanga" },
-  { pseudo: "Fitiavana",  elo: 1240, province: "Antananarivo" },
-  { pseudo: "Voahangy",   elo: 1122, province: "Fianarantsoa" },
-  { pseudo: "JeanLucTsr", elo: 1188, province: "Toamasina" },
-];
-
-const LEADERBOARD_POOL = [
-  { pseudo: "SolofoGM",    elo: 2124, province: "Antananarivo",        wins: 341, games: 402 },
-  { pseudo: "RadoTheKing", elo: 1992, province: "Toamasina",        wins: 288, games: 355 },
-  { pseudo: "MialyPro",    elo: 1875, province: "Antananarivo",        wins: 260, games: 340 },
-  { pseudo: "TianaDiam",   elo: 1701, province: "Mahajanga",             wins: 244, games: 330 },
-  { pseudo: "KantoV",      elo: 1633, province: "Antananarivo",    wins: 231, games: 320 },
-  { pseudo: "HajaPlt",     elo: 1540, province: "Antananarivo",        wins: 212, games: 305 },
-  { pseudo: "Faniry_",     elo: 1488, province: "Fianarantsoa",   wins: 204, games: 298 },
-  { pseudo: "ZoFighter",   elo: 1402, province: "Toamasina",        wins: 190, games: 289 },
-  { pseudo: "LovaTms",     elo: 1355, province: "Toamasina",        wins: 177, games: 271 },
-  { pseudo: "AndryF",      elo: 1290, province: "Antsiranana",             wins: 163, games: 262 },
-  { pseudo: "MioraRts",    elo: 1248, province: "Antananarivo",        wins: 158, games: 250 },
-  { pseudo: "NadiaBe",     elo: 1199, province: "Mahajanga",             wins: 141, games: 240 },
-  { pseudo: "Tsiory9",     elo: 1085, province: "Antananarivo",        wins: 120, games: 211 },
-  { pseudo: "BemaT",       elo: 990,  province: "Antananarivo",    wins: 102, games: 199 },
-  { pseudo: "Sariaka",     elo: 902,  province: "Fianarantsoa",   wins: 89,  games: 178 },
-  { pseudo: "DeraMG",      elo: 801,  province: "Antananarivo",        wins: 71,  games: 150 },
-  { pseudo: "FenoAria",    elo: 640,  province: "Toliara",  wins: 52,  games: 121 },
-  { pseudo: "MandaK",      elo: 410,  province: "Antsiranana",             wins: 31,  games: 90  },
-];
-
-const TOURNAMENTS_SEED = [
-  {
-    id: "t-hebdo-24",
-    name: "Tournoi Hebdo Fanorona #24",
-    game: "Fanorona", format: "rapide", entry: 2000, maxPlayers: 8,
-    registered: ["MamyLeo", "NirinaZ", "HajaPlt", "RijaRM", "KantoV"],
-    startsInSec: 2 * 86400 + 4 * 3600 + 1800,
-    status: "inscriptions",
-    sponsor: null,
-  },
-  {
-    id: "t-blitz-09",
-    name: "Blitz Cup — Analamanga",
-    game: "Fanorona", format: "blitz", entry: 1000, maxPlayers: 8,
-    registered: ["Tsiory9", "BemaT", "DeraMG", "LovaTms", "TokyRabe", "Sariaka"],
-    startsInSec: 5 * 3600 + 12 * 60,
-    status: "inscriptions",
-    sponsor: null,
-  },
-  {
-    id: "t-masters-03",
-    name: "D-aôna Masters — Saison 2",
-    game: "Fanorona", format: "pro", entry: 5000, maxPlayers: 8,
-    registered: ["SolofoGM", "RadoTheKing", "MialyPro", "TianaDiam"],
-    startsInSec: 6 * 86400 + 3600,
-    status: "inscriptions",
-    sponsor: "MVola Gaming Cup",
-  },
-  {
-    id: "t-hebdo-23",
-    name: "Tournoi Hebdo Fanorona #23",
-    game: "Fanorona", format: "rapide", entry: 2000, maxPlayers: 8,
-    registered: ["SolofoGM", "KantoV", "NadiaBe", "MamyLeo", "ZoFighter", "AndryF", "FenoAria", "HeryTana"],
-    startsInSec: -3 * 86400,
-    status: "termine",
-    results: { first: "SolofoGM", second: "ZoFighter", third: "KantoV" },
-    sponsor: null,
-  },
+  { id: "blitz",  name: "Blitz",  time: 600,  label: "10 min",  desc: "Partie rapide — matchmaking classé." },
+  { id: "rapide", name: "Rapide", time: 3600, label: "60 min",  desc: "Standard — tournois et défis." },
+  { id: "pro",    name: "Pro",    time: 7200, label: "2 h",     desc: "Long format — tournois à cagnotte." },
 ];
 
 /* =========================================================
@@ -5346,66 +5298,15 @@ function skinSlotAccept(sk, target) {
     || (slot === "pions_dark" && t === "DARK");
 }
 
-const CHAT_THREADS = {
-  MamyLeo: [
-    { from: "them", text: "Io bro ! Prêt pour la revanche de hier ? 😅", at: "09:41" },
-    { from: "me",   text: "Toujours. Cette fois je garde mes pions du centre.", at: "09:43" },
-    { from: "them", text: "On verra ça. Tu viens au tournoi de samedi ?", at: "09:44" },
-  ],
-  NirinaZ: [
-    { from: "them", text: "Gg pour ta montée au classement 🙌", at: "Hier" },
-    { from: "me",   text: "Misaotra ! Objectif Or avant juillet.", at: "Hier" },
-  ],
-  HeryTana: [
-    { from: "them", text: "Envoie le lien de défi quand tu es dispo.", at: "Lun." },
-  ],
-};
-
-const CHAT_REPLIES = [
-  "Bien joué ! 😅",
-  "Ok, on fait ça en Blitz ?",
-  "Ha ! Tu vas regretter ce coup…",
-  "Je te préviens, je me suis entraîné contre l'IA toute la semaine.",
-  "On se revoit au tournoi samedi 💪",
-];
-
-const ADMIN_DEMO = {
-  kpis: [
-    { label: "Joueurs actifs (30 j)", value: "213" },
-    { label: "Tournois / mois",        value: "4" },
-    { label: "Volume de mises",        value: "84 000 Ar" },
-    { label: "Retraits en attente",    value: "3" },
-  ],
-  kycQueue: [
-    { pseudo: "FenoAria",  doc: "CIN — photo nette",    since: "il y a 2 h" },
-    { pseudo: "DeraMG",    doc: "CIN — bord coupé",     since: "il y a 5 h" },
-    { pseudo: "BemaT",     doc: "CIN — recto/verso",    since: "hier" },
-  ],
-  tickets: [
-    { id: "DA-1041", pseudo: "LovaTms",  motif: "Changement de numéro", status: "En cours" },
-    { id: "DA-1038", pseudo: "Sariaka",  motif: "Retrait non reçu",     status: "Résolu" },
-    { id: "DA-1033", pseudo: "MandaK",   motif: "Connexion impossible", status: "Résolu" },
-  ],
-  dev: [
-    { task: "S5 — Profil & Social",            status: "En cours" },
-    { task: "S4 — Tournois & cashprice",       status: "Terminé" },
-    { task: "S6 — Finalisation Play Store",    status: "À venir" },
-    { task: "S7 — Back-office & KYC",          status: "À venir" },
-  ],
-};
-
 /* --- Exposition explicite (partage entre scripts) ------------------------ */
 Object.assign(window, {
-  PROVINCES, GAMES_CATALOG, FORMATS, OPPONENT_POOL,
-  LEADERBOARD_POOL, TOURNAMENTS_SEED, SKINS_CATALOG,
-  CHAT_THREADS, CHAT_REPLIES, ADMIN_DEMO, BADGES, badgeFor,
+  PROVINCES, GAMES_CATALOG, FORMATS, SKINS_CATALOG, BADGES, badgeFor,
 });
 
 /* --- Helpers génériques -------------------------------------------------- */
 const fmtAr = (n) => new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " Ar";
 window.fmtAr = fmtAr;
-/* Montant SANS unité : la pastille wallet de la barre haute porte « Ar » dans son
-   icône, le montant n'a pas à le répéter (revue §5, lot S5). */
+/* Montant SANS unité : la pastille wallet porte déjà « Ar » dans son icône. */
 const fmtNum = (n) => new Intl.NumberFormat("fr-FR").format(Math.round(n));
 
 function countdownParts(sec) {
@@ -6283,7 +6184,7 @@ const Fanorona = (() => {
     eligibilityCache = [];
     updateAll();
     if (mode === "ai" && App && App.miniToast) {
-      App.miniToast("Choisissez votre face (PILE ou FACE). Une fois prise, l'IA reçoit automatiquement l'autre face. Le gagnant du tirage prend les pions clairs et joue le premier.", "info");
+      App.miniToast("Choisissez votre face — l'IA prendra l'autre.", "info");
     }
   }
 
@@ -6419,7 +6320,7 @@ const App = (() => {
   const DEFAULT_STATE = () => ({
     id: null, pseudo: "Joueur", elo: 1100, wins: 0, losses: 0,
     balance: 0, bonusLock: 0, kyc: false, bonusUsed: false, withdrawnToday: 0, avatar: null,
-    txs: [], games: [], tournaments: [], myRegs: {}, leaderboard: [],
+    games: [], tournaments: [], myRegs: {}, leaderboard: [],
     skins: {
       owned: ["pions-clair-classique", "pions-sombre-classique"],
       equipped: { pions_light: "pions-clair-classique", pions_dark: "pions-sombre-classique", plateau: null, effet: null },
@@ -6450,79 +6351,221 @@ const App = (() => {
      qui est ENREGISTRÉ ; `pionCamp` dit quel camp la boutique affiche. */
   let pionDraft = { light: { ...PION_DEFAULTS.light }, dark: { ...PION_DEFAULTS.dark } };
   let pionCamp = "light";
-  /* Historique du wallet : filtres LOCAUX sur les mouvements DÉJÀ chargés
-     (`S.txs` = les 50 derniers, renvoyés par /api/user). Aucun appel réseau
-     supplémentaire et aucune ligne fabriquée : une transaction masquée l'est
-     par un critère explicite (période, type ou libellé). */
-  let txFilter = { period: "all", from: "", to: "", kind: "all", q: "" };
-  const TX_PERIODS = [["all", "Toutes dates"], ["recent", "Récent (30 j)"], ["old", "Ancien (> 30 j)"]];
-  /* Types = familles RÉELLEMENT produites par le serveur (libellés des appels
-     `Wallet.credit` / `Wallet.spend` de server.js) + un repli « Autres ».
-     L'ORDRE compte : « Defi annule - remboursement » contient « remboursement »
-     et « Mise entree - Tournoi » contient « Mise » — le premier motif qui
-     correspond gagne, les cas particuliers passent donc avant les généraux. */
-  const TX_KINDS = [
-    ["all", "Tous", null],
-    ["deposit", "Dépôts", /Depot|Dépôt/i],
-    ["withdraw", "Retraits", /Retrait/i],
-    ["refund", "Remboursements", /remboursement/i],
-    ["purchase", "Achats", /Achat/i],
-    ["gain", "Gains", /Gain|Cashprice/i],
-    ["wager", "Mises", /Mise/i],
-    ["bonus", "Bonus", /Bonus/i],
-    ["other", "Autres", null],
+  /* ------------------ WALLET : historique PAGINÉ côté serveur ----------------
+     L'écran ne garde aucune transaction en mémoire : chaque filtre déclenche
+     une requête /api/transactions (page, famille, période, libellé, moyen,
+     statut, tri) et le serveur renvoie LA page demandée + le total. Les
+     familles et les moyens sont calculés par le SERVEUR (data.js) et attachés
+     à chaque ligne : l'icône et le badge affichés ne reclassent rien, donc ils
+     ne peuvent pas contredire le filtre. `wlSeq` protège des réponses
+     tardives : seule la dernière requête émise écrit dans le tableau. */
+  let wl = { page: 1, size: 10, period: "all", from: "", to: "", kind: "all", q: "", method: "all", status: "all", sort: "desc" };
+  let wlRows = [];
+  let wlTotal = 0;
+  let wlSeq = 0;
+  let wlQTimer = null;   // anti-rebond de la recherche (le filtre part au serveur)
+  const WL_PERIODS = [["all", "Toutes dates"], ["recent", "Récent (30 j)"], ["old", "Ancien (> 30 j)"]];
+  const WL_KINDS = [
+    ["all", "Tous"], ["deposit", "Dépôts"], ["withdraw", "Retraits"], ["refund", "Remboursements"],
+    ["purchase", "Achats"], ["gain", "Gains"], ["wager", "Mises"], ["bonus", "Bonus"], ["other", "Autres"],
   ];
-  const TX_ICONS = { deposit: "⬇️", withdraw: "⬆️", gain: "🏆", wager: "🎟️", bonus: "🎁", purchase: "🎨", refund: "↩️", other: "💸" };
-  function txKind(label) {
-    const l = String(label || "");
-    for (const [id, , re] of TX_KINDS) if (re && re.test(l)) return id;
-    return "other";
+  const WL_KIND_LABELS = { deposit: "Dépôt", withdraw: "Retrait", refund: "Remboursement", purchase: "Achat", gain: "Gain", wager: "Mise", bonus: "Bonus", other: "Autre" };
+  const WL_ICONS = { deposit: "⬇️", withdraw: "⬆️", refund: "↩️", purchase: "🎨", gain: "🏆", wager: "🎟️", bonus: "🎁", other: "💸" };
+  /* Badge de famille : les teintes sont celles des pastilles .pill déjà
+     mesurées AA dans les deux thèmes (vert = entrée, ambre = sortie). */
+  const WL_BADGE = { deposit: "green", gain: "green", refund: "green", bonus: "green", withdraw: "amber", wager: "amber", purchase: "", other: "" };
+  /* Date/heure AFFICHÉES telles que stockées (chaîne SQLite UTC) : ce qui est
+     lu est ce qui est filtré — aucun décalage de fuseau silencieux. */
+  const wlDateFr = (s) => { const [d = ""] = String(s || "").split(" "); const [y, m, dd] = d.split("-"); return y ? `${dd}/${m}/${y}` : "—"; };
+  const wlTimeFr = (s) => (String(s || "").split(" ")[1] || "").slice(0, 5);
+  const wlStatusLabel = (s) => (s === "pending" ? "En attente" : "Réussi");
+  const wlActive = () => wl.period !== "all" || !!wl.from || !!wl.to || wl.kind !== "all" || !!wl.q.trim() || wl.method !== "all" || wl.status !== "all";
+  /* Paramètres de requête : les MÊMES filtres servent à la page ET à l'export
+     CSV — un seul constructeur, donc l'export ne peut pas diverger de l'écran. */
+  function wlFilterParams() {
+    const p = new URLSearchParams();
+    p.set("period", wl.from || wl.to ? "all" : wl.period);
+    if (wl.from) p.set("from", wl.from);
+    if (wl.to) p.set("to", wl.to);
+    p.set("kind", wl.kind); p.set("method", wl.method); p.set("status", wl.status);
+    p.set("sort", wl.sort);
+    if (wl.q.trim()) p.set("q", wl.q.trim());
+    return p;
   }
-  /* L'icône ET le filtre lisent la même classification : les deux ne peuvent pas
-     diverger (une seule liste de motifs, une seule fabrique). */
-  const txIcon = (label) => TX_ICONS[txKind(label)] || "💸";
-  /* Comparaison de libellé insensible à la casse ET aux accents (« depot »
-     retrouve « Depot MVola ») : normalisation Unicode, sans dépendance. */
-  const fold = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  function txList() {
-    const from = txFilter.from || null, to = txFilter.to || null, q = fold(txFilter.q.trim());
-    const DAY = 86400000, now = Date.now();
-    return (S.txs || []).filter((tx) => {
-      /* La date est celle AFFICHÉE (chaîne SQLite UTC « YYYY-MM-DD HH:MM:SS ») :
-         on compare cette même chaîne, donc ce qui est lu est ce qui est filtré —
-         aucun décalage de fuseau silencieux. */
-      const day = (tx.created_at || "").slice(0, 10);
-      if (from && day < from) return false;
-      if (to && day > to) return false;
-      if (!from && !to && txFilter.period !== "all") {
-        const t = Date.parse((tx.created_at || "").replace(" ", "T") + "Z");
-        if (Number.isFinite(t)) {
-          const age = now - t;
-          if (txFilter.period === "recent" && age > 30 * DAY) return false;
-          if (txFilter.period === "old" && age <= 30 * DAY) return false;
-        }
-      }
-      if (txFilter.kind !== "all" && txKind(tx.label) !== txFilter.kind) return false;
-      if (q && !fold(tx.label).includes(q)) return false;
-      return true;
-    });
+  function wlParams() {
+    const p = wlFilterParams();
+    p.set("page", wl.page); p.set("size", wl.size);
+    return p;
   }
-  function txRowsHtml() {
-    const list = txList();
-    if (!(S.txs || []).length) return '<p class="muted">Aucune transaction pour le moment.</p>';
-    if (!list.length) return '<p class="muted">Aucune transaction ne correspond à ces filtres.</p>';
-    return list.map((tx) => `
-            <div class="tx-row">
-              <span class="tx-ic" style="background:${tx.dir === "in" ? "var(--green-soft)" : "var(--red-soft)"}">${txIcon(tx.label)}</span>
-              <div class="tx-info"><div class="t">${mtEsc(tx.label)}</div><div class="d">${(tx.created_at || "").slice(0, 16)}</div></div>
-              <span class="tx-amt ${tx.dir === "in" ? "pos" : "neg"}">${tx.dir === "in" ? "+" : "−"}${fmtAr(tx.amount)}</span>
-            </div>`).join("");
+  async function wlLoad() {
+    const seq = ++wlSeq;
+    const tbody = document.getElementById("tx-list");
+    if (tbody) tbody.classList.toggle("wl-loading", wlRows.length > 0);
+    if (tbody && !wlRows.length) tbody.innerHTML = '<tr><td colspan="6" class="wl-empty">Chargement…</td></tr>';
+    try {
+      const d = await API.request("/api/transactions?" + wlParams().toString());
+      if (seq !== wlSeq || currentRoute() !== "wallet") return;
+      wlRows = d.transactions || [];
+      wlTotal = d.total || 0;
+      wlPaint();
+    } catch (e) {
+      if (seq !== wlSeq) return;
+      const tb = document.getElementById("tx-list");
+      if (tb) tb.innerHTML = `<tr><td colspan="6" class="wl-empty">Historique indisponible — ${escHtml(e.message)}.</td></tr>`;
+    }
   }
-  function txListRender() {
-    const box = document.getElementById("tx-list");
-    if (box) box.innerHTML = txRowsHtml();
+  /* Rendu : lignes, compteur, pied (pagination) et en-tête de tri. */
+  function wlPaint() {
+    const tbody = document.getElementById("tx-list");
+    if (!tbody) return;
+    tbody.classList.remove("wl-loading");
+    if (!wlRows.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="wl-empty">${wlActive()
+        ? "Aucune transaction ne correspond à ces filtres."
+        : "Aucune transaction pour le moment."}</td></tr>`;
+    } else {
+      tbody.innerHTML = wlRows.map((tx) => `
+    <tr class="tx-row" data-wtx="${tx.id}" tabindex="0" role="button" aria-label="Détail de l'opération : ${escHtml(tx.label)}">
+      <td><span class="wl-op-in"><span class="tx-ic" style="background:${tx.dir === "in" ? "var(--green-soft)" : "var(--red-soft)"}" aria-hidden="true">${WL_ICONS[tx.kind] || WL_ICONS.other}</span><span class="tx-info"><span class="t">${escHtml(tx.label)}</span><span class="d">${tx.dir === "in" ? "Entrée" : "Sortie"}</span></span></span></td>
+      <td><span class="wl-date">${wlDateFr(tx.created_at)}</span> <span class="wl-time">${wlTimeFr(tx.created_at)}</span></td>
+      <td><span class="wl-badge ${WL_BADGE[tx.kind] || ""}">${WL_KIND_LABELS[tx.kind] || "Autre"}</span></td>
+      <td class="wl-method">${escHtml(tx.method || "Da-ona")}</td>
+      <td><span class="wl-badge ${tx.status === "pending" ? "amber" : "green"}">${wlStatusLabel(tx.status)}</span></td>
+      <td class="wl-col-amt tx-amt ${tx.dir === "in" ? "pos" : "neg"}">${tx.dir === "in" ? "+" : "−"}${fmtAr(tx.amount)}</td>
+    </tr>`).join("");
+    }
     const c = document.getElementById("tx-count");
-    if (c) c.textContent = `${txList().length} / ${(S.txs || []).length} mouvement(s)`;
+    if (c) c.textContent = `${wlRows.length} / ${wlTotal} mouvement${wlTotal > 1 ? "s" : ""}`;
+    wlPaintFoot();
+    wlPaintTags();
+    wlPaintChips();
+    /* Tri : l'état est porté par la FLÈCHE et par aria-sort — jamais par la
+       seule couleur. */
+    const sortBtn = document.getElementById("wl-sort");
+    if (sortBtn) {
+      const th = sortBtn.closest("th");
+      const arrow = sortBtn.querySelector("span");
+      if (arrow) arrow.textContent = wl.sort === "desc" ? "▾" : "▴";
+      sortBtn.setAttribute("aria-label", wl.sort === "desc" ? "Trier par date, plus récent en premier" : "Trier par date, plus ancien en premier");
+      if (th) th.setAttribute("aria-sort", wl.sort === "desc" ? "descending" : "ascending");
+    }
+  }
+  /* Pied : « Affichage de a à b sur N », taille de page (10/20/tout) et
+     précédent/suivant. Recalculé à chaque peinture (page, taille, total). */
+  function wlPaintFoot() {
+    const foot = document.getElementById("wl-foot");
+    if (!foot) return;
+    const all = wl.size === "all" || wl.size === 0;
+    const size = all ? Math.max(wlTotal, 1) : Number(wl.size);
+    const pages = all ? 1 : Math.max(1, Math.ceil(wlTotal / size));
+    const start = wlTotal === 0 ? 0 : (wl.page - 1) * size + 1;
+    const end = all ? wlTotal : Math.min(wlTotal, wl.page * size);
+    foot.innerHTML = `
+      <span class="small muted">Affichage de ${start} à ${end} sur ${wlTotal} mouvement${wlTotal > 1 ? "s" : ""}</span>
+      <span class="wl-pager">
+        <select class="wl-sel" id="wl-size" aria-label="Transactions par page">
+          ${[[10, "10 par page"], [20, "20 par page"], ["all", "Tout afficher"]].map(([v, l]) => `<option value="${v}" ${String(wl.size) === String(v) ? "selected" : ""}>${l}</option>`).join("")}
+        </select>
+        <button class="wl-pgbtn" id="wl-prev" type="button" aria-label="Page précédente" ${wl.page <= 1 ? "disabled" : ""}>‹</button>
+        <span class="wl-pgind">${wl.page} / ${pages}</span>
+        <button class="wl-pgbtn" id="wl-next" type="button" aria-label="Page suivante" ${wl.page >= pages ? "disabled" : ""}>›</button>
+      </span>`;
+    const sel = document.getElementById("wl-size");
+    if (sel) sel.onchange = () => { wl.size = sel.value === "all" ? "all" : Number(sel.value); wl.page = 1; wlLoad(); };
+    const prev = document.getElementById("wl-prev");
+    if (prev) prev.onclick = () => { if (wl.page > 1) { wl.page -= 1; wlLoad(); } };
+    const next = document.getElementById("wl-next");
+    if (next) next.onclick = () => { if (wl.page < pages) { wl.page += 1; wlLoad(); } };
+  }
+  /* Pastilles des filtres actifs : chaque pastille retire SON critère — l'écran
+     ne cache jamais quel filtre s'applique, et n'en invente aucun. */
+  function wlPaintTags() {
+    const box = document.getElementById("wl-tags");
+    if (!box) return;
+    const tags = [];
+    if (wl.period !== "all" && !wl.from && !wl.to) tags.push(["period", "Période : " + (WL_PERIODS.find(([id]) => id === wl.period) || ["", wl.period])[1]]);
+    if (wl.from) tags.push(["from", "Du " + wl.from.split("-").reverse().join("/")]);
+    if (wl.to) tags.push(["to", "Au " + wl.to.split("-").reverse().join("/")]);
+    if (wl.kind !== "all") tags.push(["kind", "Type : " + (WL_KINDS.find(([id]) => id === wl.kind) || ["", wl.kind])[1]]);
+    if (wl.method !== "all") tags.push(["method", "Moyen : " + wl.method]);
+    if (wl.status !== "all") tags.push(["status", "Statut : " + (wl.status === "pending" ? "En attente" : "Réussi")]);
+    if (wl.q.trim()) tags.push(["q", "« " + wl.q.trim() + " »"]);
+    box.innerHTML = tags.map(([k, l]) =>
+      `<button class="wl-tag" type="button" data-wltag="${k}">${escHtml(l)}<span aria-hidden="true">✕</span></button>`).join("");
+    box.querySelectorAll("[data-wltag]").forEach((b) => b.onclick = () => wlClearFilter(b.dataset.wltag));
+  }
+  function wlClearFilter(key) {
+    if (key === "period") wl.period = "all";
+    if (key === "from") { wl.from = ""; const el = document.getElementById("tx-from"); if (el) el.value = ""; }
+    if (key === "to") { wl.to = ""; const el = document.getElementById("tx-to"); if (el) el.value = ""; }
+    if (key === "kind") wl.kind = "all";
+    if (key === "method") { wl.method = "all"; const el = document.getElementById("wl-method"); if (el) el.value = "all"; }
+    if (key === "status") { wl.status = "all"; const el = document.getElementById("wl-status"); if (el) el.value = "all"; }
+    wl.page = 1;
+    if (key === "q") { wl.q = ""; renderWallet(); return; }   // le champ vit dans la barre : on la reconstruit
+    wlPaintChips();
+    wlLoad();
+  }
+  function wlPaintChips() {
+    document.querySelectorAll("#wallet-root [data-txperiod]").forEach((x) => x.classList.toggle("on", x.dataset.txperiod === wl.period && !wl.from && !wl.to));
+    document.querySelectorAll("#wallet-root [data-txkind]").forEach((x) => x.classList.toggle("on", x.dataset.txkind === wl.kind));
+    const rst = document.getElementById("tx-reset");
+    if (rst) rst.hidden = !wlActive();
+  }
+  /* Fiche détail (clic sur une ligne) : toutes les valeurs viennent de la ligne
+     reçue du serveur — aucune donnée reconstruite. */
+  function wlOpenDetail(id) {
+    const tx = wlRows.find((t) => String(t.id) === String(id));
+    if (!tx) return;
+    const inDir = tx.dir === "in";
+    showModal(`
+      <h2>Détail de l'opération</h2>
+      <p class="m-sub">${escHtml(tx.label)}</p>
+      <div class="wl-det">
+        <div class="row"><span>Montant</span><b class="${inDir ? "pos" : "neg"}">${inDir ? "+" : "−"}${fmtAr(tx.amount)}</b></div>
+        <div class="row"><span>Type</span><b>${WL_KIND_LABELS[tx.kind] || "Autre"}</b></div>
+        <div class="row"><span>Moyen</span><b>${escHtml(tx.method || "Da-ona")}</b></div>
+        <div class="row"><span>Statut</span><b>${wlStatusLabel(tx.status)}</b></div>
+        <div class="row"><span>Date et heure</span><b>${wlDateFr(tx.created_at)} · ${wlTimeFr(tx.created_at)}</b></div>
+        <div class="row"><span>Référence</span><b>${escHtml(tx.ref_id || "TX-" + tx.id)}</b></div>
+      </div>
+      <div class="m-foot"><button class="btn ghost" id="wl-det-close" type="button">Fermer</button></div>`);
+    const b = document.getElementById("wl-det-close");
+    if (b) b.onclick = closeModal;
+  }
+  /* Export CSV : mêmes filtres que la page, mais historique COMPLET — c'est le
+     serveur qui l'assemble (/api/transactions/export), donc l'export ne dépend
+     pas de la page affichée. */
+  async function wlExport() {
+    try {
+      const token = API.getToken();
+      const res = await fetch(location.origin + "/api/transactions/export?" + wlFilterParams().toString(), {
+        headers: token ? { Authorization: "Bearer " + token } : {},
+      });
+      if (!res.ok) throw new Error("Export impossible (code " + res.status + ")");
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition") || "";
+      const m = /filename="([^"]+)"/.exec(cd);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = m ? m[1] : "d-aona-transactions.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast(`Historique exporté (${wlTotal} mouvement${wlTotal > 1 ? "s" : ""}).`);
+    } catch (e) { toast(e.message, "error"); }
+  }
+  /* Rafraîchit les chiffres de la carte après un refreshUser silencieux :
+     solde disponible, ligne du bonus, retiré du jour. */
+  function wlMetaRefresh() {
+    const c = document.getElementById("wl-balance");
+    if (c) c.textContent = fmtAr(Math.max(0, S.balance - S.bonusLock));
+    const b = document.getElementById("wl-bonus-line");
+    if (b) b.innerHTML = S.bonusLock ? `<div class="small amber" style="margin-top:6px;">dont ${fmtAr(S.bonusLock)} de bonus (non retirable)</div>` : "";
+    const t = document.getElementById("wl-today");
+    if (t) t.textContent = fmtAr(S.withdrawnToday || 0);
   }
   /* Écran Match : onglet courant, portée du fil « En direct » (contacts/tout),
      filtre de statut des tournois, et numéro de la dernière requête live — une
@@ -6569,8 +6612,7 @@ const App = (() => {
      avatars, cartes de notification) : elles ne sont atteignables qu'à la
      souris. On leur donne le rôle de bouton, un ordre de tabulation et la
      touche Entrée/Espace, SANS toucher aux gestionnaires existants — le clic
-     délégué réutilise exactement le même `onclick`. Repère : revue UX/UI §5
-     (« 12 cliquables non focusables »), lot S7. */
+     délégué réutilise exactement le même `onclick`. */
   function rendreCliquablesFocusables(root = document) {
     for (const el of root.querySelectorAll("[onclick]:not(button):not(a):not(input):not(select):not(textarea):not(label)")) {
       if (el.hasAttribute("data-kbd-click")) continue;
@@ -6780,7 +6822,6 @@ const App = (() => {
       S.balance = u.balance; S.bonusLock = u.bonus_lock; S.kyc = !!u.kyc;
       S.bonusUsed = !!u.bonus_used; S.withdrawnToday = u.withdrawn_today || 0;
       S.avatar = u.avatar || null;
-      S.txs = d.transactions || [];
       updateTopbar();
     } catch (e) { console.error("refreshUser", e); }
   }
@@ -7019,7 +7060,7 @@ const App = (() => {
         API.connect();
         await loadAll();
         toast(`Veloma ${S.pseudo} 🇲🇬 — bienvenue sur D-aôna.`);
-        if (!S.kyc) setTimeout(() => toast("Astuce : vérifiez votre CIN pour débloquer dépôts, retraits et mises.", "warn", 5200), 1600);
+        if (!S.kyc) setTimeout(() => toast("Vérifiez votre CIN pour débloquer dépôts, retraits et mises.", "warn", 5200), 1600);
       }, 900);
     } catch (e) {
       setAuthIdle(btn);
@@ -7099,15 +7140,15 @@ const App = (() => {
     if (v === "signup") {
       /* Le panneau de gauche reste identique sur les 2 étapes (le titre ne change plus) */
       h1.innerHTML = "Créer un <em>compte</em>";
-      sub.textContent = "Rejoignez l'arène — six provinces, une seule passion : le Fanorona.";
+      sub.textContent = "Rejoignez l'arène.";
       setSignupStep(1);
     }
     else if (v === "google") {
       const lab = _socialProvider === "facebook" ? "Facebook" : "Google";
       h1.innerHTML = "Profil <em>" + lab + "</em>";
-      sub.textContent = "Compte " + lab + " lié — choisissez votre pseudo et votre téléphone pour entrer.";
+      sub.textContent = "Compte " + lab + " lié — complétez votre profil.";
     }
-    else { h1.innerHTML = "Bon <em>retour</em>"; sub.textContent = "Connectez-vous pour reprendre la partie — D-aôna, l'arène du Fanorona."; }
+    else { h1.innerHTML = "Bon <em>retour</em>"; sub.textContent = "Connectez-vous — l'arène du Fanorona vous attend."; }
   }
   /* --- Inscription en 2 étapes : 1/2 Identité → 2/2 Sécurité & localisation --- */
   let _signupStep = 1, _stepTimer = null;
@@ -7122,7 +7163,7 @@ const App = (() => {
     if (b1) b1.classList.toggle("on", target === 1);
     if (b2) b2.classList.toggle("on", target === 2);
     const lab = document.getElementById("su-step-label");
-    const txt = "Étape <b>" + target + "</b>/2 · " + (target === 1 ? "Identité" : "Sécurité & localisation");
+    const txt = "Étape <b>" + target + "</b>/2 · " + (target === 1 ? "Identité" : "Sécurité");
     if (lab && lab.innerHTML !== txt) {
       lab.innerHTML = txt;
       lab.classList.remove("fade");
@@ -7304,17 +7345,17 @@ const App = (() => {
     if (S.kyc) { after(); return; }
     showModal(`
       <h2>Vérification d'identité (KYC)</h2>
-      <p class="m-sub">Obligatoire avant toute transaction réelle — dépôt, retrait, tournoi ou défi avec mise.</p>
+      <p class="m-sub">Obligatoire pour les mises et transactions.</p>
       <div class="panel pad-lg" style="border-style:dashed; text-align:center;">
         <div style="font-size:36px;">🪪</div>
-        <p class="small muted" style="margin:8px 0 14px;">Photographiez votre <b>Carte d'Identité Nationale</b> (recto).<br>Vérification sous 24 h.</p>
+        <p class="small muted" style="margin:8px 0 14px;">Photographiez votre <b>Carte d'identité</b> (recto).<br>Vérification sous 24 h.</p>
         <button class="btn primary block" id="kyc-upload">📷 Prendre la CIN en photo (simulation locale)</button>
       </div>
       <div class="m-foot"><button class="btn ghost" id="kyc-cancel">Plus tard</button></div>
     `);
     document.getElementById("kyc-cancel").onclick = closeModal;
     document.getElementById("kyc-upload").onclick = () => {
-      showModal(`<h2>Analyse du document…</h2><div class="mm-spinner"><div class="mm-orbit"><i></i><i></i><i></i></div><p class="muted small">Vérification (démo locale).</p></div>`, "", true);
+      showModal(`<h2>Analyse du document…</h2><div class="mm-spinner"><div class="mm-orbit"><i></i><i></i><i></i></div><p class="muted small">Vérification en cours…</p></div>`, "", true);
       setTimeout(async () => {
         try { await API.request("/api/kyc/verify", "POST", {}); }
         catch (e) { console.error("kyc persist", e); }
@@ -7337,7 +7378,7 @@ const App = (() => {
     kycRequired(() => {
       showModal(`
         <h2>Déposer de l'argent</h2>
-        <p class="m-sub">Joueur → opérateur → Wallet D-aôna. Aucune commission D-aôna sur les transactions internes.</p>
+        <p class="m-sub">Choisissez opérateur et montant — 0 % de commission D-aôna.</p>
         ${OPERATORS.map((o) => `<button class="op-card ${o.id === depOp ? "on" : ""}" data-op="${o.id}" aria-pressed="${o.id === depOp}"><span class="op-dot" style="background:${o.color}">${o.txt}</span><span><b>${o.name}</b><span>${o.sub}</span></span><span class="op-check" aria-hidden="true">✓</span></button>`).join("")}
         <label class="f-label" id="dep-amt-label">Montant (Ariary)</label>
         <div class="amount-grid" role="group" aria-labelledby="dep-amt-label">
@@ -7347,15 +7388,14 @@ const App = (() => {
         <!-- La règle est celle du SERVEUR (Wallet.credit(user.id, payload.amount)) :
              le wallet reçoit le montant exact du dépôt, les frais de l'opérateur sont
              payés à l'opérateur — ni prélevés sur le crédit, ni offerts. Le
-             récapitulatif doit donc S'ADDITIONNER : montant + frais = total à payer
-             (revue §4.3, lot S6). -->
+             récapitulatif doit donc S'ADDITIONNER : montant + frais = total à payer. -->
         <div class="tn-rows">
           <div class="row"><span>Montant du dépôt</span><span id="dep-amt">${fmtAr(depAmount)}</span></div>
           <div class="row"><span>Frais opérateur estimés (~2%)</span><span class="amber" id="dep-fees">${fmtAr(depAmount * 0.02)}</span></div>
           <div class="row"><span>Total à payer chez l'opérateur</span><span><b class="mono" id="dep-total">${fmtAr(depAmount * 1.02)}</b></span></div>
           <div class="row"><span>Crédité sur votre wallet</span><span class="pos" id="dep-net">${fmtAr(depAmount)}</span></div>
         </div>
-        <p class="small muted" style="margin-top:8px;">Les frais sont payés à l'opérateur : D-aôna ne prélève aucune commission sur un dépôt, votre wallet reçoit le montant exact.</p>
+        <p class="small muted" style="margin-top:8px;">Frais payés à l'opérateur — wallet crédité au montant exact.</p>
         <div class="m-foot"><button class="btn ghost" id="dep-cancel">Annuler</button><button class="btn primary" id="dep-ok">Confirmer le dépôt</button></div>
       `);
       /* Chaque pastille/ ligne porte AUSSI son état pour les technologies
@@ -7371,11 +7411,9 @@ const App = (() => {
           c.classList.toggle("on", on);
           c.setAttribute("aria-pressed", String(on));
         });
-        /* Le récapitulatif doit suivre la pastille choisie : sans cela l'écran
-           annonçait « Montant du dépôt 5 000 Ar » (valeur d'ouverture) alors
-           que le dépôt réellement envoyé au serveur était celui de la pastille
-           sélectionnée. Les lignes s'additionnent : montant + frais = total payé
-           chez l'opérateur, et le wallet reçoit le montant exact (revue §4.3). */
+        /* Le récapitulatif suit la pastille choisie : les lignes s'additionnent
+           (montant + frais = total payé chez l'opérateur) et le wallet reçoit le
+           montant exact envoyé au serveur. */
         const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
         setTxt("dep-amt", fmtAr(depAmount));
         setTxt("dep-fees", fmtAr(depAmount * 0.02));
@@ -7391,7 +7429,7 @@ const App = (() => {
           S.balance = d.balance; updateTopbar(); closeModal();
           toast(`Wallet crédité de ${fmtAr(depAmount)}.`);
           await refreshUser();
-          if (currentRoute() === "wallet") renderWallet();
+          if (currentRoute() === "wallet") { wl.page = 1; renderWallet(); }
         } catch (e) { toast(e.message, "error"); }
       };
     });
@@ -7403,7 +7441,7 @@ const App = (() => {
       const max = Math.min(500000 - S.withdrawnToday, available);
       showModal(`
         <h2>Retirer mes gains</h2>
-        <p class="m-sub">Retrait possible à tout moment, même sans avoir joué. Min. 1 000 Ar · Max. 500 000 Ar / jour.</p>
+        <p class="m-sub">À tout moment. Min. 1 000 Ar · max. 500 000 Ar/jour.</p>
         <label class="f-label">Opérateur de destination</label>
         ${OPERATORS.map((o) => `<button class="op-card ${o.id === depOp ? "on" : ""}" data-op="${o.id}" aria-pressed="${o.id === depOp}"><span class="op-dot" style="background:${o.color}">${o.txt}</span><span><b>${o.name}</b><span>${o.sub}</span></span><span class="op-check" aria-hidden="true">✓</span></button>`).join("")}
         <label class="f-label" for="wd-phone">Numéro destinataire</label>
@@ -7431,7 +7469,7 @@ const App = (() => {
           closeModal();
           toast(`Retrait de ${fmtAr(amount)} en cours de traitement vers ${op.name}…`);
           await refreshUser();
-          if (currentRoute() === "wallet") renderWallet();
+          if (currentRoute() === "wallet") { wl.page = 1; renderWallet(); }
         } catch (e) { toast(e.message, "error"); }
       };
     });
@@ -7440,10 +7478,9 @@ const App = (() => {
   /* ------------------ ACCUEIL ------------------ */
   function renderHome() {
     const nextT = S.tournaments.filter((t) => t.status === "inscriptions").sort((a, b) => a.startsInSec - b.startsInSec)[0];
-    /* Trois tuiles pour trois valeurs (revue §4.5, lot S7) : six cartes pour
-       quatre informations dont deux contradictions (« 0 VICTOIRES » et
-       « 0% VICTOIRES », un « WIN RATE » calculé sans partie jouée). Le taux de
-       victoire vit dans l'écran Profil, où il est détaillé. */
+    /* Trois tuiles pour trois valeurs : les anciennes cartes redondantes
+       (« 0 VICTOIRES » et « 0% VICTOIRES ») sont retirées ; le taux de victoire
+       vit dans l'écran Profil, où il est détaillé. */
     const parties = S.games.length + S.wins + S.losses;
     const defisList = S.defis || [];
     document.getElementById("home-root").innerHTML = `
@@ -7596,11 +7633,11 @@ const App = (() => {
               ${[500, 1000, 2000].map((w) => `<button class="pg-chip ${playCfg.wager === w ? "on" : ""}" data-wager="${w}">${fmtAr(w)}</button>`).join("")}
             </div>
           </div>
-          <p class="pg-note">Commission de la plateforme sur les défis : 10 % du pot total.</p>
+          <p class="pg-note">Commission : 10 % du pot.</p>
         </div>`;
     } else if (playStep === 3) {
       opts = `<div class="pg-fmts">${FORMATS.map((f) => `
-        <div class="pg-fmt ${playCfg.format === f.id ? "on" : ""} ${fmtAllowed(f) ? "" : "off"}" data-fmt="${f.id}" role="button" tabindex="0" aria-disabled="${fmtAllowed(f) ? "false" : "true"}" title="${fmtAllowed(f) ? f.desc : "Format Pro : réservé aux tournois à long format et aux défis sérieux"}">
+        <div class="pg-fmt ${playCfg.format === f.id ? "on" : ""} ${fmtAllowed(f) ? "" : "off"}" data-fmt="${f.id}" role="button" tabindex="0" aria-disabled="${fmtAllowed(f) ? "false" : "true"}" title="${fmtAllowed(f) ? f.desc : "Format Pro : tournois long format et défis sérieux"}">
           <b>${f.name}</b><span>${f.label}</span><em>${f.desc}</em>
         </div>`).join("")}</div>`;
     } else {
@@ -7722,7 +7759,7 @@ const App = (() => {
 
     /* Étape 3 — format : le taper avance. Le format « Pro » reste bloqué. */
     document.querySelectorAll("#play-root .pg-fmt").forEach((c) => bindTile(c, () => {
-      if (c.classList.contains("off")) return toast("Format Pro : réservé aux tournois à long format et aux défis sérieux.", "warn");
+      if (c.classList.contains("off")) return toast("Format Pro : tournois long format et défis sérieux.", "warn");
       playCfg.format = c.dataset.fmt;
       advance();
     }));
@@ -7755,9 +7792,7 @@ const App = (() => {
 
   /* Le HUD « moi » du plateau est rempli en UN SEUL endroit : les trois flux qui
      l'affichent (partie serveur, entraînement contre l'IA, mode spectateur)
-     doivent l'appeler — sinon la barre garde les valeurs de maquette du balisage
-     (« TR », « 1126 Elo »). C'était le cas du flux IA, qui ne passe pas par
-     startServerGame (revue §4.2, lot S6). */
+     doivent l'appeler — sinon la barre garde les valeurs par défaut du balisage. */
   function fillHudMe(pseudo, elo) {
     document.getElementById("hud-me-name").textContent = pseudo;
     document.getElementById("hud-me-elo").textContent = elo + " Elo";
@@ -7771,8 +7806,7 @@ const App = (() => {
          dans startServerGame). */
       if (spectatingId) stopSpectating();
       Fanorona.start({ mode: "ai", formatId: playCfg.format, opponent: { pseudo: "IA — Antso", elo: Math.max(600, S.elo - 60), region: "Madagascar" }, wager: 0 });
-      /* Le HUD affiche le joueur RÉEL : la barre ne doit jamais montrer les
-         valeurs de la maquette (« TR », « 1126 Elo »). */
+      /* Le HUD affiche le joueur RÉEL, jamais les valeurs par défaut du balisage. */
       fillHudMe(S.pseudo, S.elo);
       go("board");
       _tossShown = false;
@@ -7783,7 +7817,7 @@ const App = (() => {
     if (playCfg.mode === "defi") {
       const target = playCfg.friend || (S.onlineUsers[0] && S.onlineUsers[0].pseudo);
       if (!target) return toast("Sélectionnez un adversaire en ligne.", "warn");
-      if (playCfg.wager < 500) return toast("Mise minimale de 500 Ar requise — les défis gratuits ne sont pas autorisés.", "warn");
+      if (playCfg.wager < 500) return toast("Mise minimale : 500 Ar.", "warn");
       kycRequired(() => sendChallenge(target));
       return;
     }
@@ -7795,7 +7829,7 @@ const App = (() => {
       <h2>Recherche d'adversaire</h2>
       <p class="m-sub">File classée — Fanorona · ${FORMATS.find((f) => f.id === playCfg.format).name}</p>
       <div class="mm-spinner"><div class="mm-orbit"><i></i><i></i><i></i></div>
-      <p class="muted small">Recherche d'un vrai joueur sur le serveur…</p></div>
+      <p class="muted small">Recherche d'un joueur…</p></div>
       <div class="m-foot"><button class="btn ghost" id="mm-cancel">Annuler la recherche</button></div>
     `, "", true);
     document.getElementById("mm-cancel").onclick = () => {
@@ -7806,11 +7840,11 @@ const App = (() => {
   }
 
   function sendChallenge(target) {
-    if (playCfg.wager < 500) return toast("Mise minimale de 500 Ar requise.", "warn");
+    if (playCfg.wager < 500) return toast("Mise minimale : 500 Ar.", "warn");
     API.send({ type: "send_challenge", toPseudo: target, wager: playCfg.wager, format: playCfg.format });
     showModal(`
       <h2>Défi envoyé à ${target} 🤝</h2>
-      <p class="m-sub">Le défi expire dans 15 minutes s'il n'est pas accepté.</p>
+      <p class="m-sub">Expire dans 15 minutes sans réponse.</p>
       <div class="m-foot"><button class="btn ghost" onclick="App.closeModal()">Fermer</button></div>
     `);
   }
@@ -8150,8 +8184,8 @@ const App = (() => {
      « élargir » en bas de liste, à la place d'une barre de filtres. */
   function livePanel() {
     const portee = liveScope === "contacts"
-      ? `<button class="mt-more" type="button" data-lscope="all">Voir toutes les parties de la communauté</button>`
-      : `<button class="mt-more" type="button" data-lscope="contacts">Revenir aux parties de vos contacts</button>`;
+      ? `<button class="mt-more" type="button" data-lscope="all">Voir toutes les parties</button>`
+      : `<button class="mt-more" type="button" data-lscope="contacts">Revenir à vos contacts</button>`;
     return `
       <div class="mt-split">
         <div class="panel pad-lg">
@@ -8160,7 +8194,7 @@ const App = (() => {
             <p class="muted small">Recherche des parties en cours…</p>
           </div>
           ${portee}
-          <p class="mt-note">Le plateau s'ouvre en lecture seule : les coups viennent du serveur, vous ne jouez pas à la place des joueurs.</p>
+          <p class="mt-note">Lecture seule : vous regardez, vous ne jouez pas.</p>
         </div>
         <div class="panel pad-lg">
           <div class="panel-title">Vos contacts <span class="mt-sub" id="mt-contacts-n">chargement…</span></div>
@@ -8237,7 +8271,7 @@ const App = (() => {
     const list = mtContactList();
     const lab = document.getElementById("mt-contacts-n");
     /* Le compteur dit ce qui est AFFICHÉ quand la liste est tronquée : « 4 sur 5 »
-       lève l'écart entre le titre et les lignes réellement visibles (revue §5, lot S5). */
+       lève l'écart entre le titre et les lignes réellement visibles. */
     const affiches = mtContactsAll ? list.length : Math.min(list.length, MT_LIST_MAX);
     if (lab) lab.textContent = list.length
       ? `${list.filter((c) => c.state === "on").length} en ligne · ${list.length > MT_LIST_MAX ? `${affiches} sur ${list.length} contact(s)` : `${list.length} contact(s)`}`
@@ -8309,7 +8343,7 @@ const App = (() => {
     const lab = document.getElementById("mt-online-n");
     if (lab) lab.textContent = list.length ? `${list.length} disponible(s)` : "personne";
     if (!list.length) {
-      root.innerHTML = `<p class="muted small">Personne en ligne pour le moment. Lancez une partie classée pour croiser un adversaire — ou envoyez un défi à un ami : il le recevra dès sa connexion.</p>`;
+      root.innerHTML = `<p class="muted small">Personne en ligne. Lancez une partie ou défiez un ami.</p>`;
       return;
     }
     const vue = mtOnlineAll ? list : list.slice(0, MT_LIST_MAX);
@@ -8387,7 +8421,7 @@ const App = (() => {
         <div class="panel pad-lg">
           <div class="panel-title">Défis reçus <span class="mt-sub">0 en attente</span></div>
           ${mtEmpty("swords", "Aucun défi en attente",
-            "Un défi reçu arrive ici — et une notification vous prévient, même si vous êtes sur un autre écran.",
+            "Une notification vous prévient, même depuis un autre écran.",
             `<button class="btn primary" type="button" data-mtact="find">⚔️ Défier un joueur</button>
              <button class="btn ghost" type="button" data-mtact="invite">🔗 Inviter un ami</button>`)}
         </div>`;
@@ -8442,14 +8476,14 @@ const App = (() => {
             <span class="avatar ${avTint(c.toPseudo)}" style="width:32px;height:32px;font-size:11px;cursor:default;">${avInitials(c.toPseudo)}</span>
             <div class="d-info">
               <div class="d-name">${pseudoLink(c.toId, c.toPseudo)} <span class="muted small">· ${c.toElo != null ? c.toElo + " Elo · " : ""}${fmtFormatName(c.format)}</span></div>
-              <div class="d-sub small">Mise ${fmtAr(c.wager)} · gain net ${fmtAr(c.wager * 2 * 0.9)} · expiré après 15 min sans réponse</div>
+              <div class="d-sub small">Mise ${fmtAr(c.wager)} · gain net ${fmtAr(c.wager * 2 * 0.9)}</div>
             </div>
             ${c.status === "pending"
               ? `<span class="mt-chip-gold">En attente</span>
                  <button class="btn ghost mini-btn" type="button" data-mtcancel="${mtEsc(c.id)}">Annuler</button>`
               : `<span class="pill ${teinte[c.status] || ""}" style="align-self:center;">${libelle[c.status] || mtEsc(c.status)}</span>`}
           </div>`).join("")}${sent.length > recents.length ? `<p class="muted small">… et ${sent.length - recents.length} défi(s) plus ancien(s).</p>` : ""}</div>`
-        : `<p class="muted small">Aucun défi envoyé. Choisissez un joueur en ligne à droite, ou lancez une partie classée.</p>`;
+        : `<p class="muted small">Aucun défi envoyé.</p>`;
       bindMatchFilters();
     } catch (e) {
       /* Même gabarit que l'onglet En direct : un état d'erreur dit toujours quoi
@@ -8546,7 +8580,7 @@ const App = (() => {
                 </div>
                 <span class="pill amber mono countdown" data-cd="${t.id}">${countdownParts(t.startsInSec)}</span>
               </div>`).join("")
-              : `<p class="muted small">Aucun départ programmé. Les inscriptions ouvertes apparaissent ici avec leur décompte.</p>`}
+              : `<p class="muted small">Aucun départ programmé.</p>`}
           </div>
         </div>
       </div>`;
@@ -8570,7 +8604,7 @@ const App = (() => {
         <tr><td>🥈 2e place</td><td>${fmtAr(mise)}</td><td>25% = ${fmtAr(net * 0.25)}</td><td>${fmtAr(mise + net * 0.25)}</td></tr>
         <tr><td>🥉 3e place</td><td>${fmtAr(mise)}</td><td>0%</td><td>${fmtAr(mise)}</td></tr>
       </table>
-      <p class="small muted">Commission D-aôna : 25 % du pot. La mise est remboursée aux trois premiers, le gain net se partage 50/25/0.</p>
+      <p class="small muted">Commission : 25 % du pot. Mise remboursée au top 3 — gain net partagé 50/25/0.</p>
       <div class="m-foot"><button class="btn ghost" onclick="App.closeModal()">Fermer</button></div>
     `, "lg");
   }
@@ -8593,7 +8627,7 @@ const App = (() => {
     showModal(`
       <button class="btn ghost mini-btn m-close" onclick="App.closeModal()" aria-label="Fermer">✕</button>
       <h2>Inviter un ami</h2>
-      <p class="m-sub">Envoyez-lui le lien D-aôna : il crée son compte, puis vous vous ajoutez en amis par pseudo.</p>
+      <p class="m-sub">Partagez ce lien : votre ami crée son compte, puis ajoutez-vous par pseudo.</p>
       <div class="panel pad-lg" style="margin:12px 0;">
         <div class="panel-title" style="margin-bottom:6px;">Lien à partager</div>
         <div class="mono small" style="word-break:break-all; color:var(--text-strong);">${lien}</div>
@@ -8669,10 +8703,10 @@ const App = (() => {
       if (!live.length) {
         root.innerHTML = liveScope === "all"
           ? mtEmpty("eye", "Aucune partie en direct",
-              "Le fil se remplit dès qu'une partie démarre. Vous pouvez aussi lancer la vôtre.",
+              "Le fil se remplit dès qu'une partie démarre.",
               `<button class="btn primary" type="button" data-mtact="find">⚔️ Trouver un adversaire</button>`)
           : mtEmpty("eye", "Aucune partie chez vos contacts",
-              "Vos amis et contacts ne jouent pas en ce moment — ouvrez le fil public pour voir les parties de la communauté.",
+              "Vos contacts ne jouent pas en ce moment — ouvrez le fil public.",
               `<button class="btn ghost" type="button" data-lscope="all">Voir toutes les parties</button>
                <button class="btn primary" type="button" data-mtact="find">⚔️ Trouver un adversaire</button>`);
       } else {
@@ -8686,7 +8720,7 @@ const App = (() => {
         <div class="mt-state err">
           ${MT_ICO.alert}
           <b>Liste des matchs indisponible</b>
-          <p>${mtEsc((e && e.message) || "Erreur réseau")} — les parties continuent, seul leur affichage a échoué.</p>
+          <p>${mtEsc((e && e.message) || "Erreur réseau")} — les parties continuent, seul leur affichage a flanché.</p>
           <div class="mt-state__acts"><button class="btn primary" type="button" data-mtact="retry-live">↻ Réessayer</button></div>
         </div>`;
       bindMatchFilters();
@@ -8729,7 +8763,7 @@ const App = (() => {
   }
 
   function spectate(sessionId) {
-    if (hasActiveGame()) return toast("Terminez d'abord votre propre partie avant de regarder un match.", "warn");
+    if (hasActiveGame()) return toast("Terminez votre partie avant de regarder un match.", "warn");
     if (spectatingId === sessionId) return go("board");
     if (spectatingId) API.send({ type: "unspectate", sessionId: spectatingId });
     clearTimeout(_spectateWatchdog);
@@ -8814,7 +8848,7 @@ const App = (() => {
         <button class="btn rp-btn rp-btn-ghost" id="rp-watch"${watching ? "" : " disabled"}
           title="${watching ? "Reprendre le visionnage du match en direct." : "Vous ne suivez aucun match pour le moment."}">Regarder</button>
       </div>
-      ${watching ? '<p class="rp-hint">Pour arrêter de regarder : bouton « Arrêter de regarder » sur le plateau.</p>' : ""}
+      ${watching ? '<p class="rp-hint">Pour arrêter : bouton « Arrêter de regarder » sur le plateau.</p>' : ""}
     `, "sm");
     const m = document.getElementById("rp-mine");
     if (m) m.onclick = () => { if (mine) resumeGame(); };
@@ -9083,112 +9117,193 @@ const App = (() => {
     });
   }
 
-  /* ------------------ WALLET ------------------ */
+  /* ------------------ WALLET ------------------
+     Mise en page reprise de la maquette « wallet-desktop » : carte de solde
+     (pastille « Disponible »), carte « Frais transparents » (0 % interne,
+     25 % cashprizes, limites dépliables) et historique tabulaire. La carte de
+     solde et les frais lisent l'état S ; l'historique est rechargé du serveur
+     (wlLoad) — aucune liste fabriquée localement. */
   function renderWallet() {
-    /* L'icône vient désormais de la fabrique partagée txIcon() (hors de cette
-       fonction) : elle est déduite du TYPE de mouvement, donc l'icône affichée
-       et le filtre « par type » ne peuvent pas diverger. */
     const available = Math.max(0, S.balance - S.bonusLock);
     document.getElementById("wallet-root").innerHTML = `
       <div class="wallet-layout">
         <div class="side-stack">
           <div class="balance-card">
-            <div class="lbl">Solde disponible</div>
-            <div class="amount">${fmtAr(available)}</div>
+            <div class="wl-bal-top">
+              <div class="lbl">Solde disponible</div>
+              <span class="pill green">Disponible</span>
+            </div>
+            <div class="amount" id="wl-balance">${fmtAr(available)}</div>
             <div class="btc">Portefeuille interne D-aôna · Ariary (Ar)</div>
-            ${S.bonusLock ? `<div class="small amber" style="margin-top:6px;">dont ${fmtAr(S.bonusLock)} de bonus (non retirable)</div>` : ""}
+            <div id="wl-bonus-line">${S.bonusLock ? `<div class="small amber" style="margin-top:6px;">dont ${fmtAr(S.bonusLock)} de bonus (non retirable)</div>` : ""}</div>
             <div class="balance-actions">
               <button class="btn primary" onclick="App.depositFlow()">＋ Déposer</button>
               <button class="btn" onclick="App.withdrawFlow()">↗ Retirer</button>
             </div>
           </div>
-          <div class="panel">
-            <div class="panel-title">Règles du wallet</div>
-            <ul class="rules-list">
-              <li>0% de commission sur les transactions internes (mises, défis)</li>
-              <li>Commission de 25% uniquement à la distribution des cashprices</li>
-              <li>Retrait libre, min. 1 000 Ar · max. 500 000 Ar / jour</li>
-              <li>KYC (photo CIN) obligatoire avant toute transaction réelle</li>
-            </ul>
-            <button class="btn ghost block" style="margin-top:8px; ${S.kyc ? "display:none" : ""}" onclick="App.kycRequired(()=>{})">🪪 Vérifier mon identité</button>
+          <div class="panel" aria-labelledby="wl-fees-title">
+            <div class="panel-title" id="wl-fees-title">Frais transparents</div>
+            <p class="small muted" style="margin:0 0 6px;">La commission dépend du type d'opération.</p>
+            <div class="wl-fee-row"><span>Transactions internes (mises, défis)</span><b class="pos">0 %</b></div>
+            <div class="wl-fee-row"><span>Distribution des cashprizes</span><b class="amber">25 %</b></div>
+            <p class="small muted" style="margin:8px 0 0;">La commission de 25 % s'applique uniquement à la distribution des cashprizes.</p>
+            <button class="btn ghost block mini-btn" style="margin-top:10px;" id="wl-rules-toggle" type="button" aria-expanded="false" aria-controls="wl-rules">Voir limites et conditions</button>
+            <div class="wl-rules" id="wl-rules" hidden>
+              <div class="small muted">Retrait : minimum 1 000 Ar · maximum 500 000 Ar par jour.</div>
+              <div class="small muted">Retiré aujourd'hui : <b class="mono" id="wl-today">${fmtAr(S.withdrawnToday || 0)}</b> / 500 000 Ar.</div>
+              <div class="small muted">KYC (photo CIN) obligatoire avant toute transaction réelle.</div>
+            </div>
+            ${S.kyc ? "" : `<button class="btn ghost block mini-btn" style="margin-top:8px;" onclick="App.kycRequired(()=>{})">🪪 Vérifier mon identité</button>`}
           </div>
         </div>
         <div class="panel">
-          <div class="panel-title">Historique des transactions</div>
-          <!-- Filtres : ils portent sur l'historique DÉJÀ chargé (les 50 derniers
-               mouvements renvoyés par /api/user) — aucune donnée n'est inventée
-               ni rechargée. Période = chips + deux champs de date natifs ; type =
-               les familles réellement produites par le serveur ; libellé = le
-               composant de recherche dépliable déjà utilisé au Classement. -->
-          <div class="tx-filters">
-            <div class="chips" role="group" aria-label="Filtrer par période">
-              ${TX_PERIODS.map(([id, l]) => `<button class="chip ${txFilter.period === id && !txFilter.from && !txFilter.to ? "on" : ""}" type="button" data-txperiod="${id}">${l}</button>`).join("")}
+          <div class="wl-head">
+            <div class="panel-title" style="margin:0;">Historique des transactions</div>
+            <div class="wl-head-actions">
+              <span class="wl-moves" id="tx-count" role="status" aria-live="polite"></span>
+              <button class="btn ghost mini-btn" id="wl-export" type="button">⬇ Exporter</button>
             </div>
-            <label class="lbl" for="tx-from">Du</label>
-            <input type="date" id="tx-from" value="${mtEsc(txFilter.from)}" aria-label="Transactions à partir de cette date">
-            <label class="lbl" for="tx-to">Au</label>
-            <input type="date" id="tx-to" value="${mtEsc(txFilter.to)}" aria-label="Transactions jusqu'à cette date">
           </div>
-          <div class="tx-filters">
-            <div class="chips" role="group" aria-label="Filtrer par type de transaction">
-              ${TX_KINDS.map(([id, l]) => `<button class="chip ${txFilter.kind === id ? "on" : ""}" type="button" data-txkind="${id}">${l}</button>`).join("")}
+          <div class="tx-filters" role="search" aria-label="Filtres des transactions">
+            <div class="chips" role="group" aria-label="Filtrer par période">
+              ${WL_PERIODS.map(([id, l]) => `<button class="chip" type="button" data-txperiod="${id}">${l}</button>`).join("")}
             </div>
-            <div class="searchbar compact ${txFilter.q ? "open" : ""}" id="tx-searchbar" data-open-label="Filtrer par libellé">
+            <div class="searchbar compact" id="tx-searchbar" data-open-label="Rechercher une opération">
               <span class="icon-search" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7.2"/><line x1="16.4" y1="16.4" x2="21" y2="21"/></svg>
               </span>
-              <input type="text" id="tx-q" placeholder="Filtrer par libellé…" maxlength="40" value="${mtEsc(txFilter.q)}" spellcheck="false" aria-label="Filtrer les transactions par libellé">
-              <button class="icon-close" type="button" aria-label="Effacer le filtre de libellé">
+              <input type="text" id="tx-q" placeholder="Rechercher une opération…" maxlength="40" value="${escHtml(wl.q)}" spellcheck="false" aria-label="Rechercher dans l'historique">
+              <button class="icon-close" type="button" aria-label="Effacer la recherche">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5.5" y1="5.5" x2="18.5" y2="18.5"/><line x1="18.5" y1="5.5" x2="5.5" y2="18.5"/></svg>
               </button>
             </div>
-            <button class="btn ghost mini-btn" type="button" id="tx-reset">Réinitialiser</button>
-            <span class="small muted tx-count" id="tx-count" role="status" aria-live="polite"></span>
+            <button class="btn ghost mini-btn" id="wl-adv-toggle" type="button" aria-expanded="false" aria-controls="wl-adv">Plus de filtres</button>
+            <button class="btn ghost mini-btn" id="tx-reset" type="button" hidden>Réinitialiser</button>
           </div>
-          <div id="tx-list"></div>
+          <div class="wl-adv" id="wl-adv" hidden>
+            <label>Du<input type="date" id="tx-from" value="${escHtml(wl.from)}" aria-label="Transactions à partir de cette date"></label>
+            <label>Au<input type="date" id="tx-to" value="${escHtml(wl.to)}" aria-label="Transactions jusqu'à cette date"></label>
+            <label>Moyen
+              <select id="wl-method" aria-label="Filtrer par moyen de paiement">
+                <option value="all">Tous les moyens</option>
+                ${["MVola", "Orange Money", "Airtel Money", "Da-ona"].map((m) => `<option value="${m}" ${wl.method === m ? "selected" : ""}>${m}</option>`).join("")}
+              </select>
+            </label>
+            <label>Statut
+              <select id="wl-status" aria-label="Filtrer par statut">
+                <option value="all">Tous les statuts</option>
+                <option value="success" ${wl.status === "success" ? "selected" : ""}>Réussi</option>
+                <option value="pending" ${wl.status === "pending" ? "selected" : ""}>En attente</option>
+              </select>
+            </label>
+          </div>
+          <div class="tx-filters" role="group" aria-label="Filtrer par type de transaction">
+            <div class="chips">
+              ${WL_KINDS.map(([id, l]) => `<button class="chip" type="button" data-txkind="${id}">${l}</button>`).join("")}
+            </div>
+          </div>
+          <div class="wl-tags" id="wl-tags" aria-label="Filtres actifs"></div>
+          <div class="wl-tablewrap">
+            <table class="wl-table" aria-label="Historique des transactions">
+              <thead>
+                <tr>
+                  <th scope="col">Opération</th>
+                  <th scope="col" aria-sort="descending"><button class="wl-th-sort" id="wl-sort" type="button">Date et heure <span aria-hidden="true">▾</span></button></th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Moyen</th>
+                  <th scope="col">Statut</th>
+                  <th scope="col" class="wl-col-amt">Montant</th>
+                </tr>
+              </thead>
+              <tbody id="tx-list"></tbody>
+            </table>
+          </div>
+          <div class="wl-foot" id="wl-foot"></div>
         </div>
       </div>`;
-    /* --- Câblage des filtres --------------------------------------------------
-       Les chips basculent leur classe active SANS reconstruire l'écran : la
-       barre de recherche garde donc son état et son focus. Le filtrage est
-       purement local (aucun appel réseau par frappe). */
-    const txFromEl = document.getElementById("tx-from"), txToEl = document.getElementById("tx-to");
-    const chipOn = (sel, attr, val) => document.querySelectorAll(`#wallet-root ${sel}`).forEach((x) => x.classList.toggle("on", x.dataset[attr] === val));
+    /* --- Câblage ---------------------------------------------------------------
+       Chaque contrôle met à jour `wl` puis recharge la page depuis le serveur ;
+       les pastilles et boutons basculent leur état SANS reconstruire l'écran
+       (la barre de recherche garde son focus pendant la frappe). */
+    const $w = (id) => document.getElementById(id);
+    /* Période (pastilles) : la plage de dates est effacée — un seul filtre de
+       période à la fois, comme avant. */
     document.querySelectorAll("#wallet-root [data-txperiod]").forEach((b) => b.onclick = () => {
-      txFilter.period = b.dataset.txperiod;
-      txFilter.from = ""; txFilter.to = "";                    // une période remplace la plage de dates
-      if (txFromEl) txFromEl.value = "";
-      if (txToEl) txToEl.value = "";
-      chipOn("[data-txperiod]", "txperiod", txFilter.period);
-      txListRender();
+      wl.period = b.dataset.txperiod;
+      wl.from = ""; wl.to = "";
+      if ($w("tx-from")) $w("tx-from").value = "";
+      if ($w("tx-to")) $w("tx-to").value = "";
+      wl.page = 1; wlPaintChips(); wlLoad();
     });
     document.querySelectorAll("#wallet-root [data-txkind]").forEach((b) => b.onclick = () => {
-      txFilter.kind = b.dataset.txkind;
-      chipOn("[data-txkind]", "txkind", txFilter.kind);
-      txListRender();
+      wl.kind = b.dataset.txkind;
+      wl.page = 1; wlPaintChips(); wlLoad();
     });
     /* Dès qu'une date est saisie, la plage prend la main : aucune pastille de
        période ne reste allumée (sinon l'écran annoncerait deux filtres). */
     const onDate = (el, key) => () => {
-      txFilter[key] = el.value;
-      document.querySelectorAll("#wallet-root [data-txperiod]").forEach((x) => x.classList.remove("on"));
-      txListRender();
+      wl[key] = el.value;
+      wl.page = 1;
+      wlPaintChips();
+      wlLoad();
     };
-    if (txFromEl) txFromEl.onchange = onDate(txFromEl, "from");
-    if (txToEl) txToEl.onchange = onDate(txToEl, "to");
-    const txResetEl = document.getElementById("tx-reset");
-    if (txResetEl) txResetEl.onclick = () => {
-      txFilter = { period: "all", from: "", to: "", kind: "all", q: "" };
+    const fromEl = $w("tx-from"), toEl = $w("tx-to");
+    if (fromEl) fromEl.onchange = onDate(fromEl, "from");
+    if (toEl) toEl.onchange = onDate(toEl, "to");
+    const mSel = $w("wl-method"), sSel = $w("wl-status");
+    if (mSel) mSel.onchange = () => { wl.method = mSel.value; wl.page = 1; wlLoad(); };
+    if (sSel) sSel.onchange = () => { wl.status = sSel.value; wl.page = 1; wlLoad(); };
+    /* « Plus de filtres » déplie la rangée Du/Au/Moyen/Statut — ouverte d'office
+       si l'un des filtres qu'elle porte est actif. */
+    const advBtn = $w("wl-adv-toggle"), advPanel = $w("wl-adv");
+    const advOpen = wl.method !== "all" || wl.status !== "all" || !!wl.from || !!wl.to;
+    if (advBtn && advPanel) {
+      advPanel.hidden = !advOpen;
+      advBtn.setAttribute("aria-expanded", String(advOpen));
+      advBtn.onclick = () => {
+        advPanel.hidden = !advPanel.hidden;
+        advBtn.setAttribute("aria-expanded", String(!advPanel.hidden));
+      };
+    }
+    const rulesBtn = $w("wl-rules-toggle"), rulesPanel = $w("wl-rules");
+    if (rulesBtn && rulesPanel) rulesBtn.onclick = () => {
+      rulesPanel.hidden = !rulesPanel.hidden;
+      rulesBtn.setAttribute("aria-expanded", String(!rulesPanel.hidden));
+      rulesBtn.textContent = rulesPanel.hidden ? "Voir limites et conditions" : "Masquer les limites et conditions";
+    };
+    const rst = $w("tx-reset");
+    if (rst) rst.onclick = () => {
+      wl = { page: 1, size: wl.size, period: "all", from: "", to: "", kind: "all", q: "", method: "all", status: "all", sort: wl.sort };
       renderWallet();
     };
-    const txBar = document.getElementById("tx-searchbar");
+    const txBar = $w("tx-searchbar");
     if (txBar) SearchToggle.mount(txBar, {
-      autoOpen: !!txFilter.q,
-      onInput: (v) => { txFilter.q = v; txListRender(); },      // filtrage instantané, hors réseau
-      onEnter: (v) => { txFilter.q = v; txListRender(); },
-      onClose: () => { txFilter.q = ""; txListRender(); },
+      autoOpen: !!wl.q,
+      /* Le filtre part au SERVEUR : anti-rebond de 180 ms pour ne pas requêter à
+         chaque frappe (Entrée force la recherche immédiatement). */
+      onInput: (v) => { wl.q = v; clearTimeout(wlQTimer); wlQTimer = setTimeout(() => { wl.page = 1; wlLoad(); }, 180); },
+      onEnter: (v) => { wl.q = v; clearTimeout(wlQTimer); wl.page = 1; wlLoad(); },
+      onClose: () => { wl.q = ""; clearTimeout(wlQTimer); wl.page = 1; wlLoad(); },
     });
-    txListRender();
+    const sortBtn = $w("wl-sort");
+    if (sortBtn) sortBtn.onclick = () => { wl.sort = wl.sort === "desc" ? "asc" : "desc"; wl.page = 1; wlLoad(); };
+    const exp = $w("wl-export");
+    if (exp) exp.onclick = wlExport;
+    /* Lignes cliquables : clic ou Entrée/Espace (rôle bouton) — par délégation,
+       car les lignes sont reconstruites à chaque page. */
+    const tb = $w("tx-list");
+    tb.addEventListener("click", (e) => { const tr = e.target.closest("tr[data-wtx]"); if (tr) wlOpenDetail(tr.dataset.wtx); });
+    tb.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const tr = e.target.closest("tr[data-wtx]");
+      if (tr) { e.preventDefault(); wlOpenDetail(tr.dataset.wtx); }
+    });
+    wlPaintChips();
+    /* Le solde (et le « retiré aujourd'hui ») peut avoir bougé ailleurs : on
+       rafraîchit le profil en silence puis on met à jour les chiffres de la
+       carte — l'historique, lui, se charge tout seul. */
+    refreshUser().then(() => { if (currentRoute() === "wallet") wlMetaRefresh(); });
+    wlLoad();
   }
 
   /* ------------------ PROFIL — fabriques partagées ------------------
@@ -9288,7 +9403,7 @@ const App = (() => {
       return `
           <div class="panel pf3-match" id="pf3-match-card">
             <div class="pf3-month">Prochain match</div>
-            <p class="muted small" style="margin:0 0 10px;">Aucun match programmé pour le moment — vos prochains matchs de tournoi apparaîtront ici.</p>
+            <p class="muted small" style="margin:0 0 10px;">Aucun match programmé.</p>
             <button class="btn primary mini-btn" type="button" onclick="App.go('match')">Voir les tournois</button>
           </div>`;
     }
@@ -9361,7 +9476,7 @@ const App = (() => {
             <div class="pf3-deco"><span style="width:90px;height:90px;top:-30px;right:-20px;"></span><span style="width:50px;height:50px;bottom:-15px;left:-10px;"></span></div>
             <span class="pf3-eyebrow">Personnalisation</span>
             <h4>Boutique de skins</h4>
-            <p>Couleur et motif des pions — deux choix indépendants, à combiner librement.</p>
+            <p>La couleur et le motif des pions.</p>
             <span class="pf3-go"><span>Voir la boutique</span><span class="pf3-arrow">→</span></span>
           </a>`;
   }
@@ -9642,7 +9757,7 @@ const App = (() => {
               ${[[64, "S"], [84, "M"], [110, "L"]].map(([sz, lab]) => `<button class="chip ${avSize === sz ? "on" : ""}" data-avsize="${sz}" style="min-width:34px; padding:4px 8px;">${lab}</button>`).join("")}
             </div>`; })()}
             <h2>${escHtml(S.pseudo)}</h2>
-            <p class="small muted">ID joueur #${S.id || "—"} · 📍 ${escHtml(me?.province || "—")} · membre depuis août 2026</p>
+            <p class="small muted">ID joueur #${S.id || "—"} · 📍 ${escHtml(me?.province || "—")}</p>
             ${myBadge ? `<div style="margin-top:6px;"><span class="badge-chip" style="--b-ink:${myBadge.color}; --b-ink-day:${myBadge.ink}; border-color:${myBadge.color}66; background:${myBadge.color}14;" title="Badge national"><span class="bi">${escHtml(myBadge.icon)}</span>${escHtml(myBadge.name)} <span class="muted mono" style="font-weight:400;">#${me.rank}</span></span></div>` : ""}
             ${profileStatsHtml({
               /* Maquette v3a : Elo / Parties / Rang en première rangée, puis
@@ -10233,27 +10348,27 @@ const App = (() => {
               </div>
               <div class="stage-face" role="group" aria-label="Vue du pion (loupe d'inspection)">
                 <button class="chip" id="btn-face"
-                        title="Remettre le pion de face — aussi : double-clic sur le pion, ou touche 0 au clavier">⟲ Face avant</button>
+                        title="Remettre le pion de face — aussi : double-clic ou touche 0">⟲ Face avant</button>
               </div>
             </div>
             <div class="stage-real">
               <span id="real-pion-zone">${pionView("pion-view--real", camp, col.id, pat.id, true)}</span>
-              <span class="small">Taille réelle sur le plateau — c'est le rendu du pion en jeu</span>
-              <span class="view-hint" id="view-hint">Glisser le pion : le tourner · molette ou pincement : zoomer · double-clic : face avant</span>
+              <span class="small">Taille réelle sur le plateau</span>
+              <span class="view-hint" id="view-hint">Glisser : tourner · molette : zoomer · double-clic : face avant</span>
             </div>
           </div>
           <div class="panel">
             <div class="panel-title"><span class="dot"></span>Pions à personnaliser</div>
             <div class="panel-body">
               ${tabs}
-              <p class="pion-note" style="margin-top:12px;">Les couleurs claires habillent le camp clair (celui qui gagne le tirage et commence), les sombres le camp sombre : chaque camp garde son apparence, où que le tirage vous place.</p>
+              <p class="pion-note" style="margin-top:12px;">Les claires habillent le camp clair (celui qui commence), les sombres le camp sombre.</p>
             </div>
           </div>
           <div class="panel">
             <div class="panel-title"><span class="dot"></span>Personnalisation actuelle</div>
             <div class="panel-body">
               <p class="pion-note" id="sum-who" style="margin-top:0;"><b>${k.label}</b> — ${k.who}.</p>
-              <p class="pion-note" style="margin:6px 0 10px;">La couleur et le motif sont deux choix indépendants : changez l'un, l'autre est conservé.</p>
+              <p class="pion-note" style="margin:6px 0 10px;">Couleur et motif sont indépendants — chacun se conserve.</p>
               <div class="pion-sum"><span>Camp</span><b id="sum-camp">${k.label}</b></div>
               <div class="pion-sum"><span>Couleur</span><b id="pion-sum-color">${col.name}</b></div>
               <div class="pion-sum"><span>Motif</span><b id="pion-sum-pattern">${pat.name}</b></div>
@@ -10267,14 +10382,14 @@ const App = (() => {
             <div class="panel-title"><span class="dot"></span>Couleur — ${k.label}</div>
             <div class="panel-body">
               <div class="pion-sub">${groupLabel}</div>
-              <p class="sub-title">Survolez une tuile : le pion d'aperçu prend cette couleur <b>pour de vrai</b>, sans rien choisir. Cliquez pour la choisir.</p>
+              <p class="sub-title">Survol : aperçu réel · clic : choisir.</p>
               <div class="pion-grid pion-grid--colors">${cols}</div>
             </div>
           </div>
           <div class="panel" id="pion-panel-motif" role="tabpanel" aria-labelledby="pion-tab-${camp}">
             <div class="panel-title"><span class="dot"></span>Motif — ${k.label}</div>
             <div class="panel-body">
-              <p class="sub-title">Optionnel — « Aucun motif » garde le pion uni. Chaque vignette montre le <b>dessin du motif sur une monture blanche</b> : le dessin se choisit ici, la couleur se juge sur le pion d'aperçu. Survolez une vignette pour l'<b>essayer en grand</b> ; cliquez pour la choisir.</p>
+              <p class="sub-title">« Aucun motif » = pion uni. Survol : essai en grand · clic : choisir.</p>
               <div class="pion-grid pion-grid--motifs">${PION_PATTERNS.map(pionPatternCardHtml).join("")}</div>
             </div>
           </div>
@@ -10282,7 +10397,7 @@ const App = (() => {
           <div class="panel">
             <div class="panel-title"><span class="dot"></span>Plateau &amp; effets</div>
             <div class="panel-body">
-              <p class="sub-title">Skins existants du plateau et des effets, payés avec le wallet — inchangés par la personnalisation des pions.</p>
+              <p class="sub-title">Skins du plateau et des effets, payés avec le wallet.</p>
               <div class="skins-grid">${others.map(skinCardHtml).join("")}</div>
             </div>
           </div>` : ""}
@@ -10392,7 +10507,7 @@ const App = (() => {
       await API.request("/api/skins/equip", "POST", { skinId: id, slot });
       await refreshSkins();
       applySkins();
-      toast(`« ${sk.name} » équipé${sk.type ? " sur les " + typeLabel(sk.type) : ""} — visible sur votre prochain plateau.`);
+      toast(`« ${sk.name} » équipé${sk.type ? " sur les " + typeLabel(sk.type) : ""} — visible sur le prochain plateau.`);
       refreshSkinsViews();
     } catch (e) { toast(e.message, "error"); }
   }
@@ -10419,7 +10534,7 @@ const App = (() => {
     const list = S.contacts.length ? S.contacts.map((c) => c.pseudo) : [];
     if (!chatWith && list.length) chatWith = list[0];
     if (!chatWith) {
-      document.getElementById("chat-root").innerHTML = `<div class="panel pad-lg" style="text-align:center;"><b style="color:var(--text-strong);">Aucun contact</b><p class="small muted">Échangez en match et vos contacts apparaîtront ici.</p></div>`;
+      document.getElementById("chat-root").innerHTML = `<div class="panel pad-lg" style="text-align:center;"><b style="color:var(--text-strong);">Aucun contact</b><p class="small muted">Rencontrez des joueurs en match.</p></div>`;
       return;
     }
     const thread = S.chatThreads[chatWith] || [];
@@ -10588,7 +10703,7 @@ const App = (() => {
               <div class="c-info"><div class="c-name">${escHtml(n)} ${contactOnline(n) ? '<span class="pill green" style="font-size:9px; padding:1px 6px;">en ligne</span>' : ""}</div><div class="c-prev">${escHtml(last ? last.text : "Nouvelle conversation")}</div></div>
               ${unread ? `<span class="cp-unread">${unread}</span>` : ""}
             </div>`;
-          }).join("") : '<div class="cp-empty">Aucun contact pour le moment.<br>Jouez un match pour rencontrer des joueurs.</div>'}
+          }).join("") : '<div class="cp-empty">Aucun contact.<br>Rencontrez des joueurs en match.</div>'}
         </div>`;
     }
     /* Un re-rendu du dock recrée les champs de saisie : sans précaution, le
@@ -10867,7 +10982,7 @@ const App = (() => {
             <button class="btn mini-btn" data-chat="${escHtml(f.pseudo)}">💬</button>
             <button class="btn mini-btn" data-defi="${escHtml(f.pseudo)}">⚔️</button>
             <button class="btn danger mini-btn" data-remove="${escHtml(f.pseudo)}">✕</button>
-          </div>`).join("") : '<p class="muted" style="text-align:center;">Aucun ami pour le moment. Recherchez un joueur ci-dessus et envoyez-lui une demande d\'ami.</p>'}
+          </div>`).join("") : '<p class="muted" style="text-align:center;">Aucun ami. Recherchez un joueur et envoyez-lui une demande.</p>'}
       </div>`;
 
     // Recherche
@@ -10949,14 +11064,9 @@ const App = (() => {
   }
 
   /* ------------------ LANCER DE PIÈCE « PILE OU FACE » ------------------
-     ARBITRAGE INVERSÉ le 03/10/2026 — il supplante la bande du lot S8, retirée.
-     Le lot S8 avait remplacé la modale du tirage par une bande NON modale au-dessus
-     du plateau, pour que le plateau reste cliquable pendant l'annonce. La demande
-     inverse : « l'animation de pile ou face se fait D'ABORD, et montre quel joueur a
-     pile et quelle personne a face ». Le lancer est donc un voile plein écran, joué
-     AVANT que le plateau ne serve, et il dit l'attribution des DEUX faces aux DEUX
-     joueurs — information qui n'existait nulle part, alors que le serveur l'expose
-     (`state.toss.choices`, cf. game.js). */
+     Le lancer se joue AVANT que le plateau ne serve, en voile plein écran : il
+     dit l'attribution des DEUX faces aux DEUX joueurs (le serveur l'expose
+     dans `state.toss.choices`, cf. game.js). */
   let _tossShown = false;
   let _tossTimer = 0;
   let _tossLandTimer = 0;
@@ -10985,9 +11095,8 @@ const App = (() => {
   }
 
   /* `animate: false` = le tirage a DÉJÀ eu lieu (reprise d'une partie en cours,
-     rechargement de la page) : on ne recouvre pas le plateau pour rejouer un lancer
-     qui n'a plus d'objet — c'est exactement le grief que le lot S8 avait retenu
-     contre la modale du tirage. Le bandeau « À qui le tour ? » suffit alors. */
+     rechargement de la page) : on ne recouvre pas le plateau pour rejouer un
+     lancer sans objet. Le bandeau « À qui le tour ? » suffit alors. */
   function showTossResult({ side, starter, meNum, choices, meName, oppName, animate = true }) {
     if (_tossShown) return;
     _tossShown = true;
@@ -11068,8 +11177,7 @@ const App = (() => {
     const oppName = (c.opponent && c.opponent.pseudo) || "Adversaire";
     showModal(`
       <h2 style="text-align:center;">🎯 Choisissez votre face</h2>
-      <p class="m-sub" style="text-align:center;">Chaque joueur choisit PILE ou FACE. Une fois une face prise par un joueur, l'autre reçoit automatiquement l'autre face. Ensuite la pièce est lancée : celui dont la face sort commence — et le gagnant du tirage prend les <b>pions clairs</b>.</p>
-      <p class="m-sub" style="text-align:center;">L'image de chaque bouton montre le côté qu'il désigne : <b>PILE</b>, le côté où le 50 est écrit en chiffres ; <b>FACE</b>, le côté des baobabs.</p>
+      <p class="m-sub" style="text-align:center;">Chaque joueur choisit PILE ou FACE. Le tirage désigne qui commence — et le gagnant prend les <b>pions clairs</b>.</p>
       <div class="choose-coin">
         <button class="coin-opt ${mine === "pile" ? "sel" : "free"}" id="choose-pile" ${mine ? "disabled" : "onclick=\"App.pickSide('pile')\""}>
           <img class="coin-thumb" src="assets/coins/pile.webp" alt="" draggable="false">PILE
@@ -11106,20 +11214,20 @@ const App = (() => {
     showModal(`
       <button class="btn ghost mini-btn m-close" onclick="App.closeModal()">✕</button>
       <h2>Règles du Fanorona</h2>
-      <p class="m-sub">Jeu traditionnel malgache — 22 pions par joueur sur un plateau 9 × 5. Avant de commencer, chaque joueur choisit PILE ou FACE ; une fois une face prise, l'autre joueur reçoit automatiquement l'autre face. Le lancer de pièce désigne celui qui commence : le gagnant prend les <b>pions clairs</b>, et les clairs jouent en premier.</p>
+      <p class="m-sub">Jeu traditionnel malgache — plateau 9 × 5, 22 pions par joueur. Le tirage désigne qui commence : le gagnant prend les <b>pions clairs</b>.</p>
       <ul class="rules-list">
         <li><b>But du jeu :</b> capturer tous les pions de l'adversaire.</li>
-        <li><b>Déplacement :</b> à son tour, on déplace un de ses pions dans n'importe quelle direction, d'une intersection à une autre (en suivant les lignes), pourvu que le point d'arrivée soit vide.</li>
+        <li><b>Déplacement :</b> un pion d'une intersection à une autre, le long des lignes, vers un point vide.</li>
         <li><b>Capture par approche :</b> avancer vers un ou plusieurs pions adverses alignés capture tous les pions de l'alignement.</li>
         <li><b>Capture par éloignement (retrait) :</b> s'éloigner d'un ou plusieurs pions adverses alignés capture tous les pions de l'alignement.</li>
         <li>⚠️ <b>On ne capture que les pions d'un alignement interrompu.</b></li>
-        <li><b>Prises en chaîne :</b> au cours d'un même mouvement on peut enchaîner les prises avec le même pion, pourvu qu'il change de direction à chaque déplacement et qu'il ne repasse pas deux fois sur la même intersection.</li>
+        <li><b>Prises en chaîne :</b> enchaîner les prises avec le même pion, en changeant de direction, sans repasser deux fois sur une intersection.</li>
         <li><b>Capture obligatoire :</b> si une prise est possible, vous devez la jouer.</li>
-        <li><b>Tirage au sort :</b> chaque joueur choisit une face (PILE ou FACE) ; une fois une face prise par un joueur, l'autre joueur reçoit automatiquement l'autre face. La pièce lancée désigne celui qui commence : le gagnant prend les <b>pions clairs</b> et joue le premier, le perdant joue les pions sombres. <b>PILE</b> est le côté où le 50 est écrit en chiffres, <b>FACE</b> le côté des baobabs.</li>
+        <li><b>Tirage au sort :</b> chaque joueur choisit PILE ou FACE ; la pièce désigne celui qui commence — le gagnant prend les <b>pions clairs</b> et joue le premier. <b>PILE</b> = côté chiffres, <b>FACE</b> = côté baobabs.</li>
         <li><b>Victoire :</b> capturer les 22 pions adverses.</li>
         <li><b>Forfait :</b> quitter une partie en cours fait perdre la partie et les points Elo.</li>
       </ul>
-      <div class="m-foot"><button class="btn primary" onclick="App.closeModal()">C'est compris !</button></div>
+      <div class="m-foot"><button class="btn primary" onclick="App.closeModal()">Compris !</button></div>
     `, "lg");
   }
 
@@ -11127,7 +11235,7 @@ const App = (() => {
     showModal(`
       <button class="btn ghost mini-btn m-close" onclick="App.closeModal()">✕</button>
       <h2>Service client</h2>
-      <p class="m-sub">Changement de numéro, difficulté de connexion ou litige : envoyez une demande.</p>
+      <p class="m-sub">Connexion, numéro, retrait, litige — décrivez la situation.</p>
       <label class="f-label" for="sp-motif">Motif</label>
       <select id="sp-motif">
         <option>Changement de numéro de téléphone</option>
@@ -11145,7 +11253,7 @@ const App = (() => {
     `);
     document.getElementById("sp-send").onclick = () => {
       closeModal();
-      toast("Ticket créé — le service client traite votre demande sous 48 h. ✉️");
+      toast("Ticket créé — réponse sous 48 h. ✉️");
     };
   }
 
@@ -11174,7 +11282,7 @@ const App = (() => {
         showModal(`
           <h2>En attente de l'adversaire…</h2>
           <div class="mm-spinner"><div class="mm-orbit"><i></i><i></i><i></i></div>
-          <p class="muted small" id="mm-wait">Vous avez accepté. En attente que ${escHtml((msg.opponent && msg.opponent.pseudo) || "")} accepte aussi…</p></div>
+          <p class="muted small" id="mm-wait">En attente de ${escHtml((msg.opponent && msg.opponent.pseudo) || "")}…</p></div>
         `, "", true);
       };
       document.getElementById("mm-decline").onclick = () => {
@@ -11391,7 +11499,7 @@ const App = (() => {
     try {
       d = await API.request("/api/users/" + id);
     } catch (e) {
-      root.innerHTML = `<div class="panel pad-lg" style="text-align:center;"><b style="color:var(--text-strong);">Joueur introuvable</b><p class="small muted" style="margin-top:6px;">Ce profil n'existe pas ou a été supprimé.</p><button class="btn" style="margin-top:12px;" onclick="App.go('home')">Retour à l'accueil</button></div>`;
+      root.innerHTML = `<div class="panel pad-lg" style="text-align:center;"><b style="color:var(--text-strong);">Joueur introuvable</b><p class="small muted" style="margin-top:6px;">Ce profil n'existe pas.</p><button class="btn" style="margin-top:12px;" onclick="App.go('home')">Retour à l'accueil</button></div>`;
       return;
     }
     const u = d.user;
@@ -11586,14 +11694,13 @@ const App = (() => {
   let currentTournamentId = null;
   const MATCH_STATUS = { a_venir: ["À venir", "muted"], confirmation: ["Confirmation requise", "amber"], en_cours: ["En cours", "green"], termine: ["Terminé", ""], forfait: ["Forfait", "neg"] };
   function openTournament(id) { currentTournamentId = parseInt(id); location.hash = "#/tournament?id=" + currentTournamentId; }
-  /* Retour depuis un lien profond mort : ouvre l'onglet Tournois de Match — là où
-     vivent les tournois ouverts (revue §4.7, lot S5). */
+  /* Retour depuis un lien profond mort : ouvre l'onglet Tournois de Match, là où
+     vivent les tournois ouverts. */
   const backToTournaments = () => { setMatchTab("tournois"); go("match"); };
   async function renderTournamentScreen(id) {
     const root = document.getElementById("tournament-root");
-    /* Lien profond mort : le joueur ne reste plus devant un paragraphe sans issue —
-       même gabarit d'état vide que les autres écrans, avec un retour vers la liste
-       des tournois (revue §4.7, lot S5). */
+    /* Lien profond mort : même gabarit d'état vide que les autres écrans, avec un
+       retour vers la liste des tournois. */
     if (!id) {
       root.innerHTML = `<div class="panel pad-lg">${mtEmpty("alert", "Tournoi introuvable",
         "Ce tournoi n'existe plus, ou le lien est incomplet. Les tournois ouverts sont dans l'onglet Tournois.",
@@ -11866,7 +11973,7 @@ const App = (() => {
     });
     refreshSignupSecurity();
     document.getElementById("wb-forgot").onclick = () =>
-      toast("Un code de réinitialisation serait envoyé par SMS au numéro du compte (démo).");
+      toast("Réinitialisation par SMS non disponible pour le moment.");
     document.getElementById("wb-signup").onclick = () => setAuthView("signup");
     document.getElementById("su-back").onclick = () => setAuthView("login");
     document.getElementById("gg-back").onclick = () => setAuthView("login");

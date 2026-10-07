@@ -1,10 +1,10 @@
 /* =========================================================
    D-aôna — Schéma : amorçage des tables (SQLite, tolérant aux relances)
    ---------------------------------------------------------
-   Extrait de db.js (lot S13) : les CREATE TABLE IF NOT EXISTS et les
-   ALTER TABLE idempotents qui préparent une base neuve. Les évolutions
-   du schéma passent ensuite par les migrations versionnées (migrations/),
-   appliquées par db.js au démarrage.
+   Les CREATE TABLE IF NOT EXISTS et les ALTER TABLE idempotents qui
+   préparent une base neuve. Les évolutions du schéma passent ensuite par
+   les migrations versionnées (migrations/), appliquées par db.js au
+   démarrage.
    ========================================================= */
 "use strict";
 

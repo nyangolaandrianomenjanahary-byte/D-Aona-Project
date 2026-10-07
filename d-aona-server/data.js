@@ -1,11 +1,7 @@
 /* =========================================================
-   D-aôna — Données statiques serveur (PRD v1.1)
-   Même données que le frontend mais en module CommonJS.
+   D-aôna — Données statiques serveur (module CommonJS)
    ========================================================= */
 "use strict";
-
-/* Les paliers de rang (Bronze → Grand Maître) ont été RETIRÉS du jeu : il ne reste
-   que l'Elo et le classement par place, avec ses badges (BADGES / badgeFor). */
 
 const PROVINCES = [
   "Antananarivo", "Antsiranana", "Fianarantsoa",
@@ -15,9 +11,7 @@ const PROVINCES = [
 /* --- Badges de classement national (6 au total) ---
    `color` = teinte décorative (fond 8 %, bordure 40 %) ET encre du thème nuit ;
    `ink` = encre du thème jour, plus foncée. Le client choisit selon le thème.
-   Les encres viennent de la revue UX/UI §3 (lot S2 : l'or tombait à 1,86:1) et le
-   bronze a été éclairci au lot S7 (4,46:1 sur les surfaces de nuit relevées) —
-   cet inventaire et celui de l'index doivent rester alignés. */
+   Cet inventaire et celui de index.html doivent rester alignés. */
 const BADGES = [
   { name: "Remenabila",  icon: "👑", color: "#e3b23c", ink: "#7a5a00", min: 1,  max: 1 },
   { name: "Malaso",      icon: "⚔️", color: "#9aa3ad", ink: "#48525c", min: 2,  max: 2 },
@@ -171,22 +165,16 @@ const PION_PATTERNS = [
 const pionColor = (id) => PION_COLORS.find((c) => c.id === id) || null;
 const pionPattern = (id) => PION_PATTERNS.find((p) => p.id === id) || null;
 
-/* --- Camps de pions : la passerelle entre le GROUPE d'une couleur et le camp
-   du plateau qu'elle habille. Depuis que le TIRAGE décide de la couleur (le gagnant
-   prend les clairs), le camp du plateau est décidé par `state.toss.starter` :
-     light → les pions clairs    (`.piece.clair`)   — groupe « clair »
-     dark  → les pions sombres   (`.piece.sombre`)  — groupe « sombre »
-   Une même apparence `light` peut donc habiller l'un ou l'autre joueur selon le
-   tirage. C'est cette table qui rend les deux apparences ÉTANCHES : une couleur claire
-   ne peut être enregistrée que pour `light`, une couleur sombre que pour `dark`
-   (`pionColorFitsCamp`). Un compte possède donc DEUX apparences indépendantes,
-   une par camp, chacune avec sa couleur et son motif. */
+/* --- Camps de pions : passerelle entre le GROUPE d'une couleur et le camp du
+   plateau. Le tirage (`state.toss.starter`) décide qui joue les clairs :
+     light → pions clairs (groupe « clair ») · dark → pions sombres (groupe « sombre »)
+   Une couleur claire ne peut être enregistrée que pour `light`, une sombre que
+   pour `dark` (`pionColorFitsCamp`) : un compte a deux apparences indépendantes. */
 const PION_CAMPS = [
   { id: "light", label: "Pions clairs",  group: "clair",  target: "me",  who: "le camp clair — celui qui commence" },
   { id: "dark",  label: "Pions sombres", group: "sombre", target: "opp", who: "le camp sombre" },
 ];
-/* Camp par défaut : celui des pions du joueur (compatibilité — un client qui
-   n'annonce aucun camp écrit là où l'ancien `pion_style` écrivait). */
+/* Camp par défaut : celui des pions du joueur (clients qui n'annoncent aucun camp). */
 const PION_DEFAULT_CAMP = "light";
 const PION_CAMP_GROUP = Object.freeze({ light: "clair", dark: "sombre" });
 /* Apparence par défaut de CHAQUE camp : les deux pions Vato de l'inscription. */
@@ -207,40 +195,74 @@ const OPERATORS = [
   { id: "airtel",   name: "Airtel Money",  sub: "Airtel Madagascar · frais ~2%", color: "#e40000", txt: "A" },
 ];
 
-const CHAT_REPLIES = [
-  "Bien joué ! 😅",
-  "Ok, on fait ça en Blitz ?",
-  "Ha ! Tu vas regretter ce coup…",
-  "Je te préviens, je me suis entraîné contre l'IA toute la semaine.",
-  "On se revoit au tournoi samedi 💪",
+/* =========================================================
+   Historique du wallet — familles et moyens de paiement
+   ---------------------------------------------------------
+   L'écran Wallet filtre les mouvements par FAMILLE (dépôt, retrait, gain…).
+   Ces motifs sont la SOURCE DE VÉRITÉ du classement : /api/transactions et
+   /api/transactions/export filtrent avec, et chaque ligne renvoyée porte déjà
+   son `kind` et son `method` — le client les AFFICHE, il ne reclasse rien,
+   donc le filtre et l'étiquette affichée ne peuvent pas diverger.
+   L'ORDRE compte : le premier motif qui correspond gagne, du plus spécifique
+   au plus général (« Defi annule - remboursement » est un remboursement, pas
+   une mise). Les motifs couvrent les libellés réellement produits par les
+   appels Wallet.credit / Wallet.spend de server.js.
+   ========================================================= */
+const TX_KINDS = [
+  ["deposit",  "Dépôt",         /Depot|Dépôt/i],
+  ["withdraw", "Retrait",       /Retrait/i],
+  ["refund",   "Remboursement", /remboursement/i],
+  ["purchase", "Achat",         /Achat/i],
+  ["gain",     "Gain",          /Gain|Cashprice/i],
+  ["wager",    "Mise",          /Mise/i],
+  ["bonus",    "Bonus",         /Bonus|bienvenue/i],
+  ["other",    "Autre",         null],
 ];
-
-/* --- Helpers --- */
-function fmtAr(n) {
-  return new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " Ar";
+function txKind(label) {
+  const l = String(label || "");
+  for (const [id, , re] of TX_KINDS) if (re && re.test(l)) return id;
+  return "other";
 }
-
-function countdownParts(sec) {
-  if (sec <= 0) return "maintenant";
-  const j = Math.floor(sec / 86400);
-  const h = Math.floor((sec % 86400) / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.floor(sec % 60);
-  if (j > 0) return `${j} j ${String(h).padStart(2, "0")} h`;
-  if (h > 0) return `${h} h ${String(m).padStart(2, "0")} min`;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+function txKindLabel(id) {
+  const k = TX_KINDS.find(([kid]) => kid === id);
+  return k ? k[1] : "Autre";
 }
-
-function eloDelta(me, opp, result) {
-  const expected = 1 / (1 + Math.pow(10, (opp - me) / 400));
-  return Math.round(32 * (result - expected));
+/* Moyen de paiement, DÉDUIT du libellé : les dépôts/retraits portent le nom de
+   l'opérateur (« Depot MVola ») ; tout le reste est interne → Da-ona. */
+const TX_METHOD_INTERNAL = "Da-ona";
+const TX_METHODS = [
+  ["MVola", /mvola/i],
+  ["Orange Money", /orange/i],
+  ["Airtel Money", /airtel/i],
+];
+function txMethod(label) {
+  const l = String(label || "");
+  for (const [name, re] of TX_METHODS) if (re.test(l)) return name;
+  return TX_METHOD_INTERNAL;
+}
+/* CSV de l'historique (export de l'écran Wallet) : séparateur « ; » et BOM
+   UTF-8 (Excel français), guillemets doublés à l'intérieur des valeurs,
+   montant SIGNÉ (négatif en sortie) pour survivre à un tri en tableur. */
+function txCsv(rows) {
+  const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+  const lines = [["Date", "Heure", "Opération", "Type", "Moyen", "Statut", "Direction", "Montant (Ar)"].map(q).join(";")];
+  for (const t of rows) {
+    const [day = "", time = ""] = String(t.created_at || "").split(" ");
+    lines.push([
+      q(day), q(time.slice(0, 5)), q(t.label), q(txKindLabel(t.kind || txKind(t.label))),
+      q(t.method || txMethod(t.label)), q(t.status === "pending" ? "En attente" : "Réussi"),
+      q(t.dir === "in" ? "Entrée" : "Sortie"),
+      q(t.dir === "in" ? t.amount : -t.amount),
+    ].join(";"));
+  }
+  return "\ufeff" + lines.join("\r\n");
 }
 
 module.exports = {
   PROVINCES, GAMES_CATALOG, FORMATS, OPPONENT_POOL, LEADERBOARD_POOL,
-  SKINS_CATALOG, OPERATORS, CHAT_REPLIES, BADGES, badgeFor,
+  SKINS_CATALOG, OPERATORS, BADGES, badgeFor,
   skinSlot, skinSlotMatches,
   PION_COLORS, PION_GROUPS, PION_PATTERNS, pionColor, pionPattern,
   PION_CAMPS, PION_CAMP_GROUP, PION_DEFAULTS, PION_DEFAULT_CAMP, pionCamp, pionColorFitsCamp,
-  fmtAr, countdownParts, eloDelta,
+  TX_KINDS, txKind, txKindLabel, TX_METHODS, TX_METHOD_INTERNAL, txMethod, txCsv,
 };
