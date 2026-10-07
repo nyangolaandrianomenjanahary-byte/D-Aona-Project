@@ -53,7 +53,7 @@
 | [db.js](d-aona-server/db.js) | Couche SQLite : câblage public + application des migrations au démarrage. Le code vit dans [db/core.js](d-aona-server/db/core.js) (connexion), [db/schema.js](d-aona-server/db/schema.js) (schéma) et [db/stores.js](d-aona-server/db/stores.js) (magasins métier) |
 | [auth.js](d-aona-server/auth.js) | 🔐 **Authentification** : Argon2id, sessions opaques révocables, verrouillage progressif, limitation de débit, journal d'audit |
 | [migrate.js](d-aona-server/migrate.js) | Exécuteur de migrations versionnées (`node migrate.js --status`) |
-| [migrations/](d-aona-server/migrations) | Migrations SQL versionnées (`001`…`011` : auth, sessions, audit, contacts uniques, clés étrangères des skins, instantané d'Elo, filigrane Amis, types de pions clairs/sombres, apparence du pion, **apparences PAR CAMP (clairs / sombres)** et cohérence des groupes) |
+| [migrations/](d-aona-server/migrations) | Migrations SQL versionnées (`001`…`013` : auth, sessions, audit, contacts uniques, clés étrangères des skins, instantané d'Elo, filigrane Amis, types de pions clairs/sombres, apparence du pion, **apparences PAR CAMP (clairs / sombres)**, cohérence des groupes, index de performance (`012`), accents des libellés wallet (`013`)) |
 | [backup_db.js](d-aona-server/backup_db.js) | Sauvegarde **vérifiée** de la base + `uploads/` (manifeste SHA-256, `integrity_check`) |
 | [test_auth.js](d-aona-server/test_auth.js) | Tests d'authentification (instances jetables sur le port 8099) |
 | [reset_password.js](d-aona-server/reset_password.js) | Réinitialisation d'un mot de passe (outil console exploitant) |
@@ -123,6 +123,20 @@
 
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
+
+## 2026-10-07 — Wallet : fin du « cercle glow » du statut (collision de classe `.dot` → `.wl-dot`) + libellés accentués (`Dépôt`, `Crédit`, `défi`, `entrée`) (entrée MANUELLE)
+
+**Demande.** « Corrige le bug de statut sur l'image. c'est pas beau a voir » — capture zoomée de la colonne STATUT : chaque « ● Réussi » apparaissait enfermé dans un cercle vert lumineux.
+
+**Cause racine.** Le modificateur du badge s'appelait `dot` (`class="wl-badge dot green"`) et entrait en COLLISION avec la classe GÉNÉRIQUE `.dot` de la feuille du plateau (points lumineux du jeu : `position: absolute`, `width: 2.2 %`, `aspect-ratio: 1`, `transform: translate(-50%,-50%)`, `animation: dotIn` et `box-shadow: 0 0 10px rgba(54,201,154,.6)`). Styles calculés avant correctif : rectangle **31×31 px** (donc un cercle avec `border-radius: 999px`) + halo — le badge était déformé ET déplacé, le texte poussé hors du cadre. C'est le MÊME piège que les points de la carte Elo, corrigés jadis en préfixant (`elo-dot`) ; la leçon n'avait pas été appliquée au wallet.
+
+**Correctif (`index.html`).** Même remède que la leçon Elo : **préfixe**. `.wl-badge.dot` → `.wl-badge.wl-dot` (CSS) et les deux templates JS (`class="wl-badge wl-dot …"` : ligne du tableau + fiche détail). Commentaire d'avertissement posé sur la règle ; aucune règle du plateau touchée.
+
+**Volet libellés (relevé sur la même capture ×3).** Les flux réels écrivaient `Depot MVola`, `Credit de bienvenue`, `Mise entree…`, `Mise/Gain/Defi` sans accents alors que la démo et la maquette affichent la forme accentuée : accents corrigés à la source (server.js ×10, demo_seed.js ×2) + **migration `013_wallet_labels_accents.sql`** qui aligne les lignes DÉJÀ en base. Sans risque pour le classement : `data.js` tolère les deux formes (`/Depot|Dépôt/i`…), et la recherche du wallet reste insensible aux accents (`fold()`, db/stores.js) — « depot » retrouve « Dépôt ».
+
+**Preuves.** Styles calculés après correctif : `boxShadow: none`, pastille **63×23 px**, `border-radius: 999px` (sonde conservée `_dbg_wl_statut.js`, captures ×3 jour/nuit `%TEMP%\daona_shots\wl-statut-*-x3.png` — pastilles propres, libellés accentués lus sur la capture). Migration validée SUR COPIE de la vraie base avant application (2 `Depot %`, 16 `Mise defi vs %`, 2 `Gain defi vs %`, 10 `Defi expire…`, 2 `Mise entree - %` → 0 restant sur 57 transactions), puis appliquée (tracking `schema_migrations` complet). `_check_html.js` OK · `test_scenarios` **257/257** (assertion « Dépôt MVola » mise à jour) · `_probe_profil_v3` **41/41** · `_dbg_wl_fix.js` (fantôme scrollWidth, conservée) tout OK 360 px + 1440 px · `_wallet_shots.js` OK (fiche détail, filtre, mobile 360, 0 erreur JS).
+
+**Fichiers :** `D-aona/d-aona-web/index.html`, `d-aona-server/server.js`, `d-aona-server/demo_seed.js`, `d-aona-server/data.js`, `d-aona-server/db/stores.js`, `d-aona-server/test_scenarios.js`, `d-aona-server/migrations/013_wallet_labels_accents.sql`, `CONTEXTE_PROJET.md` · sondes conservées `_dbg_wl_statut.js` et `_dbg_wl_fix.js` (hors dépôt git).
 
 ## 2026-10-07 — Wallet mobile : le « fantôme » scrollWidth du moteur corrigé (`contain: layout paint`) (entrée MANUELLE)
 

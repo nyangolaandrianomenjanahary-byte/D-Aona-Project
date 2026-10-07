@@ -428,7 +428,7 @@ async function phasePortefeuille() {
   check("historique : un seul « Crédit de bienvenue »",
     labels.filter((l) => /bienvenue/i.test(l)).length === 1, JSON.stringify(labels));
   check("historique : dépôts et retrait présents",
-    labels.some((l) => /Depot MVola/i.test(l)) && labels.some((l) => /Orange Money/i.test(l)) &&
+    labels.some((l) => /Dépôt MVola/i.test(l)) && labels.some((l) => /Orange Money/i.test(l)) &&
     labels.some((l) => /Retrait MVola/i.test(l)), JSON.stringify(labels));
   check("historique : chaque ligne porte une date", tx.json.transactions.every((t) => !!t.created_at));
 

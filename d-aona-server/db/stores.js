@@ -13,7 +13,7 @@ const DATA = require("../data");
 /* ---------- Helpers ---------- */
 function now() { return new Date().toISOString(); }
 /* Comparaison de libellé insensible à la casse ET aux accents, pour la
-   recherche de l'historique du wallet (« depot » retrouve « Depot MVola »). */
+   recherche de l'historique du wallet (« depot » retrouve « Dépôt MVola »). */
 const fold = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 /* ---------- Utilisateurs ---------- */

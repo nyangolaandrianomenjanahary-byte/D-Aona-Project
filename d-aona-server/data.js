@@ -204,7 +204,7 @@ const OPERATORS = [
    son `kind` et son `method` — le client les AFFICHE, il ne reclasse rien,
    donc le filtre et l'étiquette affichée ne peuvent pas diverger.
    L'ORDRE compte : le premier motif qui correspond gagne, du plus spécifique
-   au plus général (« Defi annule - remboursement » est un remboursement, pas
+   au plus général (« Défi annulé - remboursement » est un remboursement, pas
    une mise). Les motifs couvrent les libellés réellement produits par les
    appels Wallet.credit / Wallet.spend de server.js.
    ========================================================= */
@@ -228,7 +228,7 @@ function txKindLabel(id) {
   return k ? k[1] : "Autre";
 }
 /* Moyen de paiement, DÉDUIT du libellé : les dépôts/retraits portent le nom de
-   l'opérateur (« Depot MVola ») ; tout le reste est interne → Da-ona. */
+   l'opérateur (« Dépôt MVola ») ; tout le reste est interne → Da-ona. */
 const TX_METHOD_INTERNAL = "Da-ona";
 const TX_METHODS = [
   ["MVola", /mvola/i],

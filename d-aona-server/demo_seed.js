@@ -185,7 +185,7 @@ function ensureChallenges(me, players) {
   for (const [p, wager, format] of [[a, 1000, "blitz"], [b, 2500, "rapide"]]) {
     if (enAttente(p.id, me.id)) continue;
     if (!write("défi reçu de " + p.pseudo + " (" + wager + " Ar, " + format + ")")) continue;
-    Wallet.spend(p.id, wager, "Mise defi vs " + me.pseudo);
+    Wallet.spend(p.id, wager, "Mise défi vs " + me.pseudo);
     db.prepare(
       `INSERT INTO challenges (id, from_id, to_id, wager, format, status, expires_at)
        VALUES (?,?,?,?,?,'pending', datetime('now', ?))`
@@ -193,7 +193,7 @@ function ensureChallenges(me, players) {
   }
   /* Envoyé : le bouton « Annuler le défi » a un défi à annuler. */
   if (!enAttente(me.id, h.id) && write("défi envoyé à " + h.pseudo + " (500 Ar)")) {
-    Wallet.spend(me.id, 500, "Mise defi vs " + h.pseudo);
+    Wallet.spend(me.id, 500, "Mise défi vs " + h.pseudo);
     db.prepare(
       `INSERT INTO challenges (id, from_id, to_id, wager, format, status, expires_at)
        VALUES (?,?,?,?,?,'pending', datetime('now', ?))`

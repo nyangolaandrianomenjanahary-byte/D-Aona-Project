@@ -304,7 +304,7 @@ function handleRest(req, res, url, userId) {
         User.update(user.id, { bonus_used: true });
         Wallet.credit(user.id, 1000, "Bonus de bienvenue", true);
       }
-      Wallet.spend(user.id, t.entry, `Mise entree - ${t.name}`);
+      Wallet.spend(user.id, t.entry, `Mise entrée - ${t.name}`);
       const bal = Wallet.getBalance(user.id);
       sendUser(user.id, walletPayload(user.id));
       Notification.create(user.id, "inscription", { text: `✅ Inscrit au tournoi « ${t.name} »`, tournamentId: t.id, startsAt: t.starts_at });
@@ -698,7 +698,7 @@ function handleRest(req, res, url, userId) {
          fait : 5 000 Ar bloqués (non retirables, mais dépensables en mises et en
          entrées de tournoi) s'ajoutaient indéfiniment, dépôt après dépôt. */
       if (!user.kyc && !user.bonus_used) {
-        Wallet.credit(user.id, 5000, "Credit de bienvenue", true);
+        Wallet.credit(user.id, 5000, "Crédit de bienvenue", true);
         db.prepare("UPDATE users SET bonus_used = 1 WHERE id = ?").run(user.id);
       }
       /* Montant : entier positif. Valeur absente ou zéro → 5 000 (comportement
@@ -706,7 +706,7 @@ function handleRest(req, res, url, userId) {
          le wallet au lieu de le créditer. Libellé d'opérateur borné (40). */
       const depAmount = parseInt(payload.amount, 10);
       if (Number.isFinite(depAmount) && depAmount < 0) return respond(res, { error: "Montant invalide" }, 400);
-      Wallet.credit(user.id, (Number.isFinite(depAmount) && depAmount !== 0) ? depAmount : 5000, `Depot ${String(payload.operator || "MVola").slice(0, 40)}`);
+      Wallet.credit(user.id, (Number.isFinite(depAmount) && depAmount !== 0) ? depAmount : 5000, `Dépôt ${String(payload.operator || "MVola").slice(0, 40)}`);
       const bal = Wallet.getBalance(user.id);
       return respond(res, { ok: true, balance: bal.balance, bonusLock: bal.bonus_lock });
     }
@@ -1025,7 +1025,7 @@ function handleWsMessage(ws, msg) {
       if (wager < 500) { send(ws, { type: "error", message: "Mise minimale de 500 Ar requise — les défis gratuits ne sont pas autorisés" }); return; }
       if (!user.kyc) { send(ws, { type: "error", message: "KYC requis" }); return; }
       if (user.balance < wager) { send(ws, { type: "error", message: "Solde insuffisant" }); return; }
-      Wallet.spend(user.id, wager, `Mise defi vs ${targetUser.pseudo}`);
+      Wallet.spend(user.id, wager, `Mise défi vs ${targetUser.pseudo}`);
       const ch = Challenge.create(user.id, targetUser.id, wager, msg.format);
       /* Le solde affiché doit suivre le débit : sans cette poussée, la barre du
          haut continuait d'annoncer l'ancien solde après un défi avec mise. */
@@ -1045,7 +1045,7 @@ function handleWsMessage(ws, msg) {
       if (ch.wager > 0) {
         if (!user.kyc) { send(ws, { type: "error", message: "KYC requis" }); return; }
         if (user.balance < ch.wager) { send(ws, { type: "error", message: "Solde insuffisant" }); return; }
-        Wallet.spend(user.id, ch.wager, `Mise defi vs ${fromUser.pseudo}`);
+        Wallet.spend(user.id, ch.wager, `Mise défi vs ${fromUser.pseudo}`);
         /* Même règle que pour l'envoi : la mise engagée se voit tout de suite. */
         send(ws, walletPayload(user.id));
       }
@@ -1063,7 +1063,7 @@ function handleWsMessage(ws, msg) {
       if (!ch || ch.status !== "pending" || ch.from_id !== user.id) return;
       Challenge.update(msg.challengeId, "cancelled");
       if (ch.wager > 0) {
-        Wallet.credit(ch.from_id, ch.wager, "Defi annule - remboursement");
+        Wallet.credit(ch.from_id, ch.wager, "Défi annulé - remboursement");
         send(ws, walletPayload(ch.from_id));
       }
       send(ws, { type: "challenge_status", challengeId: msg.challengeId, status: "cancelled" });
@@ -1077,7 +1077,7 @@ function handleWsMessage(ws, msg) {
       Challenge.update(msg.challengeId, "rejected");
       // Refund sender
       if (ch.wager > 0) {
-        Wallet.credit(ch.from_id, ch.wager, "Defi refuse - remboursement");
+        Wallet.credit(ch.from_id, ch.wager, "Défi refusé - remboursement");
         sendUser(ch.from_id, walletPayload(ch.from_id));
       }
       sendUser(ch.from_id, { type: "challenge_status", challengeId: msg.challengeId, status: "rejected" });
@@ -1233,10 +1233,10 @@ function handleGameEnd(session, winner, reason) {
   if (session.mode === "defi" && session.wager > 0) {
     if (winner === 1) {
       gain = Math.round(session.wager * 2 * 0.9);
-      Wallet.credit(session.player1.id, gain, `Gain defi vs ${session.player2.pseudo}`);
+      Wallet.credit(session.player1.id, gain, `Gain défi vs ${session.player2.pseudo}`);
     } else if (isRealGame && winner === 2) {
       gain = Math.round(session.wager * 2 * 0.9);
-      Wallet.credit(session.player2.id, gain, `Gain defi vs ${session.player1.pseudo}`);
+      Wallet.credit(session.player2.id, gain, `Gain défi vs ${session.player1.pseudo}`);
     }
   }
 
@@ -1529,7 +1529,7 @@ function gameLoop() {
     Challenge.update(c.id, "expired");
     sendUser(c.from_id, { type: "challenge_status", challengeId: c.id, status: "expired" });
     if (c.wager > 0) {
-      Wallet.credit(c.from_id, c.wager, "Defi expire - remboursement");
+      Wallet.credit(c.from_id, c.wager, "Défi expiré - remboursement");
       sendUser(c.from_id, walletPayload(c.from_id));
     }
   }
