@@ -2167,8 +2167,130 @@ html[data-theme="night"] .wl-adv input, html[data-theme="night"] .wl-adv select 
    valeurs, .searchbar compact (SearchToggle) pour la recherche. Dates, moyen
    et statut vivent dans le panneau « Plus de filtres » (.wl-adv) — toutes les
    couleurs viennent des jetons existants. */
-.tx-filters { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin: 4px 0 10px; }
+/* Barre d'outils de l'historique (maquette : recherche + selects + filtres) */
+.tx-filters { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin: 10px 0; }
+.wl-search { position: relative; flex: 1 1 200px; max-width: 360px; }
+.wl-search > .wl-ic { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.wl-search input { width: 100%; height: 38px; padding: 0 12px 0 35px; border: .5px solid var(--line-strong); border-radius: 10px; background: var(--panel-2); color: var(--text); font-family: inherit; font-size: 12.5px; outline: none; }
+.wl-search input::placeholder { color: var(--muted); }
+.wl-search input:focus { border-color: var(--brand); }
+.wl-select { position: relative; flex: none; }
+.wl-select select { appearance: none; -webkit-appearance: none; height: 38px; min-width: 146px; padding: 0 32px 0 11px; border: .5px solid var(--line-strong); border-radius: 10px; background: var(--panel-2); color: var(--text); font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; outline: none; }
+.wl-select select:focus { border-color: var(--brand); }
+.wl-select > .wl-ic { position: absolute; top: 50%; right: 10px; width: 14px; height: 14px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.wl-adv-n { display: inline-grid; min-width: 17px; height: 17px; place-items: center; padding: 0 4px; border-radius: var(--r-pill); color: var(--brand-ink); background: rgba(29, 158, 117, .14); font-size: 10px; font-weight: 700; }
+.wl-adv-n[hidden] { display: none !important; }
+.wl-results { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; margin: 2px 0 8px; flex-wrap: wrap; }
+.wl-scope { color: var(--muted); font-size: 12px; }
+.wl-summary { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.wl-summary strong { color: var(--text-strong); font-weight: 700; }
+/* Lignes du tableau : date sur 2 lignes, pastilles à point, icônes SVG tonales */
+.wl-table .wl-date { display: block; font-family: var(--mono); font-size: 12.5px; color: var(--text); white-space: nowrap; }
+.wl-table .wl-time { display: block; color: var(--muted); font-size: 11.5px; }
+.wl-badge.dot { gap: 5px; }
+.wl-badge.dot::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
+.wl-badge.blue { color: var(--blue); border-color: rgba(80, 120, 240, .4); background: var(--blue-soft); }
+.wl-ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; }
+.tx-ic .wl-ic { width: 17px; height: 17px; }
+#wallet-root .btn .wl-ic { width: 15px; height: 15px; }
+/* Teintes d'icône par famille : pastels de la maquette (jour) ; la nuit
+   ré-éclaircit l'encre et pose la teinte en voile — décor uniquement. */
+.tx-ic.k-deposit { color: #0d815a; background: #e7f6ee; }
+.tx-ic.k-withdraw { color: #a45d24; background: #fff1e6; }
+.tx-ic.k-refund { color: #3973c7; background: #edf4ff; }
+.tx-ic.k-purchase { color: #7957b8; background: #f3efff; }
+.tx-ic.k-gain { color: #9b6a0e; background: #fff6df; }
+.tx-ic.k-wager { color: #bd684c; background: #fff0eb; }
+.tx-ic.k-bonus { color: #0b8a80; background: #e6f7f5; }
+.tx-ic.k-other { color: #60716a; background: #f0f3f1; }
+html[data-theme="night"] .tx-ic.k-deposit { color: #4cc79b; background: rgba(29, 158, 117, .16); }
+html[data-theme="night"] .tx-ic.k-withdraw { color: #e8a06a; background: rgba(196, 116, 58, .16); }
+html[data-theme="night"] .tx-ic.k-refund { color: #86aef0; background: rgba(97, 138, 222, .16); }
+html[data-theme="night"] .tx-ic.k-purchase { color: #b79aef; background: rgba(138, 105, 220, .18); }
+html[data-theme="night"] .tx-ic.k-gain { color: #e2b95e; background: rgba(200, 158, 55, .16); }
+html[data-theme="night"] .tx-ic.k-wager { color: #e29a80; background: rgba(200, 115, 82, .16); }
+html[data-theme="night"] .tx-ic.k-bonus { color: #55cbbf; background: rgba(28, 158, 148, .16); }
+html[data-theme="night"] .tx-ic.k-other { color: #a4b1ab; background: rgba(255, 255, 255, .07); }
+/* État vide en deux lignes (maquette) */
+.wl-empty strong { display: block; color: var(--text-strong); font-weight: 600; }
+.wl-empty span { display: block; margin-top: 4px; }
+/* Fiche détail (modale) : en-tête résumé + champs */
+.wl-det-sum { display: flex; align-items: center; gap: 12px; padding: 12px 13px; border: .5px solid var(--line); border-radius: var(--r-md); background: var(--panel-2); margin: 6px 0 4px; }
+.wl-det-sum .tx-ic { width: 40px; height: 40px; }
+.wl-det-copy { min-width: 0; flex: 1; }
+.wl-det-copy strong { display: block; color: var(--text-strong); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-det-copy span { color: var(--muted); font-size: 12px; }
+.wl-det-amt { text-align: right; flex: none; }
+.wl-det-amt b { display: block; font-family: var(--mono); font-size: 15px; }
+.wl-det-amt .wl-badge { margin-top: 4px; }
+/* Mobile : tout en colonne, barre d'outils repliée proprement */
+@media (max-width: 720px) {
+  .wallet-layout { grid-template-columns: 1fr; }
+  .wallet-layout .wl-history { grid-column: auto; }
+  .balance-bottom { align-items: flex-start; flex-direction: column; }
+  .balance-actions { width: 100%; }
+  .balance-actions .btn { flex: 1; }
+  .tx-filters { display: grid; grid-template-columns: 1fr 1fr; }
+  .wl-search { grid-column: 1 / -1; max-width: none; }
+  .wl-select { width: 100%; }
+  .wl-select select { width: 100%; min-width: 0; }
+}
 
+/* --- Wallet v3 (maquette « wallet-desktop », style repris tel quel) ----------
+   Carte de solde et carte « Frais transparents » côte à côte (proportions de
+   la maquette), historique PLEINE LARGEUR dessous ; carte solde claire avec
+   arcs décoratifs, montant et unité séparés, actions à droite. Les teintes
+   passent par les jetons des deux thèmes. ----------------------------------- */
+.wallet-layout { display: grid; grid-template-columns: minmax(0, 1.28fr) minmax(330px, .92fr); gap: 16px; align-items: start; }
+.wallet-layout > * { min-width: 0; }   /* un enfant de grille ne pousse jamais la piste */
+.wallet-layout .wl-history { grid-column: 1 / -1; }
+#wallet-root .balance-card {
+  position: relative; overflow: hidden;
+  background: linear-gradient(116deg, var(--green-soft) 0%, var(--panel) 72%);
+  border: .5px solid rgba(29, 158, 117, .35);
+  border-radius: var(--radius-card); padding: 20px 22px 18px;
+}
+#wallet-root .balance-card::before, #wallet-root .balance-card::after {
+  content: ""; position: absolute; pointer-events: none; border-radius: 50%;
+  border: 1px solid rgba(29, 158, 117, .16);
+}
+#wallet-root .balance-card::before { width: 190px; height: 190px; right: -32px; top: -93px; }
+#wallet-root .balance-card::after { width: 122px; height: 122px; right: 1px; top: -58px; }
+#wallet-root .balance-card .lbl { font-size: 10px; letter-spacing: .14em; }
+.wl-bal-top, .balance-amount, .balance-bottom, #wl-bonus-line { position: relative; z-index: 1; }
+.balance-label { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.available-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: .5px solid rgba(29, 158, 117, .4); border-radius: var(--r-pill); color: var(--brand-ink); background: rgba(29, 158, 117, .08); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.available-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--brand); flex: none; }
+.balance-amount { display: flex; align-items: baseline; gap: 9px; margin: 15px 0 12px; }
+.balance-amount strong { font-family: var(--mono); font-size: clamp(30px, 3vw, 40px); line-height: 1; font-weight: 700; letter-spacing: -.045em; color: var(--text-strong); }
+.balance-amount span { color: var(--muted); font-size: 16px; font-weight: 600; }
+.balance-bottom { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.balance-bottom > span { color: var(--muted); font-size: 12px; }
+.balance-bottom .balance-actions { margin-top: 0; }
+/* Carte « Frais transparents » — icône, rangées encadrées, lien dépliant ----- */
+.wl-fees-head { display: flex; align-items: center; gap: 11px; margin-bottom: 13px; }
+.wl-fees-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; color: var(--brand-ink); background: var(--green-soft); flex: none; }
+.wl-fees-icon .wl-ic { width: 18px; height: 18px; }
+.wl-fees-head h2 { margin: 0; font-size: 14.5px; font-weight: 650; color: var(--text-strong); }
+.wl-fees-head p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+#wallet-root .wl-fee-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; border: .5px solid var(--line); border-radius: 10px; background: var(--panel-2); margin-bottom: 8px; font-size: 12.5px; color: var(--text); }
+#wallet-root .wl-fee-row:last-of-type { border-bottom: .5px solid var(--line); }
+.wl-fee-row b { flex: none; padding: 3px 8px; border-radius: 7px; font-size: 12.5px; font-weight: 800; font-family: var(--mono); }
+.wl-fee-row b.zero { color: var(--brand-ink); background: rgba(29, 158, 117, .12); }
+.wl-fee-row b.prize { color: var(--amber); background: var(--amber-soft); }
+.wl-explainer { margin: 4px 0 8px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.wl-link { display: inline-flex; align-items: center; gap: 6px; padding: 3px 0; border: 0; background: transparent; color: var(--brand-ink); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.wl-link:hover { text-decoration: underline; }
+.wl-link[hidden] { display: none !important; }
+.wl-link .wl-ic { width: 14px; height: 14px; transition: transform .16s; }
+.wl-link[aria-expanded="true"] .wl-ic { transform: rotate(180deg); }
+/* En-tête de l'historique ------------------------------------------------ */
+.wl-eyebrow { color: var(--muted); text-transform: uppercase; letter-spacing: .115em; font-size: 10px; font-weight: 800; }
+.wl-h-title { font-size: 16.5px; font-weight: 700; color: var(--text-strong); margin: 3px 0 1px; }
+.wl-h-sub { margin: 0; color: var(--muted); font-size: 12px; }
+#wallet-root .wl-head { align-items: flex-start; }
+#wallet-root .wl-moves { display: inline-flex; align-items: baseline; gap: 5px; padding: 6px 10px; border: .5px solid var(--line); border-radius: 9px; background: var(--panel-2); color: var(--muted); font-size: 12px; }
+#wallet-root .wl-moves strong { color: var(--text-strong); font-family: var(--mono); font-weight: 700; }
 /* ============ Profil ============ */
 .profile-layout { display: grid; grid-template-columns: 330px 1fr; gap: 16px; align-items: start; }
 .profile-card { text-align: center; }
@@ -4656,7 +4778,11 @@ body.is-fill #screens {
   <!-- Wallet -->
   <section class="screen" id="screen-wallet">
     <div class="page-head">
-      <div><h1>Wallet</h1><div class="sub">Vos Ariary — MVola · Orange Money · Airtel Money</div></div>
+      <div>
+        <div class="wl-eyebrow">Vos Ariary · MVola · Orange Money · Airtel Money</div>
+        <h1>Portefeuille</h1>
+        <div class="sub">Consultez votre solde et retrouvez facilement chaque mouvement.</div>
+      </div>
       <span class="pill green">✓ 0% de commission interne</span>
     </div>
     <div id="wallet-root"></div>
@@ -6364,19 +6490,33 @@ const App = (() => {
   let wlTotal = 0;
   let wlSeq = 0;
   let wlQTimer = null;   // anti-rebond de la recherche (le filtre part au serveur)
-  const WL_PERIODS = [["all", "Toutes dates"], ["recent", "Récent (30 j)"], ["old", "Ancien (> 30 j)"]];
+  const WL_PERIODS = [["all", "Toutes les dates"], ["recent", "30 derniers jours"], ["old", "Plus de 30 jours"]];
   const WL_KINDS = [
-    ["all", "Tous"], ["deposit", "Dépôts"], ["withdraw", "Retraits"], ["refund", "Remboursements"],
+    ["all", "Tous les types"], ["deposit", "Dépôts"], ["withdraw", "Retraits"], ["refund", "Remboursements"],
     ["purchase", "Achats"], ["gain", "Gains"], ["wager", "Mises"], ["bonus", "Bonus"], ["other", "Autres"],
   ];
   const WL_KIND_LABELS = { deposit: "Dépôt", withdraw: "Retrait", refund: "Remboursement", purchase: "Achat", gain: "Gain", wager: "Mise", bonus: "Bonus", other: "Autre" };
-  const WL_ICONS = { deposit: "⬇️", withdraw: "⬆️", refund: "↩️", purchase: "🎨", gain: "🏆", wager: "🎟️", bonus: "🎁", other: "💸" };
+  /* Icônes de famille : sprite SVG embarqué par l'écran (mêmes pictogrammes que
+     la maquette), rendues en `currentColor` — la teinte vient du carré. */
+  const WL_ICONS = {
+    deposit: '<svg class="wl-ic" aria-hidden="true"><use href="#wls-arr-d"></use></svg>',
+    withdraw: '<svg class="wl-ic" aria-hidden="true"><use href="#wls-arr-u"></use></svg>',
+    refund: '<svg class="wl-ic" aria-hidden="true"><use href="#wls-refresh"></use></svg>',
+    purchase: '<svg class="wl-ic" aria-hidden="true"><use href="#wls-bag"></use></svg>',
+    gain: '<svg class="wl-ic" aria-hidden="true"><use href="#wls-trophy"></use></svg>',
+    wager: '<svg class="wl-ic" aria-hidden="true"><use href="#wls-cross"></use></svg>',
+    bonus: '<svg class="wl-ic" aria-hidden="true"><use href="#wls-gift"></use></svg>',
+    other: '<svg class="wl-ic" aria-hidden="true"><use href="#wls-dots"></use></svg>',
+  };
+  /* Teinte du carré d'icône par famille (pastels de la maquette, jour/nuit). */
+  const WL_TONE = { deposit: "k-deposit", withdraw: "k-withdraw", refund: "k-refund", purchase: "k-purchase", gain: "k-gain", wager: "k-wager", bonus: "k-bonus", other: "k-other" };
   /* Badge de famille : les teintes sont celles des pastilles .pill déjà
      mesurées AA dans les deux thèmes (vert = entrée, ambre = sortie). */
-  const WL_BADGE = { deposit: "green", gain: "green", refund: "green", bonus: "green", withdraw: "amber", wager: "amber", purchase: "", other: "" };
+  const WL_BADGE = { deposit: "green", gain: "green", refund: "green", bonus: "green", withdraw: "amber", wager: "amber", purchase: "blue", other: "" };
   /* Date/heure AFFICHÉES telles que stockées (chaîne SQLite UTC) : ce qui est
      lu est ce qui est filtré — aucun décalage de fuseau silencieux. */
-  const wlDateFr = (s) => { const [d = ""] = String(s || "").split(" "); const [y, m, dd] = d.split("-"); return y ? `${dd}/${m}/${y}` : "—"; };
+  const WL_MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+  const wlDateFr = (s) => { const [d = ""] = String(s || "").split(" "); const [y, m, dd] = d.split("-"); return y && WL_MONTHS[+m - 1] ? `${dd} ${WL_MONTHS[+m - 1]} ${y}` : "—"; };
   const wlTimeFr = (s) => (String(s || "").split(" ")[1] || "").slice(0, 5);
   const wlStatusLabel = (s) => (s === "pending" ? "En attente" : "Réussi");
   const wlActive = () => wl.period !== "all" || !!wl.from || !!wl.to || wl.kind !== "all" || !!wl.q.trim() || wl.method !== "all" || wl.status !== "all";
@@ -6421,24 +6561,30 @@ const App = (() => {
     tbody.classList.remove("wl-loading");
     if (!wlRows.length) {
       tbody.innerHTML = `<tr><td colspan="6" class="wl-empty">${wlActive()
-        ? "Aucune transaction ne correspond à ces filtres."
-        : "Aucune transaction pour le moment."}</td></tr>`;
+        ? "<strong>Aucune transaction trouvée</strong><span>Essayez une autre recherche ou réinitialisez les filtres.</span>"
+        : "<strong>Aucune transaction pour le moment</strong><span>Vos mouvements apparaîtront ici.</span>"}</td></tr>`;
     } else {
-      tbody.innerHTML = wlRows.map((tx) => `
+      tbody.innerHTML = wlRows.map((tx) => {
+        const inDir = tx.dir === "in";
+        return `
     <tr class="tx-row" data-wtx="${tx.id}" tabindex="0" role="button" aria-label="Détail de l'opération : ${escHtml(tx.label)}">
-      <td><span class="wl-op-in"><span class="tx-ic" style="background:${tx.dir === "in" ? "var(--green-soft)" : "var(--red-soft)"}" aria-hidden="true">${WL_ICONS[tx.kind] || WL_ICONS.other}</span><span class="tx-info"><span class="t">${escHtml(tx.label)}</span><span class="d">${tx.dir === "in" ? "Entrée" : "Sortie"}</span></span></span></td>
-      <td><span class="wl-date">${wlDateFr(tx.created_at)}</span> <span class="wl-time">${wlTimeFr(tx.created_at)}</span></td>
+      <td><span class="wl-op-in"><span class="tx-ic ${WL_TONE[tx.kind] || "k-other"}" aria-hidden="true">${WL_ICONS[tx.kind] || WL_ICONS.other}</span><span class="tx-info"><span class="t">${escHtml(tx.label)}</span><span class="d">${inDir ? "Entrée" : "Sortie"}</span></span></span></td>
+      <td><span class="wl-date">${wlDateFr(tx.created_at)}</span><span class="wl-time">${wlTimeFr(tx.created_at)}</span></td>
       <td><span class="wl-badge ${WL_BADGE[tx.kind] || ""}">${WL_KIND_LABELS[tx.kind] || "Autre"}</span></td>
       <td class="wl-method">${escHtml(tx.method || "Da-ona")}</td>
-      <td><span class="wl-badge ${tx.status === "pending" ? "amber" : "green"}">${wlStatusLabel(tx.status)}</span></td>
-      <td class="wl-col-amt tx-amt ${tx.dir === "in" ? "pos" : "neg"}">${tx.dir === "in" ? "+" : "−"}${fmtAr(tx.amount)}</td>
-    </tr>`).join("");
+      <td><span class="wl-badge dot ${tx.status === "pending" ? "amber" : "green"}">${wlStatusLabel(tx.status)}</span></td>
+      <td class="wl-col-amt tx-amt ${inDir ? "pos" : "neg"}">${inDir ? "+" : "−"}${fmtAr(tx.amount)}</td>
+    </tr>`;
+      }).join("");
     }
     const c = document.getElementById("tx-count");
-    if (c) c.textContent = `${wlRows.length} / ${wlTotal} mouvement${wlTotal > 1 ? "s" : ""}`;
+    if (c) c.innerHTML = `<strong>${wlTotal}</strong> mouvement${wlTotal > 1 ? "s" : ""}`;
+    /* Résumé (maquette) : « N mouvements · Historique complet / Résultats filtrés ». */
+    const s = document.getElementById("wl-summary");
+    if (s) s.innerHTML = `<strong>${wlTotal} mouvement${wlTotal > 1 ? "s" : ""}</strong> · ${wlActive() ? "Résultats filtrés" : "Historique complet"}`;
     wlPaintFoot();
     wlPaintTags();
-    wlPaintChips();
+    wlPaintControls();
     /* Tri : l'état est porté par la FLÈCHE et par aria-sort — jamais par la
        seule couleur. */
     const sortBtn = document.getElementById("wl-sort");
@@ -6483,15 +6629,16 @@ const App = (() => {
     const box = document.getElementById("wl-tags");
     if (!box) return;
     const tags = [];
-    if (wl.period !== "all" && !wl.from && !wl.to) tags.push(["period", "Période : " + (WL_PERIODS.find(([id]) => id === wl.period) || ["", wl.period])[1]]);
-    if (wl.from) tags.push(["from", "Du " + wl.from.split("-").reverse().join("/")]);
-    if (wl.to) tags.push(["to", "Au " + wl.to.split("-").reverse().join("/")]);
-    if (wl.kind !== "all") tags.push(["kind", "Type : " + (WL_KINDS.find(([id]) => id === wl.kind) || ["", wl.kind])[1]]);
-    if (wl.method !== "all") tags.push(["method", "Moyen : " + wl.method]);
-    if (wl.status !== "all") tags.push(["status", "Statut : " + (wl.status === "pending" ? "En attente" : "Réussi")]);
-    if (wl.q.trim()) tags.push(["q", "« " + wl.q.trim() + " »"]);
-    box.innerHTML = tags.map(([k, l]) =>
-      `<button class="wl-tag" type="button" data-wltag="${k}">${escHtml(l)}<span aria-hidden="true">✕</span></button>`).join("");
+    if (wl.period !== "all" && !wl.from && !wl.to) tags.push(["period", (WL_PERIODS.find(([id]) => id === wl.period) || ["", wl.period])[1]]);
+    if (wl.from) tags.push(["from", "Du " + wlDateFr(wl.from)]);
+    if (wl.to) tags.push(["to", "Au " + wlDateFr(wl.to)]);
+    if (wl.kind !== "all") tags.push(["kind", (WL_KINDS.find(([id]) => id === wl.kind) || ["", wl.kind])[1]]);
+    if (wl.method !== "all") tags.push(["method", wl.method]);
+    if (wl.status !== "all") tags.push(["status", (wl.status === "pending" ? "En attente" : "Réussi")]);
+    if (wl.q.trim()) tags.push(["q", "Recherche : " + wl.q.trim()]);
+    box.innerHTML = tags.length
+      ? tags.map(([k, l]) => `<button class="wl-tag" type="button" data-wltag="${k}">${escHtml(l)}<span aria-hidden="true">✕</span></button>`).join("")
+      : '<span class="wl-scope">Toutes les transactions</span>';
     box.querySelectorAll("[data-wltag]").forEach((b) => b.onclick = () => wlClearFilter(b.dataset.wltag));
   }
   function wlClearFilter(key) {
@@ -6503,14 +6650,25 @@ const App = (() => {
     if (key === "status") { wl.status = "all"; const el = document.getElementById("wl-status"); if (el) el.value = "all"; }
     wl.page = 1;
     if (key === "q") { wl.q = ""; renderWallet(); return; }   // le champ vit dans la barre : on la reconstruit
-    wlPaintChips();
+    wlPaintControls();
     wlLoad();
   }
-  function wlPaintChips() {
-    document.querySelectorAll("#wallet-root [data-txperiod]").forEach((x) => x.classList.toggle("on", x.dataset.txperiod === wl.period && !wl.from && !wl.to));
-    document.querySelectorAll("#wallet-root [data-txkind]").forEach((x) => x.classList.toggle("on", x.dataset.txkind === wl.kind));
+  /* Barre d'outils : les selects reflètent l'état — le select de période passe à
+     « Période personnalisée » dès qu'une date est posée ; le badge de filtres
+     avancés se compte ; « Réinitialiser » n'apparaît que sur un écran filtré. */
+  function wlPaintControls() {
+    const per = document.getElementById("tx-period");
+    if (per) per.value = (wl.from || wl.to) ? "custom" : wl.period;
+    const kind = document.getElementById("tx-kind");
+    if (kind) kind.value = wl.kind;
     const rst = document.getElementById("tx-reset");
     if (rst) rst.hidden = !wlActive();
+    const n = document.getElementById("wl-adv-n");
+    if (n) {
+      const adv = (wl.from ? 1 : 0) + (wl.to ? 1 : 0) + (wl.method !== "all" ? 1 : 0) + (wl.status !== "all" ? 1 : 0);
+      n.hidden = adv === 0;
+      n.textContent = adv;
+    }
   }
   /* Fiche détail (clic sur une ligne) : toutes les valeurs viennent de la ligne
      reçue du serveur — aucune donnée reconstruite. */
@@ -6520,12 +6678,17 @@ const App = (() => {
     const inDir = tx.dir === "in";
     showModal(`
       <h2>Détail de l'opération</h2>
-      <p class="m-sub">${escHtml(tx.label)}</p>
+      <div class="wl-det-sum">
+        <span class="tx-ic ${WL_TONE[tx.kind] || "k-other"}" aria-hidden="true">${WL_ICONS[tx.kind] || WL_ICONS.other}</span>
+        <div class="wl-det-copy"><strong>${escHtml(tx.label)}</strong><span>${inDir ? "Entrée" : "Sortie"}</span></div>
+        <div class="wl-det-amt">
+          <b class="${inDir ? "pos" : "neg"}">${inDir ? "+" : "−"}${fmtAr(tx.amount)}</b>
+          <span class="wl-badge dot ${tx.status === "pending" ? "amber" : "green"}">${wlStatusLabel(tx.status)}</span>
+        </div>
+      </div>
       <div class="wl-det">
-        <div class="row"><span>Montant</span><b class="${inDir ? "pos" : "neg"}">${inDir ? "+" : "−"}${fmtAr(tx.amount)}</b></div>
-        <div class="row"><span>Type</span><b>${WL_KIND_LABELS[tx.kind] || "Autre"}</b></div>
+        <div class="row"><span>Type</span><b>${WL_KIND_LABELS[tx.kind] || "Autre"} · ${inDir ? "Entrée" : "Sortie"}</b></div>
         <div class="row"><span>Moyen</span><b>${escHtml(tx.method || "Da-ona")}</b></div>
-        <div class="row"><span>Statut</span><b>${wlStatusLabel(tx.status)}</b></div>
         <div class="row"><span>Date et heure</span><b>${wlDateFr(tx.created_at)} · ${wlTimeFr(tx.created_at)}</b></div>
         <div class="row"><span>Référence</span><b>${escHtml(tx.ref_id || "TX-" + tx.id)}</b></div>
       </div>
@@ -6561,7 +6724,7 @@ const App = (() => {
      solde disponible, ligne du bonus, retiré du jour. */
   function wlMetaRefresh() {
     const c = document.getElementById("wl-balance");
-    if (c) c.textContent = fmtAr(Math.max(0, S.balance - S.bonusLock));
+    if (c) c.textContent = fmtNum(Math.max(0, S.balance - S.bonusLock));
     const b = document.getElementById("wl-bonus-line");
     if (b) b.innerHTML = S.bonusLock ? `<div class="small amber" style="margin-top:6px;">dont ${fmtAr(S.bonusLock)} de bonus (non retirable)</div>` : "";
     const t = document.getElementById("wl-today");
@@ -9126,59 +9289,93 @@ const App = (() => {
   function renderWallet() {
     const available = Math.max(0, S.balance - S.bonusLock);
     document.getElementById("wallet-root").innerHTML = `
+      <svg width="0" height="0" style="position:absolute" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+        <symbol id="wls-arr-d" viewBox="0 0 24 24"><path d="M12 4v15m-6-6 6 6 6-6"/></symbol>
+        <symbol id="wls-arr-u" viewBox="0 0 24 24"><path d="M12 20V5m-6 6 6-6 6 6"/></symbol>
+        <symbol id="wls-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 9a7 7 0 0 1 11.6-2L20 12M4 12l2.3 5a7 7 0 0 0 11.6-2"/></symbol>
+        <symbol id="wls-bag" viewBox="0 0 24 24"><path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></symbol>
+        <symbol id="wls-trophy" viewBox="0 0 24 24"><path d="M8 4h8v4.5a4 4 0 0 1-8 0zM8 6H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4m-4 0v5m-4 3h8m-7-3h6"/></symbol>
+        <symbol id="wls-cross" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></symbol>
+        <symbol id="wls-gift" viewBox="0 0 24 24"><path d="M3 10h18v11H3zM2 7h20v3H2zM12 7v14m0-14H8.5a2.5 2.5 0 1 1 2.4-3.2L12 7Zm0 0h3.5a2.5 2.5 0 1 0-2.4-3.2L12 7Z"/></symbol>
+        <symbol id="wls-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+        <symbol id="wls-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></symbol>
+        <symbol id="wls-chev-d" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+        <symbol id="wls-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10m-7 6h4"/><circle cx="8" cy="6" r="1.5"/><circle cx="14" cy="12" r="1.5"/></symbol>
+        <symbol id="wls-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></symbol>
+        <symbol id="wls-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v3h16v-3"/></symbol>
+        <symbol id="wls-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="wls-up-right" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></symbol>
+      </svg>
       <div class="wallet-layout">
-        <div class="side-stack">
-          <div class="balance-card">
-            <div class="wl-bal-top">
+        <div class="balance-card">
+          <div class="wl-bal-top">
+            <div>
               <div class="lbl">Solde disponible</div>
-              <span class="pill green">Disponible</span>
+              <p class="balance-label">Portefeuille interne D-aôna · Ariary (Ar)</p>
             </div>
-            <div class="amount" id="wl-balance">${fmtAr(available)}</div>
-            <div class="btc">Portefeuille interne D-aôna · Ariary (Ar)</div>
-            <div id="wl-bonus-line">${S.bonusLock ? `<div class="small amber" style="margin-top:6px;">dont ${fmtAr(S.bonusLock)} de bonus (non retirable)</div>` : ""}</div>
-            <div class="balance-actions">
-              <button class="btn primary" onclick="App.depositFlow()">＋ Déposer</button>
-              <button class="btn" onclick="App.withdrawFlow()">↗ Retirer</button>
-            </div>
+            <span class="available-pill">Disponible</span>
           </div>
-          <div class="panel" aria-labelledby="wl-fees-title">
-            <div class="panel-title" id="wl-fees-title">Frais transparents</div>
-            <p class="small muted" style="margin:0 0 6px;">La commission dépend du type d'opération.</p>
-            <div class="wl-fee-row"><span>Transactions internes (mises, défis)</span><b class="pos">0 %</b></div>
-            <div class="wl-fee-row"><span>Distribution des cashprizes</span><b class="amber">25 %</b></div>
-            <p class="small muted" style="margin:8px 0 0;">La commission de 25 % s'applique uniquement à la distribution des cashprizes.</p>
-            <button class="btn ghost block mini-btn" style="margin-top:10px;" id="wl-rules-toggle" type="button" aria-expanded="false" aria-controls="wl-rules">Voir limites et conditions</button>
-            <div class="wl-rules" id="wl-rules" hidden>
-              <div class="small muted">Retrait : minimum 1 000 Ar · maximum 500 000 Ar par jour.</div>
-              <div class="small muted">Retiré aujourd'hui : <b class="mono" id="wl-today">${fmtAr(S.withdrawnToday || 0)}</b> / 500 000 Ar.</div>
-              <div class="small muted">KYC (photo CIN) obligatoire avant toute transaction réelle.</div>
+          <div class="balance-amount"><strong id="wl-balance">${fmtNum(available)}</strong><span>Ar</span></div>
+          <div id="wl-bonus-line">${S.bonusLock ? `<div class="small amber" style="margin:-4px 0 8px;">dont ${fmtAr(S.bonusLock)} de bonus (non retirable)</div>` : ""}</div>
+          <div class="balance-bottom">
+            <span>Solde utilisable pour vos opérations</span>
+            <div class="balance-actions">
+              <button class="btn primary" onclick="App.depositFlow()"><svg class="wl-ic" aria-hidden="true"><use href="#wls-plus"></use></svg>Déposer</button>
+              <button class="btn" onclick="App.withdrawFlow()"><svg class="wl-ic" aria-hidden="true"><use href="#wls-up-right"></use></svg>Retirer</button>
             </div>
-            ${S.kyc ? "" : `<button class="btn ghost block mini-btn" style="margin-top:8px;" onclick="App.kycRequired(()=>{})">🪪 Vérifier mon identité</button>`}
           </div>
         </div>
-        <div class="panel">
+        <div class="panel" aria-labelledby="wl-fees-title">
+          <div class="wl-fees-head">
+            <span class="wl-fees-icon" aria-hidden="true"><svg class="wl-ic"><use href="#wls-shield"></use></svg></span>
+            <div>
+              <h2 id="wl-fees-title">Frais transparents</h2>
+              <p>La commission dépend du type d'opération.</p>
+            </div>
+          </div>
+          <div class="wl-fee-row"><span>Transactions internes (mises, défis)</span><b class="zero">0 %</b></div>
+          <div class="wl-fee-row"><span>Distribution des cashprizes</span><b class="prize">25 %</b></div>
+          <p class="wl-explainer">La commission de 25 % s'applique uniquement à la distribution des cashprizes.</p>
+          <button class="wl-link" id="wl-rules-toggle" type="button" aria-expanded="false" aria-controls="wl-rules"><span id="wl-rules-lbl">Voir limites et conditions</span> <svg class="wl-ic" aria-hidden="true"><use href="#wls-chev-d"></use></svg></button>
+          <div class="wl-rules" id="wl-rules" hidden>
+            <div class="small muted">Retrait : minimum 1 000 Ar · maximum 500 000 Ar par jour.</div>
+            <div class="small muted">Retiré aujourd'hui : <b class="mono" id="wl-today">${fmtAr(S.withdrawnToday || 0)}</b> / 500 000 Ar.</div>
+            <div class="small muted">KYC (photo CIN) obligatoire avant toute transaction réelle.</div>
+          </div>
+          ${S.kyc ? "" : `<button class="wl-link" style="margin-top:6px;" onclick="App.kycRequired(()=>{})"><span aria-hidden="true">🪪</span>Vérifier mon identité</button>`}
+        </div>
+        <div class="panel wl-history">
           <div class="wl-head">
-            <div class="panel-title" style="margin:0;">Historique des transactions</div>
+            <div>
+              <div class="wl-eyebrow">Votre activité</div>
+              <div class="wl-h-title">Historique des transactions</div>
+              <p class="wl-h-sub">Recherchez un mouvement ou affinez la période et le type.</p>
+            </div>
             <div class="wl-head-actions">
               <span class="wl-moves" id="tx-count" role="status" aria-live="polite"></span>
-              <button class="btn ghost mini-btn" id="wl-export" type="button">⬇ Exporter</button>
+              <button class="btn ghost mini-btn" id="wl-export" type="button"><svg class="wl-ic" aria-hidden="true"><use href="#wls-download"></use></svg>Exporter</button>
             </div>
           </div>
           <div class="tx-filters" role="search" aria-label="Filtres des transactions">
-            <div class="chips" role="group" aria-label="Filtrer par période">
-              ${WL_PERIODS.map(([id, l]) => `<button class="chip" type="button" data-txperiod="${id}">${l}</button>`).join("")}
-            </div>
-            <div class="searchbar compact" id="tx-searchbar" data-open-label="Rechercher une opération">
-              <span class="icon-search" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7.2"/><line x1="16.4" y1="16.4" x2="21" y2="21"/></svg>
-              </span>
-              <input type="text" id="tx-q" placeholder="Rechercher une opération…" maxlength="40" value="${escHtml(wl.q)}" spellcheck="false" aria-label="Rechercher dans l'historique">
-              <button class="icon-close" type="button" aria-label="Effacer la recherche">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5.5" y1="5.5" x2="18.5" y2="18.5"/><line x1="18.5" y1="5.5" x2="5.5" y2="18.5"/></svg>
-              </button>
-            </div>
-            <button class="btn ghost mini-btn" id="wl-adv-toggle" type="button" aria-expanded="false" aria-controls="wl-adv">Plus de filtres</button>
-            <button class="btn ghost mini-btn" id="tx-reset" type="button" hidden>Réinitialiser</button>
+            <label class="wl-search">
+              <svg class="wl-ic" aria-hidden="true"><use href="#wls-search"></use></svg>
+              <input id="tx-q" type="search" placeholder="Rechercher une opération…" autocomplete="off" maxlength="40" value="${escHtml(wl.q)}" spellcheck="false" aria-label="Rechercher dans l'historique">
+            </label>
+            <label class="wl-select">
+              <select id="tx-period" aria-label="Filtrer par période">
+                ${WL_PERIODS.map(([id, l]) => `<option value="${id}">${l}</option>`).join("")}
+                <option value="custom">Période personnalisée</option>
+              </select>
+              <svg class="wl-ic" aria-hidden="true"><use href="#wls-chev-d"></use></svg>
+            </label>
+            <label class="wl-select">
+              <select id="tx-kind" aria-label="Filtrer par type d'opération">
+                ${WL_KINDS.map(([id, l]) => `<option value="${id}">${l}</option>`).join("")}
+              </select>
+              <svg class="wl-ic" aria-hidden="true"><use href="#wls-chev-d"></use></svg>
+            </label>
+            <button class="btn ghost mini-btn" id="wl-adv-toggle" type="button" aria-expanded="false" aria-controls="wl-adv"><svg class="wl-ic" aria-hidden="true"><use href="#wls-filter"></use></svg>Plus de filtres<span class="wl-adv-n" id="wl-adv-n" hidden>1</span></button>
+            <button class="wl-link" id="tx-reset" type="button" hidden>Réinitialiser</button>
           </div>
           <div class="wl-adv" id="wl-adv" hidden>
             <label>Du<input type="date" id="tx-from" value="${escHtml(wl.from)}" aria-label="Transactions à partir de cette date"></label>
@@ -9197,12 +9394,10 @@ const App = (() => {
               </select>
             </label>
           </div>
-          <div class="tx-filters" role="group" aria-label="Filtrer par type de transaction">
-            <div class="chips">
-              ${WL_KINDS.map(([id, l]) => `<button class="chip" type="button" data-txkind="${id}">${l}</button>`).join("")}
-            </div>
+          <div class="wl-results">
+            <div class="wl-tags" id="wl-tags" aria-label="Filtres actifs"></div>
+            <div class="wl-summary" id="wl-summary" aria-live="polite"></div>
           </div>
-          <div class="wl-tags" id="wl-tags" aria-label="Filtres actifs"></div>
           <div class="wl-tablewrap">
             <table class="wl-table" aria-label="Historique des transactions">
               <thead>
@@ -9226,25 +9421,23 @@ const App = (() => {
        les pastilles et boutons basculent leur état SANS reconstruire l'écran
        (la barre de recherche garde son focus pendant la frappe). */
     const $w = (id) => document.getElementById(id);
-    /* Période (pastilles) : la plage de dates est effacée — un seul filtre de
-       période à la fois, comme avant. */
-    document.querySelectorAll("#wallet-root [data-txperiod]").forEach((b) => b.onclick = () => {
-      wl.period = b.dataset.txperiod;
-      wl.from = ""; wl.to = "";
-      if ($w("tx-from")) $w("tx-from").value = "";
-      if ($w("tx-to")) $w("tx-to").value = "";
-      wl.page = 1; wlPaintChips(); wlLoad();
-    });
-    document.querySelectorAll("#wallet-root [data-txkind]").forEach((b) => b.onclick = () => {
-      wl.kind = b.dataset.txkind;
-      wl.page = 1; wlPaintChips(); wlLoad();
-    });
-    /* Dès qu'une date est saisie, la plage prend la main : aucune pastille de
-       période ne reste allumée (sinon l'écran annoncerait deux filtres). */
+    /* Recherche : champ VISIBLE (maquette), anti-rebond de 180 ms ; le filtre
+       part au serveur et le champ garde son focus pendant la frappe. */
+    const qEl = $w("tx-q");
+    if (qEl) {
+      qEl.oninput = () => { wl.q = qEl.value; clearTimeout(wlQTimer); wlQTimer = setTimeout(() => { wl.page = 1; wlLoad(); }, 180); };
+      qEl.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); wl.q = qEl.value; clearTimeout(wlQTimer); wl.page = 1; wlLoad(); } };
+    }
+    /* Type d'opération : menu déroulant (maquette) — l'état est lu dans le select. */
+    const kindEl = $w("tx-kind");
+    if (kindEl) kindEl.onchange = () => { wl.kind = kindEl.value; wl.page = 1; wlLoad(); };
+    /* Dès qu'une date est saisie, la plage prend la main : le select passe à
+       « Période personnalisée » (wlPaintControls) — l'écran ne peut donc pas
+       annoncer deux filtres de période à la fois. */
     const onDate = (el, key) => () => {
       wl[key] = el.value;
       wl.page = 1;
-      wlPaintChips();
+      wlPaintControls();
       wlLoad();
     };
     const fromEl = $w("tx-from"), toEl = $w("tx-to");
@@ -9265,26 +9458,37 @@ const App = (() => {
         advBtn.setAttribute("aria-expanded", String(!advPanel.hidden));
       };
     }
-    const rulesBtn = $w("wl-rules-toggle"), rulesPanel = $w("wl-rules");
+    const rulesBtn = $w("wl-rules-toggle"), rulesPanel = $w("wl-rules"), rulesLbl = $w("wl-rules-lbl");
     if (rulesBtn && rulesPanel) rulesBtn.onclick = () => {
       rulesPanel.hidden = !rulesPanel.hidden;
       rulesBtn.setAttribute("aria-expanded", String(!rulesPanel.hidden));
-      rulesBtn.textContent = rulesPanel.hidden ? "Voir limites et conditions" : "Masquer les limites et conditions";
+      if (rulesLbl) rulesLbl.textContent = rulesPanel.hidden ? "Voir limites et conditions" : "Masquer les limites et conditions";
     };
     const rst = $w("tx-reset");
     if (rst) rst.onclick = () => {
       wl = { page: 1, size: wl.size, period: "all", from: "", to: "", kind: "all", q: "", method: "all", status: "all", sort: wl.sort };
       renderWallet();
     };
-    const txBar = $w("tx-searchbar");
-    if (txBar) SearchToggle.mount(txBar, {
-      autoOpen: !!wl.q,
-      /* Le filtre part au SERVEUR : anti-rebond de 180 ms pour ne pas requêter à
-         chaque frappe (Entrée force la recherche immédiatement). */
-      onInput: (v) => { wl.q = v; clearTimeout(wlQTimer); wlQTimer = setTimeout(() => { wl.page = 1; wlLoad(); }, 180); },
-      onEnter: (v) => { wl.q = v; clearTimeout(wlQTimer); wl.page = 1; wlLoad(); },
-      onClose: () => { wl.q = ""; clearTimeout(wlQTimer); wl.page = 1; wlLoad(); },
-    });
+    /* Période : « Période personnalisée » ouvre la rangée Du/Au (le seul endroit
+       où des dates se saisissent) ; toute autre valeur efface la plage — un seul
+       filtre de période à la fois. */
+    const perEl = $w("tx-period");
+    if (perEl) perEl.onchange = () => {
+      if (perEl.value === "custom") {
+        if (advPanel) advPanel.hidden = false;
+        if (advBtn) advBtn.setAttribute("aria-expanded", "true");
+        const f = $w("tx-from");
+        if (f) f.focus();
+        return;
+      }
+      wl.period = perEl.value;
+      wl.from = ""; wl.to = "";
+      const f = $w("tx-from"), t = $w("tx-to");
+      if (f) f.value = "";
+      if (t) t.value = "";
+      wl.page = 1;
+      wlLoad();
+    };
     const sortBtn = $w("wl-sort");
     if (sortBtn) sortBtn.onclick = () => { wl.sort = wl.sort === "desc" ? "asc" : "desc"; wl.page = 1; wlLoad(); };
     const exp = $w("wl-export");
@@ -9298,7 +9502,7 @@ const App = (() => {
       const tr = e.target.closest("tr[data-wtx]");
       if (tr) { e.preventDefault(); wlOpenDetail(tr.dataset.wtx); }
     });
-    wlPaintChips();
+    wlPaintControls();
     /* Le solde (et le « retiré aujourd'hui ») peut avoir bougé ailleurs : on
        rafraîchit le profil en silence puis on met à jour les chiffres de la
        carte — l'historique, lui, se charge tout seul. */
