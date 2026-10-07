@@ -124,6 +124,31 @@
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
 
+## 2026-10-07 — Wallet mobile : le « fantôme » scrollWidth du moteur corrigé (`contain: layout paint`) (entrée MANUELLE)
+
+**Demande.** « il y a des bug sur le dernier implémentation » — re-contrôle demandé après l'ajustement de taille. Le bug réel : à 360 px, sur CHAQUE chargement frais de `#/wallet`, le document gardait un `scrollWidth` de ~570 px et la page était **réellement défilable de 210 px** en horizontal (mesuré `window.scrollTo` → `scrollX = 210`), fantôme recréé à chaque ré-insertion de boîte (546/551/570 px selon les essais). La note « protocole de mesure » de l'entrée précédente décrivait une mitigation côté SONDE ; le défaut, lui, était bien dans la page.
+
+**Cause racine.** Aucune boîte ne dépasse pourtant : chaîne mesurée 360/332/306 px et tous les contributeurs sont DANS le cadre à défilement du tableau (660 px min). Sonde « propriétaire » (chargement frais par candidat) : masquer `.wl-tablewrap`, `.wl-table` ou `.panel.wl-history` ramène exactement à 360 — le fantôme appartient à la sous-arborescence de l'historique ; c'est un défaut de **propagation du débordement scrollable** du moteur (les 660 px du tableau fuient dans l'overflow du document malgré l'`overflow-x: auto` du cadre, qui n'est jamais recalculé).
+
+**Correctif (`index.html`).** `.wallet-layout .wl-history` reçoit `contain: layout paint`. Balayage de 8 correctifs candidats (overflow-x:clip / overflow:hidden / max-width:100% / contain:inline-size / colonne minmax(0,1fr) / combinaisons) : SEULE la containment dissout le fantôme, au repos ET après basculement de boîtes. Variantes `layout` seul, `paint` seul et les deux : toutes efficaces ; retenu `layout paint` (la plus couvrante). Peinture sans risque : le tableau défile DANS son cadre, rien de visible ne déborde du panneau, et la fiche de détail vit dans l'overlay global (`showModal`), pas dans le panneau.
+
+**Preuves.** Sonde `_dbg_wl_ghost.js` : chargement frais 360/0 (avant : 570/210). Matrice `_dbg_wl_fix.js` (conservée comme régression) : 4 variantes × 360 px (repos + survie) + 1440 px — tout OK, colonnes desktop inchangées 801,7/576,2 px, 0 erreur JS. `_wallet_shots.js` : mobile `docW = 360` ET `docWBrut = 360` (avant : 584 brut), tableau toujours défilant dans son cadre, captures relues (aucune régression visuelle). `_probe_profil_v3` **41/41** · `_layout_fill` **204/204** (dont `mobile/wallet`) · `_check_html` OK (7 117 lignes) · `test_scenarios` **257/257** · `test_ui_scenarios.js s7` **10/10** · `_wallet_size_probe` TOUT VERT. Sondes jetables `_dbg_wl_ghost/_trigger/_owner.js` supprimées après usage.
+
+**Fichiers :** `D-aona/d-aona-web/index.html`, `CONTEXTE_PROJET.md` · sonde conservée `_dbg_wl_fix.js` (hors dépôt git).
+
+
+## 2026-10-07 — Wallet : la paire solde/frais reprend LA TAILLE de la maquette (correctif desktop) (entrée MANUELLE)
+
+**Demande.** « Je voudrais avoir le même taille que celui ci » — capture de la maquette montrant la carte solde large suivie de la carte « Frais transparents ».
+
+**Cause racine.** La refonte v3 posait déjà `1.28fr / .92fr`, mais la règle responsive desktop de la coquille (`@media (min-width: 1081px)`, §5 « Grilles de structure ») écrasait la grille à l'écran avec l'ANCIEN contrat `minmax(300px, 380px) minmax(0, 1fr)` : la carte solde restait une colonne latérale de 380 px et les frais prenaient tout le reste — proportions inversées par rapport à la maquette.
+
+**Correctif (`index.html`).** (1) La règle desktop adopte les proportions de la maquette — `minmax(0, 1.28fr) minmax(330px, .92fr)` — et le commentaire de §5a précise que le Wallet n'est plus une colonne latérale (carte solde 1,28 fr, frais 0,92 fr avec plancher 330 px, historique pleine largeur). (2) `#wallet-root .balance-card` reçoit `min-height: 190px`, le plancher de la maquette. (3) En mode plein écran, `body.is-fill .wallet-layout { grid-template-rows: auto minmax(0, 1fr) }` : la rangée solde/frais garde sa hauteur NATURELLE — sans cette règle, `align-content: stretch` répartissait le surplus de la fenêtre entre les deux rangées (272 px mesurés en 1510×900 contre 228 dans la maquette) ; l'historique (1fr, min 0) absorbe le reste et défile en interne, contrat plein écran intact.
+
+**Preuves.** Sonde nouvelle `_wallet_size_probe.js` (hors git) : les deux pages mesurées dans la MÊME fenêtre 1510×900 — largeurs 841/605 px côté app contre 812/584 px côté maquette ; à contenus comparables (grilles 1462/1412 px), largeurs attendues calculées 841/605 px, écart ≤ 1 px ; ratio solde/(solde+frais) 0,5816 contre 0,5817 ; historique = largeur de grille ; hauteurs « nues » (lignes métier bonus/KYC masquées) 245 px contre 228 — écart de 17 px = densité typographique de l'app (libellés 12,5 px contre 10 px dans la maquette), assumée — **TOUT VERT** · `_layout_fill.js` **204/204** (le défilement interne du wallet reste prouvé : « 40 lignes de plus → le bloc défile, la page non », mobile et 1366×768 inclus) · `_check_html.js` OK (7 117 lignes) · `test_scenarios` **257/257** · `_probe_profil_v3` **41/41** · `test_ui_scenarios.js s7` **10/10** · `_wallet_shots.js` : captures jour/nuit/fiche détail/filtre/mobile 360 rafraîchies. Mobile : le « fantôme » `scrollWidth` de Chrome a été re-tracé par sonde exhaustive (`_dbg_wl_ovf.js` : aucun élément hors cadre, les 25 plus larges sont tous DANS le tableau à défilement) ; la mesure de `_wallet_shots.js` est alignée sur le protocole éprouvé de la sonde v3 (mise en page reconstruite avant mesure) — 584 brut, puis `docW = 360 = innerW`, `scrollX = 0` après tentative, tableau défilant dans son cadre.
+
+**Fichiers :** `D-aona/d-aona-web/index.html`, `CONTEXTE_PROJET.md` · sondes `_wallet_size_probe.js` et `_dbg_wl_ovf.js` hors dépôt git.
+
 ## 2026-10-07 — Wallet v3 : fidélité STRICTE à la maquette « wallet-desktop » (entrée MANUELLE)
 
 **Demande.** « Reste exactement sur le style de la maquette » — la refonte précédente adaptait la maquette au langage de l'app (loupe dépliable, pastilles de période/type, titre « Wallet ») ; il fallait coller à la maquette, au mot et au pixel près.

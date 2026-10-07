@@ -2243,9 +2243,20 @@ html[data-theme="night"] .tx-ic.k-other { color: #a4b1ab; background: rgba(255, 
    passent par les jetons des deux thèmes. ----------------------------------- */
 .wallet-layout { display: grid; grid-template-columns: minmax(0, 1.28fr) minmax(330px, .92fr); gap: 16px; align-items: start; }
 .wallet-layout > * { min-width: 0; }   /* un enfant de grille ne pousse jamais la piste */
-.wallet-layout .wl-history { grid-column: 1 / -1; }
+/* Historique : `contain: layout paint` COUPE le « fantôme » scrollWidth du
+   moteur Chromium. Sans lui, à 360 px, le DOCUMENT garde un scrollWidth de
+   ~570 px (page réellement défilable de 210 px, reproduit à chaque chargement
+   frais) à cause des 660 px min du tableau, MALGRÉ l'`overflow-x: auto` du
+   cadre — aucune boîte ne dépasse pourtant dans la géométrie finale (chaîne
+   mesurée 360/332/306, contributeurs tous DANS le cadre). C'est un défaut de
+   propagation du débordement scrollable : ni `overflow` sur l'ancêtre, ni
+   `max-width`, ni reflow forcé ne le corrigent ; la containment, oui (balayage
+   de 8 correctifs, cf. journal 2026-10-07). Peinture sans risque : rien de
+   visible ne déborde du panneau (le tableau défile DANS .wl-tablewrap) et la
+   fiche de détail vit dans l'overlay global (showModal), pas ici. */
+.wallet-layout .wl-history { grid-column: 1 / -1; contain: layout paint; }
 #wallet-root .balance-card {
-  position: relative; overflow: hidden;
+  position: relative; overflow: hidden; min-height: 190px;   /* plancher de la maquette */
   background: linear-gradient(116deg, var(--green-soft) 0%, var(--panel) 72%);
   border: .5px solid rgba(29, 158, 117, .35);
   border-radius: var(--radius-card); padding: 20px 22px 18px;
@@ -3784,6 +3795,13 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
   body.is-fill #tournament-root {
     padding-bottom: 16px;
   }
+  /* Wallet (maquette « wallet-desktop ») : la rangée solde/frais garde la
+     hauteur NATURELLE des cartes. Sans cela, `align-content: stretch` répar-
+     tissait le surplus de la fenêtre entre les deux rangées et les cartes
+     grandissaient avec l'écran (272 px mesurés en 1510×900, contre 228 dans
+     la maquette). L'historique (`1fr`, min 0) absorbe le reste et défile en
+     interne : le contrat plein écran est intact. */
+  body.is-fill .wallet-layout { grid-template-rows: auto minmax(0, 1fr); }
   /* Messagerie : la grille prend la hauteur de l'écran (fini le calc) ; le fil
      garde son défilement propre (.chat-msgs). `min-height: 0` annule les 440 px
      planchers qui, dans une fenêtre courte, pousseraient la saisie hors écran. */
@@ -4085,11 +4103,14 @@ body.is-fill #screens {
    ceci ne s'applique : les vues gardent leur pile à 100 % de largeur.
 
    a) COLONNES LATÉRALES FIGÉES. Elles étaient en pixels durs : 280 px
-      (Messagerie), 300 px (Classement), 320 px (Skins), 330 px (Profil),
-      380 px (Wallet). La MÊME interface donnait donc 35 % de colonne
-      latérale à 1 081 px et 15 % à 2 560 px — des proportions qui changent
-      du simple au double selon l'écran. Elles deviennent fluides DANS une
-      fourchette (`minmax`), l'idiome standard d'une colonne latérale.
+      (Messagerie), 300 px (Classement), 320 px (Skins), 330 px (Profil).
+      La MÊME interface donnait donc 35 % de colonne latérale à 1 081 px et
+      15 % à 2 560 px — des proportions qui changent du simple au double
+      selon l'écran. Elles deviennent fluides DANS une fourchette (`minmax`),
+      l'idiome standard d'une colonne latérale.
+      Le Wallet, lui, n'est plus une colonne latérale depuis la refonte v3
+      (maquette « wallet-desktop ») : c'est une PAIRE solde/frais — 1.28fr /
+      .92fr, plancher 330 px sur les frais — historique pleine largeur.
    b) ESPACEMENTS AD HOC. Sept valeurs de `gap` cohabitaient pour un seul
       rôle (8, 9, 10, 12, 14, 16, 30). Elles sont ramenées à trois crans de
       l'échelle : --sp-2 (8, dense), --sp-3 (12, interne), --sp-4 (16,
@@ -4099,7 +4120,9 @@ body.is-fill #screens {
   .mt-split       { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); gap: var(--sp-4); }
   .mt-grid2       { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
   .rank-layout    { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: var(--sp-4); }
-  .wallet-layout  { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: var(--sp-4); }
+  /* Wallet : proportions de la maquette, pas une colonne latérale — solde
+     1.28fr, frais .92fr (330 px plancher), historique pleine largeur. */
+  .wallet-layout  { grid-template-columns: minmax(0, 1.28fr) minmax(330px, .92fr); gap: var(--sp-4); }
   .profile-layout { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: var(--sp-4); }
   .skins-layout   { grid-template-columns: minmax(270px, 320px) minmax(0, 1fr); gap: var(--sp-4); }
   .chat-layout    { grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: var(--sp-4); }
