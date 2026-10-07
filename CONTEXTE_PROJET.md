@@ -124,6 +124,17 @@
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
 
+## 2026-10-07 — Header : la recherche de joueurs passe À DROITE, à côté du badge KYC (entrée MANUELLE)
+
+**Demande.** « Mettre le bouton recherche sur le header soit à droite à côté du statut KYC » (+ capture du bandeau : logo à gauche, loupe ronde à droite).
+
+**Écran (`index.html`).** La pastille `.searchbar.compact` (`#top-searchbar`) est déplacée du groupe de gauche (entre le logo et la reprise de partie) vers le groupe de DROITE : juste après le `spacer`, donc IMMÉDIATEMENT À GAUCHE du badge KYC (écart mesuré : 14 px). À l'ouverture, la barre étendue grandit vers la gauche (le `spacer` lui rend la place) : le reste du groupe de contrôles ne bouge pas. Le panneau de résultats `#top-search-results` suit dans le flux et reste enfant de la TOPBAR (la pastille a `overflow: hidden` et le rognerait comme enfant). En desktop, le nouveau `placeTopResults()` le recale SOUS LA PASTILLE (bord droit aligné au pixel), appelé à chaque affichage, à la fin de l'expansion de la pastille (`transitionend`) et au redimensionnement ; en mobile (≤ 720 px), il retire la position en ligne et le CSS garde le plein cadre 12 px d'avant. Rien d'autre ne bouge : mêmes API, mêmes fermetures (croix, Échap, clic extérieur), mêmes libellés et aria.
+
+**Preuves.** Sonde nouvelle `_dbg_hdr_search.js` (conservée, hors git) : **14/14** — pastille à 966 px sur une barre de 1440 (donc à droite) et à 14 px du badge KYC, barre sur une ligne (64 px desktop / 58 px mobile), panneau ancré sous la pastille (`écartDroit 0`) et dans l'écran, clic sur un résultat → profil `#/profile?id=…` + repli, Échap, clic extérieur, mobile 360 : pastille visible + KYC après elle, résultats plein cadre, scrollWidth 360 au repos / ouvert / replié, 0 erreur JS · captures `hdr-search-jour.png` et `hdr-search-mobile.png`. Non-régression : `_check_html.js` OK · `_probe_profil_v3` **41/41** · `_layout_fill` **204/204** · `_dbg_wl_fix.js` OK · `_wallet_shots.js` OK.
+
+**Fichiers :** `D-aona/d-aona-web/index.html` (markup + CSS `#top-search-results` + `placeTopResults`), `CONTEXTE_PROJET.md` · sonde conservée `_dbg_hdr_search.js` (hors dépôt git).
+
+
 ## 2026-10-07 — Wallet : filtre de dates « à la Airbnb » (calendrier 2 mois, plage à bande, puces ±N) (entrée MANUELLE)
 
 **Demande.** « pour le filtre entre 2 date, essayer de faire comme celui de Airbnb comme style de selection » + captures du sélecteur Airbnb (calendrier deux mois, extrémités en cercle sombre, bande entre les bornes, puces « Dates exactes / ± 1 / 2 / 3 / 7 / 14 jours »).

@@ -308,13 +308,15 @@ body::after {
 .topbar .spacer { flex: 1; }
 /* --- Recherche de joueurs dans la barre haute -------------------------------
    Même composant que le Classement et les Amis (.searchbar + SearchToggle) :
-   pastille ronde → champ étendu. Le panneau de résultats est ancré sous la
-   barre (position absolue dans la topbar, qui est « sticky » donc référence de
-   positionnement). Aucune teinte nouvelle : panneau --panel, bord --line,
-   ombre --shadow-2, encres --text-strong / --muted / --brand-ink. */
+   pastille ronde → champ étendu, placée À DROITE dans le groupe des contrôles
+   (juste avant le badge KYC — demande du 2026-10-07). Le panneau de résultats
+   est enfant de la TOPBAR (la pastille a overflow:hidden, il serait rogné
+   dedans) : ancré sous la PASTILLE en desktop (recalé par placeTopResults()),
+   plein cadre 12 px en mobile. Aucune teinte nouvelle : panneau --panel, bord
+   --line, ombre --shadow-2, encres --text-strong / --muted / --brand-ink. */
 .topbar-search { flex: none; }
 #top-search-results {
-  position: absolute; left: 22px; top: calc(100% + 8px); z-index: 5;
+  position: absolute; left: auto; right: 12px; top: calc(100% + 8px); z-index: 5;
   width: min(380px, calc(100vw - 24px));
   background: var(--panel); border: .5px solid var(--line);
   border-radius: var(--radius-card); box-shadow: var(--shadow-2); padding: 12px;
@@ -4679,8 +4681,20 @@ body.is-fill #screens {
     </div>
   </div>
   <!-- Recherche de joueurs (amis ou non) : même composant que le Classement et
+       les Amis (.searchbar + SearchToggle) — pastille ronde → champ étendu.
+       Supprimée d'ici : elle vit désormais à DROITE, juste avant le badge KYC
+       (demande du 2026-10-07). -->
+  <button class="resume-bar" id="resume-bar" title="Revenir à votre partie ou au match que vous regardez">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg>
+    <span id="resume-label">Reprendre</span>
+  </button>
+  <div class="spacer"></div>
+  <!-- Recherche de joueurs (amis ou non) : même composant que le Classement et
        les Amis (.searchbar + SearchToggle) — pastille ronde → champ étendu,
-       résultats réels de l'API dans un panneau ancré sous la barre. -->
+       placée À DROITE dans le groupe des contrôles, juste avant le badge KYC
+       (demande du 2026-10-07). Le panneau de résultats reste enfant de la
+       topbar (la pastille a overflow:hidden) : ancré sous la PASTILLE par
+       placeTopResults() en desktop, plein cadre 12 px en mobile. -->
   <div class="searchbar compact topbar-search" id="top-searchbar" data-open-label="Rechercher un joueur">
     <span class="icon-search" aria-hidden="true">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7.2"/><line x1="16.4" y1="16.4" x2="21" y2="21"/></svg>
@@ -4691,11 +4705,6 @@ body.is-fill #screens {
     </button>
   </div>
   <div id="top-search-results" hidden></div>
-  <button class="resume-bar" id="resume-bar" title="Revenir à votre partie ou au match que vous regardez">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg>
-    <span id="resume-label">Reprendre</span>
-  </button>
-  <div class="spacer"></div>
   <span class="kyc-badge" id="tb-kyc" role="button" tabindex="0" title="Vérification d'identité" aria-label="Vérification d'identité">KYC</span>
   <button class="icon-btn" id="btn-theme" title="Changer de mode : sombre → nuit → clair">
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" id="theme-icon"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -11412,12 +11421,29 @@ const App = (() => {
     const box = document.getElementById("top-search-results");
     if (box) { box.hidden = true; box.innerHTML = ""; }
   }
+  /* Ancre le panneau de résultats sous la PASTILLE de recherche (desktop) :
+     son bord droit s'aligne au bord droit de la pastille, recadré dans la
+     barre. En mobile le CSS fait le travail (plein cadre) — on retire notre
+     position en ligne pour le laisser gagner. */
+  function placeTopResults() {
+    const box = document.getElementById("top-search-results");
+    if (!box || box.hidden) return;
+    if (window.matchMedia("(max-width: 720px)").matches) { box.style.left = ""; return; }
+    const bar = document.getElementById("top-searchbar");
+    const tb = document.querySelector(".topbar");
+    if (!bar || !tb) return;
+    const rb = tb.getBoundingClientRect(), rp = bar.getBoundingClientRect();
+    const w = box.offsetWidth;
+    const left = Math.min(Math.max(8, rp.right - rb.left - w), Math.max(8, rb.width - w - 8));
+    box.style.left = left + "px";
+  }
   async function runTopSearch(q) {
     const box = document.getElementById("top-search-results");
     const input = document.getElementById("top-q");
     if (!box || !input) return;
     if (!q) { closeTopSearchResults(); return; }
     box.hidden = false;
+    placeTopResults();   // sous la pastille (desktop) — voir sa note
     box.innerHTML = '<p class="muted small" style="margin:0;">Recherche…</p>';
     try {
       const d = await API.request("/api/users/search?q=" + encodeURIComponent(q));
@@ -11483,6 +11509,10 @@ const App = (() => {
       if (e.target.closest("#top-searchbar") || e.target.closest("#top-search-results")) return;
       topSearchBar.close();
     }, true);
+    /* Le panneau suit la pastille : à chaque redimensionnement de la fenêtre,
+       et à la fin de l'expansion de la pastille (elle s'élargit en s'ouvrant). */
+    window.addEventListener("resize", placeTopResults);
+    bar.addEventListener("transitionend", placeTopResults);
   }
 
   /* ------------------ AMIS ------------------ */
