@@ -59,8 +59,13 @@ function legalMoves(grid, me, chain) {
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++)
       if (grid[r][c] === me) all = all.concat(movesFrom(grid, r, c, me, null));
-  const caps = all.filter((m) => m.cap.length);
-  return caps.length ? caps : all;
+  /* DÉPLACEMENT LIBRE (règle du produit) : la prise n'est JAMAIS obligatoire.
+     Tous les pas vers une intersection vide sont permis — les prises restent
+     automatiques quand la géométrie les déclenche (approche/retrait), et la
+     continuation de chaîne (cas `chain` ci-dessus) exige toujours une prise.
+     Une case d'arrivée occupée — pion adverse ou allié — interdit le pas :
+     c'est le « chemin bloqué ». */
+  return all;
 }
 
 function checkWin(grid) {

@@ -141,7 +141,8 @@ function tourneysForClient(userId) {
 }
 /* ---------- Acceptation d'une demande d'ami ----------
    Crée l'amitié dans les DEUX sens, puis envoie le message automatique
-   « D-aona » de la part du joueur qui accepte vers celui qui a envoyé. */
+   « De aona ? Masahy amiko ? » de la part du joueur qui a DEMANDÉ vers
+   celui qui a accepté. */
 function acceptFriendRequest(res, requestId, acceptingUser) {
   const reqRow = FriendRequest.get(requestId);
   if (!reqRow || reqRow.status !== "pending") return respond(res, { error: "Demande déjà traitée" }, 400);
@@ -151,11 +152,11 @@ function acceptFriendRequest(res, requestId, acceptingUser) {
   FriendRequest.accept(requestId);
   Friend.add(acceptingUser.id, sender.id);
   Friend.add(sender.id, acceptingUser.id);
-  // Message automatique « D-aona » : envoyé par celui qui accepte → celui qui a demandé
-  const autoText = "D-aona ! 🤝 Demande d'ami acceptée — on joue ?";
-  Chat.saveMessage(acceptingUser.id, sender.id, autoText);
+  // Message automatique : envoyé par le DEMANDEUR → celui qui a accepté
+  const autoText = "De aona ? Masahy amiko ?";
+  Chat.saveMessage(sender.id, acceptingUser.id, autoText);
   const at = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  sendUser(sender.id, { type: "chat_message", from: acceptingUser.pseudo, text: autoText, at });
+  sendUser(acceptingUser.id, { type: "chat_message", from: sender.pseudo, text: autoText, at });
   sendUser(sender.id, { type: "friend_update" });
   sendUser(acceptingUser.id, { type: "friend_update" });
   return respond(res, { ok: true, status: "accepted", friend: { id: sender.id, pseudo: sender.pseudo, elo: sender.elo } });
@@ -360,6 +361,7 @@ function handleRest(req, res, url, userId) {
         colors: DATA.PION_COLORS,
         groups: DATA.PION_GROUPS,
         patterns: DATA.PION_PATTERNS,
+        shapes: DATA.PION_SHAPES,                // ronde / carrée / triangulaire
         camps: DATA.PION_CAMPS,                  // light → mes pions, dark → ceux de l'adversaire
         pionStyles: styles,                      // { light: {color,pattern}, dark: {…} }
         /* Compatibilité : `pionStyle` reste l'apparence des pions DU JOUEUR (camp
@@ -387,6 +389,18 @@ function handleRest(req, res, url, userId) {
         return respond(res, { error: "Couleur de pion inconnue" }, 400);
       if (!DATA.pionPattern(payload.pattern))
         return respond(res, { error: "Motif de pion inconnu" }, 400);
+      /* La FORME (ronde / carrée / triangulaire) est un TROISIÈME axe, validé comme
+         les deux autres contre le catalogue serveur. Un client d'avant cette version
+         ne l'envoie pas : la forme ENREGISTRÉE est alors conservée telle quelle (un
+         changement de couleur depuis un ancien client ne remet pas la silhouette à
+         zéro) — mais une forme INCONNUE est refusée (400), jamais remplacée en
+         silence : le client ne peut pas croire avoir enregistré autre chose. */
+      const shapeBrut = payload.shape;
+      const shape = (shapeBrut === undefined || shapeBrut === null || shapeBrut === "")
+        ? null
+        : String(shapeBrut).toLowerCase();
+      if (shape !== null && !DATA.pionShape(shape))
+        return respond(res, { error: "Forme de pion inconnue" }, 400);
       /* ÉTANCHÉITÉ : la couleur doit appartenir au GROUPE du camp visé. Une
          couleur sombre (« Noir », « Bleu marine »…) ne peut donc JAMAIS être
          enregistrée pour les pions clairs, ni une couleur claire pour les sombres
@@ -397,7 +411,7 @@ function handleRest(req, res, url, userId) {
           error: `Couleur ${c.group === "clair" ? "claire" : "sombre"} : les ${k.label.toLowerCase()} n'acceptent que les couleurs ${k.group === "clair" ? "claires" : "sombres"}`,
         }, 400);
       }
-      PionStyle.set(user.id, camp, payload.color, payload.pattern);
+      PionStyle.set(user.id, camp, payload.color, payload.pattern, shape || undefined);
       const styles = PionStyle.get(user.id);
       return respond(res, { ok: true, camp, pionStyles: styles, pionStyle: styles.light });
     }
@@ -851,6 +865,16 @@ function challengeFeed(userId) {
   }));
 }
 
+/* Numéro du joueur à l'origine d'un message WS : 1, 2 — ou 0 si l'émetteur
+   n'est pas joueur de cette partie (spectateur, tiers). Contrôle
+   d'appartenance des actions de partie : sans lui, n'importe quel client
+   connecté pouvait jouer — ou abandonner — à la place d'un joueur. */
+function playerNumOf(session, userId) {
+  if (session.player1 && session.player1.id === userId) return 1;
+  if (session.player2 && session.player2.id === userId) return 2;
+  return 0;
+}
+
 /* ---------- WebSocket handler ---------- */
 function handleWsMessage(ws, msg) {
   const conn = connections.get(ws);
@@ -931,6 +955,11 @@ function handleWsMessage(ws, msg) {
     case "move": {
       const session = sessions.get(msg.sessionId);
       if (!session || session.over) return;
+      /* Anti-triche : seul le joueur DONT C'EST LE TOUR peut jouer. */
+      if (session.phase === "play" && playerNumOf(session, conn.userId) !== session.turn) {
+        send(ws, { type: "error", message: "Ce n'est pas votre tour", sessionId: msg.sessionId });
+        return;
+      }
       const result = session.applyMove(msg.move);
       if (!result.ok) { send(ws, { type: "error", message: result.error, sessionId: msg.sessionId }); return; }
       GameSessionStore.updateState(msg.sessionId, session.getState());
@@ -942,7 +971,9 @@ function handleWsMessage(ws, msg) {
     case "pick_side": {
       const session = sessions.get(msg.sessionId);
       if (!session || session.phase !== "choose") { send(ws, { type: "error", message: "Choix indisponible", sessionId: msg.sessionId }); return; }
-      const playerNum = conn.userId === session.player1.id ? 1 : 2;
+      const playerNum = playerNumOf(session, conn.userId);
+      /* Un tiers (spectateur) ne choisit pas une face à la place d'un joueur. */
+      if (!playerNum) { send(ws, { type: "error", message: "Vous n'êtes pas joueur de cette partie", sessionId: msg.sessionId }); return; }
       const result = session.pickSide(playerNum, msg.side);
       if (result.error) send(ws, { type: "error", message: result.error, sessionId: msg.sessionId });
       // Mode IA (entraînement en ligne) : l'IA (joueur 2) reçoit automatiquement
@@ -959,7 +990,9 @@ function handleWsMessage(ws, msg) {
     case "resign": {
       const session = sessions.get(msg.sessionId);
       if (!session || session.over) return;
-      const playerNum = conn.userId === session.player1.id ? 1 : 2;
+      const playerNum = playerNumOf(session, conn.userId);
+      /* Un tiers ne peut pas abandonner à la place d'un joueur. */
+      if (!playerNum) { send(ws, { type: "error", message: "Vous n'êtes pas joueur de cette partie", sessionId: msg.sessionId }); return; }
       const result = session.resign(playerNum);
       if (result.gameOver) handleGameEnd(session, result.winner, result.reason);
       break;
@@ -967,6 +1000,11 @@ function handleWsMessage(ws, msg) {
     case "end_chain": {
       const session = sessions.get(msg.sessionId);
       if (!session || session.over || !session.chain) return;
+      /* Seul le joueur en chaîne peut la terminer. */
+      if (playerNumOf(session, conn.userId) !== session.turn) {
+        send(ws, { type: "error", message: "Ce n'est pas votre tour", sessionId: msg.sessionId });
+        return;
+      }
       const result = session.endChain();
       GameSessionStore.updateState(msg.sessionId, session.getState());
       dispatchGameState(session);

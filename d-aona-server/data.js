@@ -26,7 +26,7 @@ function badgeFor(rank) {
 
 const GAMES_CATALOG = [
   { id: "fanorona", name: "Fanorona", type: "Stratégie / Plateau", status: "mvp",
-    desc: "Le jeu de plateau national malgache. Captures par approche ou par retrait, prises en chaîne obligatoires." },
+    desc: "Le jeu de plateau national malgache. Captures par approche ou par retrait, déplacement libre." },
   { id: "katro", name: "Katro", type: "Stratégie", status: "soon",
     desc: "Variante malgache du Mancala — comptage et anticipation. Prévu post-MVP." },
   { id: "points", name: "Jeu de points", type: "Stratégie", status: "soon",
@@ -165,6 +165,21 @@ const PION_PATTERNS = [
 const pionColor = (id) => PION_COLORS.find((c) => c.id === id) || null;
 const pionPattern = (id) => PION_PATTERNS.find((p) => p.id === id) || null;
 
+/* --- FORMES de pion : RONDE · CARRÉE · TRIANGULAIRE ------------------------
+   Troisième axe, INDÉPENDANT des deux autres — `pion_style` garde des colonnes
+   séparées (`shape`, `color`, `pattern`) et ne stocke donc jamais « ronde + blanc
+   + zébu » comme un identifiant combiné. La liste est CLOSE (trois formes) : la
+   forme change la SILHOUETTE du pion, c'est-à-dire la lecture du plateau — ce
+   n'est pas une décoration, et c'est pourquoi elle est validée ici, côté serveur,
+   comme les couleurs et les motifs. Le défaut est « ronde » : les comptes créés
+   avant cette liste (migration 014) retrouvent exactement les pions d'avant. */
+const PION_SHAPES = [
+  { id: "ronde",        name: "Ronde",        desc: "Le pion traditionnel — cercle plein." },
+  { id: "carree",       name: "Carrée",       desc: "Silhouette carrée à coins arrondis." },
+  { id: "triangulaire", name: "Triangulaire", desc: "Triangle vers le haut." },
+];
+const pionShape = (id) => PION_SHAPES.find((s) => s.id === id) || null;
+
 /* --- Camps de pions : passerelle entre le GROUPE d'une couleur et le camp du
    plateau. Le tirage (`state.toss.starter`) décide qui joue les clairs :
      light → pions clairs (groupe « clair ») · dark → pions sombres (groupe « sombre »)
@@ -177,10 +192,12 @@ const PION_CAMPS = [
 /* Camp par défaut : celui des pions du joueur (clients qui n'annoncent aucun camp). */
 const PION_DEFAULT_CAMP = "light";
 const PION_CAMP_GROUP = Object.freeze({ light: "clair", dark: "sombre" });
-/* Apparence par défaut de CHAQUE camp : les deux pions Vato de l'inscription. */
+/* Apparence par défaut de CHAQUE camp : les deux pions Vato de l'inscription.
+   `shape` par défaut = « ronde » : la forme historique du pion, donc aucun
+   changement visible pour un compte qui n'a rien choisi. */
 const PION_DEFAULTS = Object.freeze({
-  light: { color: "blanc", pattern: "aucun" },
-  dark:  { color: "noir",  pattern: "aucun" },
+  light: { color: "blanc", pattern: "aucun", shape: "ronde" },
+  dark:  { color: "noir",  pattern: "aucun", shape: "ronde" },
 });
 const pionCamp = (id) => PION_CAMPS.find((c) => c.id === id) || null;
 /* Contrôle d'appartenance : la couleur visée doit être du groupe du camp. */
@@ -263,6 +280,7 @@ module.exports = {
   SKINS_CATALOG, OPERATORS, BADGES, badgeFor,
   skinSlot, skinSlotMatches,
   PION_COLORS, PION_GROUPS, PION_PATTERNS, pionColor, pionPattern,
+  PION_SHAPES, pionShape,
   PION_CAMPS, PION_CAMP_GROUP, PION_DEFAULTS, PION_DEFAULT_CAMP, pionCamp, pionColorFitsCamp,
   TX_KINDS, txKind, txKindLabel, TX_METHODS, TX_METHOD_INTERNAL, txMethod, txCsv,
 };

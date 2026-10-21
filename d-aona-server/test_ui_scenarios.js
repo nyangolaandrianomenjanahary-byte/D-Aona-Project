@@ -616,6 +616,264 @@ async function s2_nav(browser) {
     await goScreen(A.page, "home");
     return (await visible(A.page, "#mainTabbar")) ? true : "barre d'onglets invisible sur l'accueil";
   });
+
+  /* =========================================================================
+     Retour terrain n° 4 — carrousel publicitaire de l'Accueil
+     =========================================================================
+     Ce qui est vérifié ici est l'exigence telle qu'elle est écrite : le contenu
+     vient d'une liste CONFIGURABLE (on relit le fichier servi et on le compare au
+     DOM), il défile tout seul, il se met en pause au survol, les points y mènent,
+     le glissement horizontal change de bannière, et chaque bannière ouvre son lien
+     dans un NOUVEL onglet. Les FLÈCHES sont vérifiées à part : visibles seulement au
+     survol, et mesurées au pixel pour rester hors du texte des visuels. */
+  await step("l'Accueil porte le carrousel publicitaire configuré (n° 4)", async () => {
+    await goScreen(A.page, "home");
+    await sleep(1400);
+    const conf = await (await fetch(BASE + "/assets/ad/pubs.json")).json();
+    const attendues = await A.page.evaluate((pubs) => window.App.pubsActives(pubs).map((p) => p.image), conf.pubs || []);
+    const vu = await A.page.evaluate(() => {
+      const car = document.getElementById("ad-car");
+      if (!car) return null;
+      const slides = [...car.querySelectorAll("[data-car-slide]")];
+      return {
+        n: slides.length,
+        src: slides.map((s) => (s.querySelector("img") || {}).getAttribute("src")),
+        cible: slides.map((s) => s.getAttribute("target")),
+        rel: slides.map((s) => s.getAttribute("rel") || ""),
+        tags: car.querySelectorAll(".ad-car__tag").length,
+        points: car.querySelectorAll("[data-car-go]").length,
+      };
+    });
+    if (!vu) return "aucun carrousel sur l'Accueil alors que la configuration est active";
+    if (vu.n !== attendues.length)
+      return `le carrousel montre ${vu.n} bannière(s) pour ${attendues.length} active(s) dans la configuration`;
+    if (vu.n < 1) return "carrousel vide";
+    if (vu.tags !== vu.n) return "la mention « Publicité » ne suit pas chaque bannière";
+    if (vu.cible.some((c) => c !== "_blank")) return "une bannière ne s'ouvre pas dans un nouvel onglet";
+    if (vu.rel.some((r) => !/noopener/.test(r))) return "un lien de bannière s'ouvre sans noopener";
+    if (JSON.stringify(vu.src) !== JSON.stringify(attendues))
+      return "les images affichées ne sont pas celles de la configuration : " + JSON.stringify([vu.src, attendues]);
+    if (vu.n > 1 && vu.points !== vu.n) return "les points ne correspondent pas au nombre de bannières";
+    /* La règle de DATES est prouvée sur des cas fabriqués : une bannière terminée et
+       une bannière pas encore commencée ne doivent pas être retenues. */
+    const regle = await A.page.evaluate(() => window.App.pubsActives([
+      { id: "passee", image: "a.png", fin: "2000-01-01" },
+      { id: "future", image: "b.png", debut: "2999-01-01" },
+      { id: "active", image: "c.png", debut: "2000-01-01", fin: "2999-12-31" },
+      { id: "sans-date", image: "d.png" },
+    ]).map((p) => p.id));
+    return JSON.stringify(regle) === JSON.stringify(["active", "sans-date"]) ? true
+      : "la règle de dates est fausse : " + JSON.stringify(regle);
+  });
+
+  await step("le carrousel défile seul, se met en pause au survol, et répond aux points et au glissement (n° 4)", async () => {
+    const lire = () => A.page.evaluate(() => {
+      const car = document.getElementById("ad-car");
+      if (!car) return { on: -1 };
+      return { on: [...car.querySelectorAll("[data-car-go]")].findIndex((x) => x.classList.contains("on")) };
+    });
+    const n = await A.page.evaluate(() => document.querySelectorAll("#ad-car [data-car-slide]").length);
+    if (n < 2) return "une seule bannière : les gestes du carrousel ne sont pas mesurables";
+    await A.page.mouse.move(6, 6);                     // curseur HORS du carrousel
+    const a = await lire();
+    await sleep(7400);
+    const b = await lire();
+    if (b.on === a.on) return `le carrousel ne défile pas tout seul (index ${a.on} inchangé)`;
+    /* Pause au survol : 7 s de survol, index immobile. Le point visé est VÉRIFIÉ
+       (elementFromPoint) : si le carrousel est hors de l'écran ou partiellement
+       sous la barre haute, la souris n'entre PAS dans la bannière — la mesure ne
+       dirait rien de la pause. On le constate, puis on survole le bon point. */
+    const cible = await A.page.evaluate(() => {
+      const c = document.getElementById("ad-car");
+      if (!c) return null;
+      c.scrollIntoView({ block: "center", behavior: "instant" });
+      const r = c.getBoundingClientRect();
+      const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+      const el = document.elementFromPoint(x, y);
+      return { x, y, dedans: !!el && c.contains(el), dessus: el ? (el.className || el.tagName) + "" : null };
+    });
+    if (!cible) return "carrousel introuvable";
+    if (!cible.dedans) return `le point de survol (${cible.x}, ${cible.y}) tombe sur « ${cible.dessus} », pas sur la bannière`;
+    await A.page.mouse.move(cible.x, cible.y);
+    const c1 = await lire();
+    await sleep(7400);
+    const c2 = await lire();
+    if (c1.on !== c2.on) return `le carrousel avance malgré le survol (${c1.on} -> ${c2.on})`;
+    /* Point cliquable : retour à la première bannière. */
+    await A.page.mouse.move(6, 6);
+    await A.page.click('#ad-car [data-car-go="0"]');
+    await sleep(700);
+    if ((await lire()).on !== 0) return "le premier point n'affiche pas la première bannière";
+    /* Glissement horizontal : le geste tactile du mobile, rejoué par les mêmes
+       événements pointeur (donc mesurable à la souris aussi). Il part de la rangée
+       des POINTS, jamais d'une diapositive, pour ne pas suivre un lien en même
+       temps que le geste. */
+    const b2 = await A.page.locator("#ad-car").boundingBox();
+    const y = b2.y + b2.height - 6;
+    await A.page.mouse.move(b2.x + b2.width * 0.72, y);
+    await A.page.mouse.down();
+    await A.page.mouse.move(b2.x + b2.width * 0.18, y, { steps: 10 });
+    await A.page.mouse.up();
+    await sleep(700);
+    const e = await lire();
+    return e.on === 1 ? true : "le glissement ne change pas de bannière (index " + e.on + ")";
+  });
+
+  /* Les flèches ne doivent pas recouvrir le TEXTE des bannières — et ce n'est pas
+     une intention, c'est MESURÉ : chaque bannière réellement servie est relue dans
+     un canevas (même origine) et on cherche, dans sa colonne de gauche, le premier
+     pixel de texte sombre sur fond clair. La flèche gauche, relevée au survol, doit
+     rester à gauche de ce pixel. Changer de visuel dans `pubs.json` rejoue la
+     mesure : une bannière écrite jusque dans ses bords ferait échouer ce contrôle. */
+  await step("les flèches du carrousel restent hors du texte des bannières (n° 4)", async () => {
+    await goScreen(A.page, "home");
+    await sleep(1200);
+    /* Discrétion : aucune flèche affichée sans survol. */
+    await A.page.mouse.move(6, 6);
+    await sleep(250);
+    const repos = await A.page.evaluate(() => {
+      const f = document.querySelector("#ad-car .ad-car__arrow");
+      return f ? getComputedStyle(f).visibility : "absente";
+    });
+    if (repos === "absente") return "le carrousel de l'Accueil n'a pas de flèches";
+    if (repos !== "hidden") return "une flèche reste affichée hors survol (occupation permanente)";
+    await A.page.hover("#ad-car");
+    await sleep(900);
+    const m = await A.page.evaluate(async () => {
+      const car = document.getElementById("ad-car");
+      const aGauche = car.querySelector(".ad-car__arrow.prev"), aDroite = car.querySelector(".ad-car__arrow.next");
+      if (!aGauche || !aDroite) return { erreur: "flèches manquantes" };
+      const affichees = [aGauche, aDroite].map((f) => getComputedStyle(f).visibility);
+      const imgs = [...car.querySelectorAll("[data-car-slide] img")];
+      const carBox = car.getBoundingClientRect();
+      /* Cadre de référence : la diapositive VISIBLE (les autres sont translatées
+         par la piste, leur rectangle n'est plus comparable aux flèches). */
+      const vis = imgs.find((i) => Math.abs(i.getBoundingClientRect().left - carBox.left) < 3);
+      if (!vis) return { erreur: "aucune diapositive alignée sur le carrousel (transition en cours ?)" };
+      const rv = vis.getBoundingClientRect();
+      const rg = aGauche.getBoundingClientRect(), rd = aDroite.getBoundingClientRect();
+      const charger = (src) => new Promise((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = () => rej(new Error(src));
+        i.src = src;
+      });
+      const bilans = [];
+      for (const img of imgs) {
+        const src = img.currentSrc || img.src;
+        const r = img.getBoundingClientRect();
+        const dw = Math.round(r.width), dh = Math.round(r.height);
+        let bmp;
+        try { bmp = await charger(src); } catch (e) { bilans.push({ nom: src.split("/").pop(), note: "fichier illisible" }); continue; }
+        if (!dw || !dh || !bmp.naturalWidth || !bmp.naturalHeight) {
+          bilans.push({ nom: src.split("/").pop(), note: "géométrie non mesurable" });
+          continue;
+        }
+        /* `object-fit: cover` : correspondance affichage → image (échelle
+           maximale, recadrage centré, `object-position: 50% 45%`). */
+        const ech = Math.max(dw / bmp.naturalWidth, dh / bmp.naturalHeight);
+        const ox = (dw - bmp.naturalWidth * ech) / 2, oy = (dh - bmp.naturalHeight * ech) * 0.45;
+        const c = document.createElement("canvas");
+        c.width = dw; c.height = dh;
+        const cx = c.getContext("2d", { willReadFrequently: true });
+        cx.drawImage(bmp, ox, oy, bmp.naturalWidth * ech, bmp.naturalHeight * ech);
+        const dat = cx.getImageData(0, 0, dw, dh).data;
+        const lum = (x, y) => { const i = (y * dw + x) * 4; return (dat[i] * 299 + dat[i + 1] * 587 + dat[i + 2] * 114) / 1000; };
+        /* Premier pixel de TEXTE de la colonne de gauche (bande 25–85 % de la
+           hauteur) : sombre, sur un fond CLAIR à 12 px de là — un aplat sombre
+           (bandeau bleu d'un visuel) ne compte pas comme du texte. */
+        let min = null;
+        for (let y = Math.round(0.25 * dh); y < Math.round(0.85 * dh); y++) {
+          for (let x = 0; x < Math.min(200, dw - 14); x++) {
+            if (lum(x, y) < 120 && lum(x + 12, y) > 190) { if (min === null || x < min) min = x; break; }
+          }
+        }
+        bilans.push({ nom: src.split("/").pop(), min });
+      }
+      return {
+        affichees,
+        gauche: Math.round((rg.right - rv.left) * 10) / 10,
+        droite: Math.round((rv.right - rd.left) * 10) / 10,
+        largeur: Math.round(rv.width),
+        bilans,
+      };
+    });
+    if (m.erreur) return m.erreur;
+    if (m.affichees.some((v) => v !== "visible")) return "les flèches restent masquées au survol";
+    if (m.gauche < 3 || m.droite < 3)
+      return `une flèche colle au bord de l'image (gauche ${m.gauche} px, droite ${m.droite} px)`;
+    if (m.gauche > m.largeur / 4 || m.droite > m.largeur / 4) return "une flèche s'avance trop dans l'image";
+    const mesures = m.bilans.filter((b) => typeof b.min === "number");
+    if (!mesures.length) return "aucune bannière mesurable : " + JSON.stringify(m.bilans);
+    console.log("         mesure : flèches à " + m.gauche + " px du bord gauche (image " + m.largeur
+      + " px) · texte : " + mesures.map((b) => b.nom + " dès " + b.min + " px").join(" · ")
+      + (m.bilans.length > mesures.length ? " · non mesurables : " + m.bilans.filter((b) => b.note).map((b) => b.nom + " (" + b.note + ")").join(", ") : ""));
+    for (const b of mesures) {
+      if (m.gauche > b.min - 2)
+        return `la flèche gauche (${m.gauche} px) recouvre le texte de « ${b.nom} » (texte dès ${b.min} px)`;
+    }
+    return true;
+  });
+
+  /* =========================================================================
+     Retour terrain n° 5 — bloc de saison à la place de la carte de tournoi
+     ========================================================================= */
+  await step("l'Accueil affiche la carte de SAISON (pseudo, Elo, 3 indicateurs) à la place de la carte tournoi (n° 5)", async () => {
+    await goScreen(A.page, "home");
+    await sleep(1000);
+    const d = await A.page.evaluate(() => {
+      const c = document.getElementById("season-card");
+      if (!c) return null;
+      const s = window.App.state();
+      return {
+        fil: (c.querySelector(".season-crumb") || {}).innerText || "",
+        boutons: c.querySelectorAll(".season-crumb button").length,
+        pseudo: (c.querySelector(".dash-info h2") || {}).innerText || "",
+        elo: (c.querySelector(".dash-meta") || {}).innerText || "",
+        tuiles: [...c.querySelectorAll(".dash-stat")].map((t) => t.innerText.replace(/\n/g, " ")),
+        carteTournoi: !!document.getElementById("home-root").querySelector(".t-card"),
+        etat: { pseudo: s.pseudo, elo: s.elo, balance: s.balance },
+      };
+    });
+    if (!d) return "aucune carte de saison sur l'Accueil";
+    if (d.carteTournoi) return "l'ancienne carte de tournoi est encore affichée à la place";
+    for (const mot of ["wallet", "tournois", "jeux", "classement"]) {
+      if (!new RegExp(mot, "i").test(d.fil)) return "fil d'Ariane incomplet : « " + d.fil.replace(/\n/g, " ") + " »";
+    }
+    if (d.boutons !== 4) return "le fil d'Ariane ne porte pas ses 4 accès cliquables (" + d.boutons + ")";
+    if (d.pseudo !== d.etat.pseudo) return "le pseudo affiché n'est pas celui du joueur connecté : « " + d.pseudo + " »";
+    if (!d.elo.includes(String(d.etat.elo))) return "l'Elo affiché ne suit pas les données réelles : « " + d.elo + " »";
+    /* Mise en forme française : séparateur de milliers (espace fine) et unité « Ar ». */
+    const solde = d.tuiles.find((t) => /solde/i.test(t)) || "";
+    const nu = (s) => String(s).replace(/[\s\u00a0\u202f]/g, "");
+    if (!/Ar/.test(solde)) return "le solde n'affiche pas l'unité « Ar » : « " + solde + " »";
+    if (!nu(solde).includes(nu(d.etat.balance)))
+      return `le solde affiché (« ${solde} ») ne correspond pas au wallet réel (${d.etat.balance})`;
+    if (!d.tuiles.some((t) => /parties jou/i.test(t))) return "l'indicateur « Parties jouées » manque";
+    return d.tuiles.some((t) => /victoires/i.test(t)) ? true : "l'indicateur « Victoires » manque";
+  });
+
+  await step("chaque mot du fil d'Ariane mène à sa section (n° 5)", async () => {
+    for (const [mot, route] of [["wallet", "wallet"], ["classement", "ranks"], ["jeux", "play"]]) {
+      await goScreen(A.page, "home");
+      await sleep(800);
+      await A.page.click(`#season-card [data-crumb="${mot}"]`);
+      await sleep(1000);
+      const vu = await routeOf(A.page);
+      if (vu !== route) return `« ${mot} » ouvre « ${vu} » au lieu de « ${route} »`;
+    }
+    /* « tournois » ouvre l'écran Match sur son onglet Tournois. */
+    await goScreen(A.page, "home");
+    await sleep(800);
+    await A.page.click('#season-card [data-crumb="tournois"]');
+    await sleep(1400);
+    const m = await A.page.evaluate(() => {
+      const actif = [...document.querySelectorAll("#mt-tiles .mt-tile")].find((t) => t.getAttribute("aria-selected") === "true");
+      return { route: (location.hash || "").replace("#/", "").split("?")[0], onglet: actif ? actif.dataset.mtab : "" };
+    });
+    if (m.route !== "match") return "« tournois » n'ouvre pas l'écran Match (« " + m.route + " »)";
+    return m.onglet === "tournois" ? true : "« tournois » n'ouvre pas l'onglet Tournois (« " + m.onglet + " »)";
+  });
 }
 
 /* =========================================================================
@@ -1327,10 +1585,9 @@ async function s8_skins(browser) {
         const dark = (document.querySelector("#skins-root [data-pion-camp][aria-selected='true']") || {}).dataset?.pionCamp === "dark";
         const big = document.querySelector("#skins-root [data-pion-preview]");
         const mini = document.querySelector('#skins-root [data-pick-pattern="lemurien"] .pion-view');
-        const miniMount = mini ? getComputedStyle(mini).backgroundColor : null;
         const board = document.getElementById("fanorona-board");
         return {
-          dark, bigBg: bg(big), miniBg: bg(mini), miniMount, bigLayer: coucheMotif(big),
+          dark, bigBg: bg(big), miniBg: bg(mini), bigLayer: coucheMotif(big),
           bigMotif: dark ? big.dataset.pionMotifDark : big.dataset.pionMotif,
           miniMotif: mini && (dark ? mini.dataset.pionMotifDark : mini.dataset.pionMotif),
           board: !!board,
@@ -1341,15 +1598,26 @@ async function s8_skins(browser) {
       });
       if (d.styles !== 1) return "la feuille #pion-styles n'est pas générée (ou en double)";
       if (!/radial-gradient/.test(d.bigBg || "")) return `${camp} : l'aperçu n'a pas de dégradé : ` + d.bigBg;
-      /* La vignette de motif est une MONTURE BLANCHE depuis l'habillage
-         « vitrine » : elle montre le DESSIN, découplé de la couleur (qui se
-         juge sur le pion d'aperçu). Le contrat n'est donc plus « aperçu =
-         vignette » mais « la vignette ne suit AUCUNE couleur de camp » : fond
-         blanc nu, seule la peinture du motif (masque ou image) s'ajoute. */
-      if (!/^rgb\(255,\s*255,\s*255\)$/.test(String(d.miniMount || "").trim()))
-        return "la vignette de motif n'est plus une monture blanche : " + String(d.miniMount);
-      if (/radial-gradient/.test(String(d.miniBg || "")))
-        return "la vignette de motif suit encore la couleur du camp : " + String(d.miniBg).slice(0, 90);
+      /* La vignette de motif est une MONTURE BLANCHE, découplée de la couleur du
+         camp : elle ne doit donc PAS reprendre le dégradé de l'aperçu (c'est le
+         contrat écrit dans `pionPatternCardHtml`, et `_probe_skins_neon.js` le
+         tient de son côté). Ce que les trois rendus partagent, c'est la RECETTE DU
+         DESSIN : le fichier PNG est le même pour l'aperçu du camp et pour la
+         vignette — mesuré ici sur la vignette du motif lémurien, qui ne porte
+         aucun suffixe de camp et peint donc toujours le dessin CLAIR. */
+      if (/radial-gradient/.test(d.miniBg || ""))
+        return `${camp} : la vignette de motif reprend la couleur du camp : ` + d.miniBg;
+      const vg = await A.page.evaluate(() => {
+        const el = document.querySelector('#skins-root [data-pick-pattern="lemurien"] .pion-view');
+        if (!el) return null;
+        const s = getComputedStyle(el, "::before");
+        return { img: s.backgroundImage + "", mask: (s.webkitMaskImage || s.maskImage || "none") + "" };
+      });
+      if (!vg) return "la vignette du motif lémurien est introuvable";
+      if (!/assets\/pions\/lemurien\.png/.test(vg.img || ""))
+        return "la vignette ne peint pas le dessin du lémurien : " + String(vg.img).slice(0, 130);
+      if (!/^none$/i.test(String(vg.mask).trim()))
+        return "un masque rognerait le dessin de la vignette : " + String(vg.mask).slice(0, 110);
       /* DEUX familles de motifs, deux peintures — et jamais les deux à la fois :
          — IMAGE (le lot de `assets/pions/`) : le fichier est peint par
            `background-image`, et le masque reste `none` (sinon il rognerait
@@ -1701,35 +1969,98 @@ async function s10_notifications(browser) {
     return Number(c) >= 1 ? true : "compteur inattendu : " + c;
   });
 
-  await step("l'écran Notifications s'ouvre depuis la cloche et liste les événements", async () => {
-    await A.page.click("#btn-notif");
-    await sleep(1500);
-    if (!(await visible(A.page, "#notifications-root"))) return "l'écran Notifications ne s'ouvre pas depuis la cloche";
-    const n = await A.page.locator("#notifications-root .feed-item").count();
-    if (n < 1) return "aucune notification listée";
-    const txt = await textOf(A.page, "#notifications-root");
-    return /inscri/i.test(txt || "") ? true : "la notification d'inscription est absente : « " + (txt || "").slice(0, 90) + " »";
-  });
-
-  await step("marquer une notification comme lue décrémente le compteur", async () => {
+  await step("la cloche ouvre le panneau ANCRÉ (sans changer de page), et le compteur retombe à zéro", async () => {
+    const route = await routeOf(A.page);
     const before = Number((await A.page.getAttribute("#btn-notif", "data-count")) || 0);
-    const btn = A.page.locator('#notifications-root button[onclick*="readNotification"]').first();
-    if (!(await btn.count())) return "aucun bouton « Marquer lu » sur les notifications non lues";
-    await btn.click();
-    await sleep(2000);
-    const after = Number((await A.page.getAttribute("#btn-notif", "data-count")) || 0);
-    return after === before - 1 ? true : `compteur ${before} -> ${after} (attendu ${before - 1})`;
+    await A.page.click("#btn-notif");
+    await sleep(1200);
+    const etat = await A.page.evaluate(() => {
+      const p = document.getElementById("notif-panel");
+      const bar = document.querySelector(".topbar");
+      if (!p || p.hidden) return null;
+      const r = p.getBoundingClientRect(), b = bar.getBoundingClientRect();
+      return {
+        ancree: r.top >= b.bottom - 2 && r.top <= b.bottom + 40,
+        largeur: Math.round(r.width), hauteur: Math.round(r.height),
+        vue: r.top >= 0 && r.bottom <= window.innerHeight + 2 && r.left >= 0 && r.right <= window.innerWidth + 2,
+        titre: (p.querySelector(".pp-head h3") || {}).textContent || "",
+        items: p.querySelectorAll(".pp-item").length,
+        points: p.querySelectorAll(".pp-dot").length,
+        texte: p.innerText || "",
+      };
+    });
+    if (!etat) return "le panneau ne s'ouvre pas depuis la cloche";
+    if (!etat.ancree) return "le panneau n'est pas ancré sous la barre du haut";
+    if (!etat.vue) return "le panneau dépasse de la fenêtre";
+    if (!/notifications/i.test(etat.titre)) return "l'en-tête du panneau ne dit pas « Notifications »";
+    if (etat.items < 1) return "aucune notification listée dans le panneau";
+    if (!/inscri/i.test(etat.texte)) return "la notification d'inscription est absente : « " + etat.texte.slice(0, 90) + " »";
+    if ((await routeOf(A.page)) !== route) return "l'ouverture du panneau a changé de page";
+    /* Exigence n° 1 : le compteur tombe à zéro quand le panneau est ouvert… */
+    const apres = (await A.page.getAttribute("#btn-notif", "data-count")) || "";
+    if (apres !== "") return "le compteur n'est pas remis à zéro à l'ouverture : " + apres;
+    /* …mais les points bleus restent affichés (sinon l'ouverture effacerait
+       l'information qu'elle vient de montrer). */
+    return before >= 1 && etat.points >= 1 ? true
+      : `l'état non lu n'est pas visible (compteur avant ${before}, points ${etat.points})`;
   });
 
-  await step("« Tout marquer lu » vide le compteur", async () => {
-    const btn = A.page.locator("#notifications-root button", { hasText: "Tout marquer lu" });
-    if (!(await btn.count())) return "bouton « Tout marquer lu » absent";
-    await btn.first().click();
-    await sleep(2000);
+  await step("un SECOND clic sur la cloche referme le panneau", async () => {
+    await A.page.click("#btn-notif");
+    await sleep(700);
+    const ouvert = await A.page.evaluate(() => !document.getElementById("notif-panel").hidden);
+    return ouvert ? "le panneau reste ouvert après un second clic sur la cloche" : true;
+  });
+
+  await step("un clic À L'EXTÉRIEUR referme le panneau", async () => {
+    await A.page.click("#btn-notif");
+    await sleep(700);
+    const pt = await A.page.evaluate(() => {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      for (const [x, y] of [[24, vh - 24], [vw / 2, vh - 30], [24, 120]]) {
+        const el = document.elementFromPoint(x, y);
+        if (!el) continue;
+        if (el.closest("button, a, input, select, textarea, [role=button]")) continue;
+        return { x, y };
+      }
+      return null;
+    });
+    if (!pt) return "aucun point neutre trouvé pour le clic extérieur";
+    await A.page.mouse.click(pt.x, pt.y);
+    await sleep(700);
+    const ouvert = await A.page.evaluate(() => !document.getElementById("notif-panel").hidden);
+    return ouvert ? "le panneau reste ouvert après un clic à l'extérieur" : true;
+  });
+
+  await step("les deux filtres « Toutes » et « Non lues » trient la liste", async () => {
+    await A.page.click("#btn-notif");
+    await sleep(800);
+    await A.page.click('#notif-panel [data-pp-filtre="unread"]');
+    await sleep(400);
+    const nonLues = await A.page.locator("#notif-panel .pp-item").count();
+    await A.page.click('#notif-panel [data-pp-filtre="all"]');
+    await sleep(400);
+    const toutes = await A.page.locator("#notif-panel .pp-item").count();
+    if (toutes < 1) return "l'onglet « Toutes » n'affiche rien";
+    /* Après l'ouverture, tout est marqué lu : « Non lues » peut donc être vide —
+       ce qui compte est qu'il ne montre JAMAIS plus d'éléments que « Toutes ». */
+    if (nonLues > toutes) return `« Non lues » (${nonLues}) dépasse « Toutes » (${toutes})`;
+    /* Le bouton œil (marquer comme lu) est présent dès qu'il y a des éléments. */
+    const oeil = await A.page.locator("#notif-panel [data-pp-lu]").count();
+    if (!oeil) return "le bouton « œil » de marquage n'est pas dans l'en-tête";
+    await A.page.click("#notif-panel [data-pp-lu]");
+    await sleep(900);
+    const points = await A.page.locator("#notif-panel .pp-dot").count();
     const c = (await A.page.getAttribute("#btn-notif", "data-count")) || "";
-    if (c !== "") return "le compteur n'est pas vidé : " + c;
-    const txt = await textOf(A.page, "#notifications-root");
-    return /0 non lue/i.test(txt || "") ? true : "l'en-tête n'annonce pas 0 non lue : « " + (txt || "").slice(0, 60) + " »";
+    if (points !== 0) return "des points bleus subsistent après le marquage global";
+    return c === "" ? true : "le compteur reste allumé après le marquage global : " + c;
+  });
+
+  await step("le panneau se referme par le bouton de fermeture du navigateur (Échap)", async () => {
+    await A.page.keyboard.press("Escape");
+    await sleep(600);
+    const ouvert = await A.page.evaluate(() => !document.getElementById("notif-panel").hidden);
+    return ouvert ? "Échap ne referme pas le panneau" : true;
   });
 }
 
@@ -1780,6 +2111,81 @@ async function s11_chat(browser) {
       return !!el && el.innerText.includes(t);
     }, [A.pseudo, txt], 14000);
     return vu ? true : "le message n'est pas arrivé chez le destinataire";
+  });
+
+  /* ---------- Retour terrain n° 8 : fermeture des fenêtres de conversation ----------
+     Trois exigences mesurées ici : la croix ferme VRAIMENT (l'ancien bouton
+     « réduire » ne faisait que replier la fenêtre), le clic À L'EXTÉRIEUR ferme
+     aussi, et le brouillon non envoyé revient à la réouverture — c'est l'option
+     retenue (conserver) plutôt qu'une confirmation qui interromprait la frappe. */
+  await step("la croix ferme la fenêtre de conversation et le brouillon est conservé", async () => {
+    const fenetre = await uiOpenChatPopup(A.page, C.pseudo);
+    if (fenetre !== true) return fenetre;
+    const champ = `[data-pop-field="${C.pseudo}"]`;
+    await A.page.fill(champ, "brouillon conservé");
+    const reduire = await A.page.evaluate((p) =>
+      !!document.querySelector(`.chat-pop[data-pop="${p}"] [data-pop-min]`), C.pseudo);
+    if (reduire) return "le bouton « réduire » est toujours dans la fenêtre";
+    await A.page.click(`[data-pop-close="${C.pseudo}"]`);
+    await sleep(600);
+    const restee = await A.page.evaluate((p) =>
+      !!document.querySelector(`.chat-pop[data-pop="${p}"]`), C.pseudo);
+    if (restee) return "la croix ne ferme pas la fenêtre de conversation";
+    const reouvert = await uiOpenChatPopup(A.page, C.pseudo);
+    if (reouvert !== true) return reouvert;
+    await sleep(400);
+    const valeur = await A.page.inputValue(champ).catch(() => "");
+    if (valeur !== "brouillon conservé") return "le brouillon est perdu à la fermeture : « " + valeur + " »";
+    /* On referme : la fenêtre est en `fixed` au-dessus de la liste des amis, et la
+       laisser ouverte empêcherait le geste de l'étape suivante. */
+    await A.page.click(`[data-pop-close="${C.pseudo}"]`).catch(() => {});
+    await sleep(500);
+    return true;
+  });
+
+  await step("un clic À L'EXTÉRIEUR de la fenêtre la referme et garde le brouillon", async () => {
+    /* Un point NEUTRE de la page : hors de toute fenêtre et sans action propre,
+       sinon le clic extérieur naviguerait au passage et fausserait la mesure. */
+    const pointNeutre = () => A.page.evaluate(() => {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      for (const [x, y] of [[24, vh - 24], [vw / 2, 8], [24, 8], [vw - 8, vh - 8]]) {
+        const el = document.elementFromPoint(x, y);
+        if (!el) continue;
+        if (el.closest("button, a, input, select, textarea, [role=button]")) continue;
+        return { x, y };
+      }
+      return null;
+    });
+    /* Mise à zéro : on referme ce qui aurait pu rester ouvert avant de mesurer. */
+    const nettoyage = await pointNeutre();
+    if (nettoyage) await A.page.mouse.click(nettoyage.x, nettoyage.y);
+    await sleep(400);
+    const fenetre = await uiOpenChatPopup(A.page, C.pseudo);
+    if (fenetre !== true) return fenetre;
+    const champ = `[data-pop-field="${C.pseudo}"]`;
+    await A.page.fill(champ, "clic extérieur");
+    const pt = await pointNeutre();
+    if (!pt) return "aucun point neutre trouvé pour le clic extérieur";
+    await A.page.mouse.click(pt.x, pt.y);
+    await sleep(600);
+    const restee = await A.page.evaluate((p) =>
+      !!document.querySelector(`.chat-pop[data-pop="${p}"]`), C.pseudo);
+    if (restee) return "la fenêtre reste ouverte après un clic à l'extérieur";
+    /* Un clic DANS la fenêtre ne doit PAS la fermer : sans cela, écrire un message
+       refermerait la conversation. */
+    const reouvert = await uiOpenChatPopup(A.page, C.pseudo);
+    if (reouvert !== true) return reouvert;
+    await sleep(400);
+    const valeur = await A.page.inputValue(champ).catch(() => "");
+    if (valeur !== "clic extérieur") return "le brouillon du clic extérieur est perdu : « " + valeur + " »";
+    await A.page.click(`[data-pop-field="${C.pseudo}"]`);
+    await sleep(400);
+    const dedans = await A.page.evaluate((p) =>
+      !!document.querySelector(`.chat-pop[data-pop="${p}"]`), C.pseudo);
+    if (!dedans) return "un clic DANS la fenêtre la referme : on ne peut plus écrire";
+    await A.page.click(`[data-pop-close="${C.pseudo}"]`).catch(() => {});   // remise en état
+    await sleep(400);
+    return true;
   });
 }
 
@@ -1843,6 +2249,17 @@ let BROWSER = null;
       if (!/function avatarInnerHtml/.test(html)) missing.push("fabrique d'avatar unique");
       if (!/function mapGameRows/.test(html)) missing.push("lecture unique de l'historique");
       if (!/\.link-pseudo \{/.test(html)) missing.push("styles des noms cliquables");
+      /* Retours terrain n° 6 et n° 8 : le verrou de zoom mobile et la fermeture des
+         fenêtres de conversation (par la croix ou par un clic à l'extérieur). */
+      if (!/maximum-scale=1\.0, user-scalable=no/.test(html)) missing.push("verrou de zoom mobile");
+      if (!/closeChatPopupsOutside/.test(html)) missing.push("fermeture du chat par clic extérieur");
+      if (!/function closeChatPopup\(/.test(html)) missing.push("fermeture d'une conversation");
+      if (/data-pop-min/.test(html)) missing.push("bouton « réduire » toujours présent");
+      /* Retour terrain n° 1 : les notifications et les amis s'ouvrent en panneau
+         ancré (les deux conteneurs + la fermeture au clic extérieur). */
+      if (!/id="notif-panel"/.test(html) || !/id="friends-panel"/.test(html)) missing.push("panneaux ancrés absents");
+      if (!/closePanelsOutside/.test(html)) missing.push("fermeture des panneaux par clic extérieur");
+      if (!/function renderNotifPanel\(/.test(html) || !/function renderFriendsPanel\(/.test(html)) missing.push("rendu des panneaux ancrés");
       return missing.length === 0 ? true : "correctifs absents du fichier servi : " + missing.join(", ");
     });
     await step("le mot de passe erroné est bien refusé par le serveur (401 attendu, hors erreurs applicatives)",
@@ -2224,6 +2641,121 @@ async function s12_match(browser) {
     return g.pct < 100 && g.pct > 0 ? true : "jauge à " + g.pct + " % (ni entamée ni pleine)";
   });
 
+  /* ---- Mise personnalisée (retour terrain n° 7) : le bouton ouvre un champ en
+     Ariary, la validation nomme ce qui ne va pas, et le montant retenu vaut pour
+     les DEUX joueurs — pot recalculé, et le défi part réellement avec ce montant. */
+  await step("« Montant personnalisé » : chaque saisie invalide est refusée avec un message clair", async () => {
+    await goMatchTab(A.page, "defis");
+    const sel = '#mt-online-root [data-mtdefy="' + B.pseudo + '"]';
+    if (!(await until(A.page, (s) => !!document.querySelector(s), sel, 9000)))
+      return "adversaire absent de la colonne Joueurs en ligne";
+    await mtClick(A.page, sel);
+    if (!(await until(A.page, () => !!document.querySelector("#play-root [data-wager-perso]"), 9000)))
+      return "le bouton « Montant personnalisé » n'est pas proposé dans « Mise du défi »";
+    await mtClick(A.page, "#play-root [data-wager-perso]");
+    if (!(await until(A.page, () => !!document.getElementById("wager-perso"), 6000)))
+      return "le clic n'ouvre pas le champ de saisie";
+    const solde = Number((((await apiFromPage(A.page, "/api/user", "GET")).json || {}).user || {}).balance || 0);
+    const essais = [
+      ["abc", /chiffres seulement/i, "une saisie non numérique est acceptée"],
+      ["0", /minimale/i, "un montant nul est accepté"],
+      ["200", /minimale/i, "un montant sous le minimum est accepté"],
+      ["9999999", /maximale/i, "un montant au-dessus du maximum est accepté"],
+      [String(solde + 1000), /solde insuffisant/i, "un montant au-dessus du solde est accepté"],
+    ];
+    for (const [valeur, attendu, reproche] of essais) {
+      await A.page.fill("#wager-perso", valeur);
+      await A.page.click("#wager-perso-ok");
+      await sleep(500);
+      const msg = await A.page.evaluate(() => {
+        const e = document.getElementById("wager-perso-err");
+        return e ? e.innerText.trim() : "";
+      });
+      if (!attendu.test(msg)) return `${reproche} (saisie « ${valeur} » → « ${msg} »)`;
+      /* L'assistant ne doit PAS avancer tant que la mise n'est pas valide. */
+      if (!(await A.page.evaluate(() => !!document.getElementById("wager-perso"))))
+        return `l'assistant avance avec une mise invalide (« ${valeur} »)`;
+    }
+    /* « Annuler » ramène aux montants prédéfinis. */
+    await A.page.click("#wager-perso-non");
+    await sleep(500);
+    const retour = await A.page.evaluate(() => {
+      const on = document.querySelector("#play-root .pg-chip.on");
+      return { champ: !!document.getElementById("wager-perso"), chip: on ? on.innerText.trim() : "" };
+    });
+    if (retour.champ) return "« Annuler » laisse le champ personnalisé ouvert";
+    await goMatchTab(A.page, "defis");   // on rend l'écran à l'étape suivante
+    return /500|1 000|2 000/.test(retour.chip) ? true
+      : "« Annuler » ne revient pas sur une mise proposée (« " + retour.chip + " »)";
+  });
+
+  await step("le montant personnalisé s'applique aux DEUX joueurs et le pot est recalculé", async () => {
+    const MONTANT = 1500;
+    /* On rouvre l'assistant depuis la colonne des joueurs en ligne : l'étape
+       précédente a pu laisser l'écran ailleurs (elle se termine sur l'onglet
+       Défis), et un clic dans une vue masquée ne mesurerait rien. */
+    await goMatchTab(A.page, "defis");
+    const cible = '#mt-online-root [data-mtdefy="' + B.pseudo + '"]';
+    if (!(await until(A.page, (s) => !!document.querySelector(s), cible, 9000)))
+      return "adversaire absent de la colonne Joueurs en ligne";
+    await mtClick(A.page, cible);
+    if (!(await until(A.page, () => !!document.querySelector("#play-root [data-wager-perso]"), 9000)))
+      return "l'assistant ne s'ouvre pas sur la mise du défi";
+    await A.page.click("#play-root [data-wager-perso]");
+    await sleep(400);
+    await A.page.fill("#wager-perso", String(MONTANT));
+    await A.page.click("#wager-perso-ok");
+    /* La mise vaut validation : l'assistant passe à l'étape du format. */
+    if (!(await until(A.page, () => !!document.querySelector("#play-root .pg-fmt:not(.off)"), 8000)))
+      return "la mise personnalisée valide n'ouvre pas l'étape du format";
+    await mtClick(A.page, "#play-root .pg-fmt:not(.off)");
+    await sleep(600);
+    if (!(await until(A.page, () => !!document.getElementById("pg-cta"), 8000)))
+      return "l'étape de lancement ne s'ouvre pas";
+    const recap = await A.page.evaluate(() => (document.querySelector(".pg-recap") || {}).innerText || "");
+    /* Les montants sont écrits avec une ESPACE FINE insécable (mise en forme
+       française des chiffres) : on compare sans aucun blanc, des deux côtés. */
+    const sansBlancs = (s) => String(s).replace(/[\s\u00a0\u202f]/g, "");
+    if (!sansBlancs(recap).includes(String(MONTANT)))
+      return "le récapitulatif n'affiche pas la mise personnalisée : « " + recap.replace(/\n/g, " · ") + " »";
+    if (!sansBlancs(recap).includes(String(MONTANT * 2)))
+      return "le pot total n'est pas recalculé (attendu " + MONTANT * 2 + " Ar)";
+    await mtClick(A.page, "#pg-cta");
+    await sleep(1500);
+    const m = (await modalText(A.page)) || "";
+    await dismissModals(A.page);
+    if (!/défi envoyé/i.test(m)) return "le défi personnalisé n'est pas confirmé : « " + m.slice(0, 60) + " »";
+    /* Chez le destinataire (B) : la carte du défi porte le MÊME montant — c'est la
+       règle affichée (« chaque joueur dépose le même montant »). */
+    await goMatchTab(B.page, "defis");
+    const vu = await until(B.page, (n) => {
+      const root = document.getElementById("defi-recu-root");
+      if (!root) return false;
+      return root.innerText.replace(/[\s\u00a0\u202f]/g, "").includes(n);
+    }, String(MONTANT), 12000);
+    /* On REFUSE ce défi de test : il a rempli son rôle (montant vérifié chez les
+       deux joueurs) et le laisser en attente ferait échouer l'étape suivante, qui
+       compte les cartes reçues. Le refus rembourse l'envoyeur — c'est le chemin
+       normal, celui d'un vrai joueur qui ne veut pas de ce défi. Le clic vise la
+       carte qui porte le montant, pas « la première » : avec deux cartes en
+       attente, « la première » ne serait pas forcément la bonne. */
+    const refus = await B.page.evaluate((n) => {
+      const carte = [...document.querySelectorAll("#defi-recu-root .mt-defi")]
+        .find((c) => c.innerText.replace(/[\s\u00a0\u202f]/g, "").includes(n));
+      const b = carte && carte.querySelector(".mt-defi__acts button.danger");
+      if (!b) return false;
+      b.click();
+      return true;
+    }, String(MONTANT));
+    await sleep(1200);
+    await goMatchTab(A.page, "defis");     // on rend l'écran à l'étape suivante
+    if (!vu) {
+      const txt = await textOf(B.page, "#defi-recu-root");
+      return "la carte du défi reçu n'annonce pas la mise personnalisée (" + MONTANT + " Ar) : « " + (txt || "").slice(0, 120) + " »";
+    }
+    return refus ? true : "le défi personnalisé ne peut pas être refusé par le destinataire";
+  });
+
   await step("la jauge se vide avec le temps réel, et le refus libère la carte", async () => {
     const g1 = await mtGauge(A.page);
     if (!g1) return "jauge absente avant la mesure";
@@ -2499,7 +3031,7 @@ async function s13_datafix(browser) {
       if (!row) return null;
       return {
         elo: (row.querySelector(".elo") || {}).innerText || "",
-        rank: (row.querySelector(".mono") || {}).innerText || "",
+        rank: (row.querySelector(".rk-num") || {}).innerText || "",
         photo: !!row.querySelector(".who-line img"),
         link: !!row.querySelector(".who-pseudo[onclick]"),
         onclick: (row.querySelector(".who-pseudo") || {}).getAttribute("onclick") || "",
@@ -2508,8 +3040,13 @@ async function s13_datafix(browser) {
     if (!html) return `ligne introuvable pour ${newPseudo}`;
     const src = (await apiFromPage(A.page, "/api/leaderboard", "GET")).json.leaderboard.find((p) => p.id === newId);
     if (!src) return "le joueur est absent de la réponse /api/leaderboard";
-    if (html.elo.trim() !== String(src.elo)) return `Elo affiché « ${html.elo} » contre ${src.elo} côté API`;
-    if (html.rank.trim() !== String(src.rank)) return `rang affiché « ${html.rank} » contre ${src.rank} côté API`;
+    /* La cellule Elo porte la VALEUR puis son unité empilée (« 1100 » / « Elo »)
+       depuis la maquette « proposition 2 » : on compare donc les NOMBRES, et le
+       rang se lit sur deux chiffres (« 03 ») — c'est le format affiché. */
+    if (parseInt(html.elo.replace(/\s|\u202F/g, ""), 10) !== src.elo)
+      return `Elo affiché « ${html.elo} » contre ${src.elo} côté API`;
+    if (html.rank.trim() !== String(src.rank).padStart(2, "0"))
+      return `rang affiché « ${html.rank} » contre ${src.rank} côté API`;
     if (html.photo) return "une photo est affichée alors qu'aucune n'a été déposée";
     if (!html.link) return "le pseudo du classement n'ouvre pas de profil";
     if (!html.onclick.includes("openProfileById(" + newId + ")"))
@@ -2548,18 +3085,28 @@ async function s13_datafix(browser) {
     return /demande/i.test(after.title) ? true : `l'infobulle n'explique pas le badge (« ${after.title} »)`;
   });
 
-  await step("ouvrir l'écran Amis éteint le badge, et la demande reste listée", async () => {
+  await step("ouvrir le PANNEAU Amis éteint le badge, et la demande reste listée", async () => {
     await E.page.click("#btn-friends");
     await sleep(1500);
     const seen = await until(E.page, () => {
       const el = document.getElementById("btn-friends");
       return !!el && !el.getAttribute("data-count");
     }, 9000);
-    if (!seen) return "le badge reste allumé après ouverture de l'écran Amis";
+    if (!seen) return "le badge reste allumé après ouverture du panneau Amis";
+    /* Retour terrain n° 1 : les demandes se traitent DANS le panneau (boutons
+       Accepter / Refuser), sans quitter la page — l'écran Amis reste accessible
+       par « Voir tout ». */
+    const dansPanneau = await until(E.page, () => {
+      const p = document.getElementById("friends-panel");
+      return !!p && !p.hidden && !!p.querySelector("[data-pp-decline]");
+    }, 9000);
+    if (dansPanneau) return true;
+    /* Repli : on accepte aussi la vérification par l'écran complet, si la mesure
+       a lieu après une navigation vers « Voir tout ». */
     return (await until(E.page, () => {
       const p = document.getElementById("freq-panel");
       return !!p && !!p.querySelector("[data-decline]");
-    }, 9000)) ? true : "la demande reçue n'est plus visible dans l'écran Amis";
+    }, 3000)) ? true : "la demande reçue n'est plus visible (ni dans le panneau, ni dans l'écran Amis)";
   });
 
   await step("APRÈS RECHARGEMENT le badge reste éteint (le repère est côté serveur)", async () => {

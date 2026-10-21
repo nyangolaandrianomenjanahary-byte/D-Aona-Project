@@ -33,7 +33,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 const WebSocket = require("ws");
-const { legalMoves } = require("./game");
+const { legalMoves, GameSession } = require("./game");
 const DATA = require("./data");
 
 const PORT = 8099;
@@ -312,9 +312,17 @@ async function phaseAmis() {
     friendsB.json.friends.some((f) => f.pseudo === users.Ari.pseudo));
 
   const thread = await api("/api/chat/" + users.Bema.pseudo, { token: A });
-  const auto = (thread.json.messages || []).find((m) => (m.text || "").startsWith("D-aona !"));
-  check("message automatique « D-aona ! » créé à l'acceptation", !!auto,
+  const auto = (thread.json.messages || []).find((m) => (m.text || "") === "De aona ? Masahy amiko ?");
+  check("message automatique « De aona ? Masahy amiko ? » créé à l'acceptation", !!auto,
     JSON.stringify((thread.json.messages || []).slice(0, 2)));
+  /* L'auteur est celui qui a DEMANDÉ (Ari) : côté Ari le fil montre un message
+     « me », côté Bema (celui qui a accepté) le même message vient « d'eux ». */
+  check("message automatique écrit par le DEMANDEUR (côté Ari : « me »)",
+    !!auto && auto.direction === "me", auto ? `direction ${auto.direction}` : "message introuvable");
+  const threadB = await api("/api/chat/" + users.Ari.pseudo, { token: B });
+  const autoB = (threadB.json.messages || []).find((m) => (m.text || "") === "De aona ? Masahy amiko ?");
+  check("côté accepteur (Bema), le message vient de l'expéditeur (« them »)",
+    !!autoB && autoB.direction === "them", autoB ? `direction ${autoB.direction}` : "message introuvable");
 
   const again = await api("/api/friends/respond", { method: "POST", body: { id: incoming.json.incoming[0].id, action: "accept" }, token: B });
   check("acceptation en double -> 400", again.status === 400, `code ${again.status}`);
@@ -337,6 +345,10 @@ async function phaseAmis() {
     crossed.status === 200 && crossed.json.status === "accepted", JSON.stringify(crossed.json));
   const eFriends = await api("/api/friends", { token: E });
   check("amitié croisée visible côté Efa", eFriends.json.friends.some((f) => f.pseudo === users.Doda.pseudo));
+  const threadD = await api("/api/chat/" + users.Efa.pseudo, { token: D });
+  check("demande croisée : le message automatique est aussi écrit par le demandeur (Doda)",
+    (threadD.json.messages || []).some((m) => (m.text || "") === "De aona ? Masahy amiko ?" && m.direction === "me"),
+    JSON.stringify((threadD.json.messages || []).slice(0, 2)));
 
   /* Retrait */
   const removed = await api("/api/friends/" + users.Bema.pseudo, { method: "DELETE", token: A });
@@ -747,6 +759,53 @@ async function phasePionStyle() {
     seul.status === 200 && seul.json.pionStyles.dark.color === "grenat"
     && seul.json.pionStyles.dark.pattern === "aucun",
     JSON.stringify(seul.json));
+
+  /* --- FORME du pion : ronde / carrée / triangulaire (migration 014) ---
+     Troisième axe, indépendant des deux autres, validé par le même catalogue
+     serveur. Le défaut est « ronde » — la silhouette d'avant, donc une base
+     migrée ne change pas d'apparence. */
+  check("GET /api/skins expose les 3 formes (ronde, carrée, triangulaire)",
+    Array.isArray(cat.json.shapes) && cat.json.shapes.length === 3
+    && ["ronde", "carree", "triangulaire"].every((id) => cat.json.shapes.some((s) => s.id === id)),
+    JSON.stringify(cat.json.shapes));
+  check("chaque camp démarre en forme RONDE (le pion d'avant la migration)",
+    cat.json.pionStyles.light.shape === "ronde" && cat.json.pionStyles.dark.shape === "ronde",
+    JSON.stringify(cat.json.pionStyles));
+  const forme1 = await api("/api/pion/style", { method: "POST", body: { camp: "light", shape: "triangulaire", color: "jaune", pattern: "aucun" }, token: A });
+  check("enregistrer une FORME pour les pions clairs (triangulaire) -> 200",
+    forme1.status === 200 && forme1.json.pionStyles.light.shape === "triangulaire",
+    JSON.stringify(forme1.json.pionStyles && forme1.json.pionStyles.light));
+  check("la forme n'a pas touché le camp sombre",
+    forme1.json.pionStyles.dark.shape === "ronde", JSON.stringify(forme1.json.pionStyles.dark));
+  const forme2 = await api("/api/pion/style", { method: "POST", body: { camp: "dark", shape: "carree", color: "grenat", pattern: "aucun" }, token: A });
+  check("enregistrer une FORME pour les pions sombres (carrée) -> 200",
+    forme2.status === 200 && forme2.json.pionStyles.dark.shape === "carree"
+    && forme2.json.pionStyles.light.shape === "triangulaire",
+    JSON.stringify(forme2.json.pionStyles));
+  const formeFantome = await api("/api/pion/style", { method: "POST", body: { camp: "light", shape: "losange", color: "jaune", pattern: "aucun" }, token: A });
+  check("forme hors catalogue -> 400", formeFantome.status === 400, `${formeFantome.status} ${formeFantome.json && formeFantome.json.error}`);
+  /* Compatibilité : un client d'avant la 014 (qui n'envoie que couleur et motif)
+     ne doit pas REMETTRE la silhouette à zéro — elle est conservée. La couleur
+     reste « jaune », celle que la phase du temps réel attend pour ce compte. */
+  const sansForme = await api("/api/pion/style", { method: "POST", body: { camp: "light", color: "jaune", pattern: "aucun" }, token: A });
+  check("un appel SANS forme CONSERVE la forme enregistrée (compatibilité client)",
+    sansForme.status === 200 && sansForme.json.pionStyles.light.color === "jaune"
+    && sansForme.json.pionStyles.light.shape === "triangulaire",
+    JSON.stringify(sansForme.json.pionStyles && sansForme.json.pionStyles.light));
+  const apresForme = await api("/api/skins", { token: A });
+  check("les formes des deux camps sont persistées (et relues) séparément",
+    apresForme.json.pionStyles.light.shape === "triangulaire" && apresForme.json.pionStyles.dark.shape === "carree",
+    JSON.stringify(apresForme.json.pionStyles));
+  const autreForme = await api("/api/skins", { token: E });
+  check("la forme est PROPRE au compte (l'autre joueur reste en ronde)",
+    autreForme.json.pionStyles.light.shape === "ronde" && autreForme.json.pionStyles.dark.shape === "ronde",
+    JSON.stringify(autreForme.json.pionStyles));
+  /* L'état de PARTIE porte la forme : le plateau se peint par propriétaire. */
+  const etatPions = await api("/api/skins", { token: A });
+  check("l'état d'apparence relayé au plateau contient les trois axes",
+    ["shape", "color", "pattern"].every((k) => k in etatPions.json.pionStyles.light)
+    && ["shape", "color", "pattern"].every((k) => k in etatPions.json.pionStyles.dark),
+    JSON.stringify(etatPions.json.pionStyles));
 }
 
 /* =========================================================
@@ -900,6 +959,25 @@ async function phaseTempsReel() {
   check("l'état est diffusé à l'adversaire, identique",
     !!mirror && !!after && JSON.stringify(mirror.state.grid) === JSON.stringify(after.state.grid));
 
+  /* 9.4b Anti-triche : on ne joue que pendant SON tour. Le « mauvais » joueur
+     envoie un coup pourtant légal de la position — il doit être refusé et
+     aucun coup ne doit être appliqué. */
+  if (after && after.state.turn) {
+    const chAfter = after.state.chain
+      ? { pos: after.state.chain.pos, visited: new Set(after.state.chain.visited), lastDir: after.state.chain.lastDir }
+      : null;
+    const legalAfter = legalMoves(after.state.grid, after.state.turn, chAfter);
+    if (legalAfter.length) {
+      const wrongWs = after.state.turn === 1 ? wsP2 : wsP1;
+      const movesBefore = (after.state.moves || []).length;
+      wrongWs.send({ type: "move", sessionId: sid, move: legalAfter[0] });
+      const refused = await wrongWs.wait((m) => m.type === "error" && /votre tour/i.test(m.message || ""), 5000);
+      check("un joueur qui joue hors de son tour est refusé", !!refused, refused ? refused.message : "aucune erreur");
+      const applied = await wrongWs.wait((m) => m.type === "game_state" && (m.state.moves || []).length > movesBefore, 1200);
+      check("aucun coup n'est appliqué par le joueur hors tour", !applied);
+    }
+  }
+
   if (after && after.state.chain) {
     meWs.send({ type: "end_chain", sessionId: sid });
     const ended = await meWs.wait((m) => m.type === "game_state" && !m.state.chain, 5000);
@@ -1012,6 +1090,46 @@ async function phaseTempsReel() {
   a.close(); b.close(); e.close();
   await sleep(200);
 }
+/* =========================================================
+   PHASE 2b — Moteur : déplacement libre (unités, sans réseau)
+   ========================================================= */
+function phaseMoteur() {
+  section("2b. Moteur — déplacement libre (unités)");
+  const newSession = () => {
+    const s = new GameSession("unit-" + Math.random().toString(16).slice(2),
+      { id: 901, pseudo: "Unit1", elo: 1100 }, { id: 902, pseudo: "Unit2", elo: 1100 },
+      "ai", { id: "blitz", time: 600 }, 0);
+    s.phase = "play"; s.turn = 1;
+    return s;
+  };
+  const blank = () => Array.from({ length: 5 }, () => Array(9).fill(0));
+  /* Plateau : mon pion (2,4) PEUT prendre vers la droite (adversaire en (2,6),
+     case (2,5) vide devant) ; un AUTRE de mes pions (0,0) n'a qu'un pas simple. */
+  const s1 = newSession();
+  s1.grid = blank();
+  s1.grid[2][4] = 1; s1.grid[0][0] = 1; s1.grid[2][6] = 2;
+  const lm1 = legalMoves(s1.grid, 1, null);
+  const cap1 = lm1.find((m) => m.from[0] === 2 && m.from[1] === 4 && m.cap.length);
+  const paika1 = lm1.find((m) => m.from[0] === 0 && m.from[1] === 0 && m.to[0] === 0 && m.to[1] === 1 && !m.cap.length);
+  check("déplacement libre : la prise reste proposée quand elle existe", !!cap1, cap1 ? `cap ${cap1.cap.length}` : "aucune prise listée");
+  check("déplacement libre : un pas simple reste proposé MÊME quand une prise existe", !!paika1, `${lm1.length} coup(s) listé(s)`);
+  if (paika1) {
+    const r1 = s1.applyMove(paika1);
+    check("le moteur ACCEPTE un coup non capturant alors qu'une prise était possible", r1.ok === true, r1.error || "");
+  }
+  /* Case d'arrivée occupée par un pion ADVERSE : pas interdit dans cette
+     direction — et un coup forgé vers cette case est refusé par le moteur. */
+  const s2 = newSession();
+  s2.grid = blank();
+  s2.grid[2][4] = 1; s2.grid[0][0] = 1; s2.grid[2][6] = 2; s2.grid[2][3] = 2;
+  const lm2 = legalMoves(s2.grid, 1, null);
+  check("case d'arrivée occupée par un pion adverse : aucun pas dans cette direction",
+    !lm2.some((m) => m.to[0] === 2 && m.to[1] === 3),
+    lm2.filter((m) => m.from[0] === 2 && m.from[1] === 4).map((m) => JSON.stringify(m.to)).join(" "));
+  const forged = s2.applyMove({ from: [2, 4], to: [2, 3], dir: [0, -1], kind: "paika", cap: [] });
+  check("coup forgé vers case occupée : REFUSÉ par le moteur", forged.ok === false, forged.error || "accepté !");
+}
+
 /* =========================================================
    PHASE 10 — Entraînement contre l'IA et défis entre joueurs
    ========================================================= */
@@ -1429,6 +1547,7 @@ async function main() {
 
     await phaseComptes();
     await phaseReferentiels();
+    phaseMoteur();
     await phaseAmis();
     await phaseMessagerie();
     await phasePortefeuille();

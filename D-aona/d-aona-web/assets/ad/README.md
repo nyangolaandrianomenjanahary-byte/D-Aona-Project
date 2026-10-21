@@ -1,10 +1,14 @@
-# Visuel de l'emplacement publicitaire (Profil)
+# Bandeaux publicitaires (Profil et Accueil)
 
-Dossier du bandeau partenaire affiché en haut de la colonne droite du Profil
-(emplacement `#pf3-ad`, rendu par `adBannerHtml()` dans `index.html`).
+Dossier de la publicité du site : le bandeau partenaire affiché en haut de la colonne
+droite du Profil (emplacement `#pf3-ad`, rendu par `adBannerHtml()` dans
+`index.html`) **et** le **carrousel de l'Accueil** (`#ad-car`), dont TOUT le contenu
+est configurable — voir plus bas.
 
 | Fichier | Rôle |
 |---|---|
+| `pubs.json` | **configuration du carrousel de l'Accueil** : une entrée par bannière (`id`, `titre`, `image`, `repli` facultatif, `lien`, `debut` / `fin` facultatifs) — le seul fichier à toucher pour changer une campagne |
+| `d-aona-maison.svg` | bannière **maison** du carrousel (dessin vectoriel autonome, 1 983 o) |
 | `yas-nperf-2025.webp` | **l'asset officiel du partenaire**, demandé en premier par la page et servi tel quel — 2 560 × 960 (ratio 2,67:1), 247 Ko |
 | `yas-nperf-2025.svg` | version **vectorielle de secours**, prise par le repli `onerror` si le WebP manque (2 304 × 864, dessin à sa propre échelle) |
 
@@ -39,6 +43,31 @@ ligne de code à changer, la page le sert immédiatement. Cibles et conséquence
   ~1 700 px depuis la gauche si le cadrage mobile 16:9 doit rester lisible ;
 - **poids** : 247 Ko ici ; viser ≤ 400 Ko, l'emplacement s'affiche sur l'accueil du
   Profil, sous la ligne de flottaison sur téléphone.
+
+## Carrousel de l'Accueil — tout passe par `pubs.json`
+
+Le carrousel lit `pubs.json` à l'ouverture de l'écran et le serveur le sert **sans
+cache** : une entrée ajoutée, retirée ou modifiée est visible au rechargement suivant,
+sans redémarrer le serveur. `debut` / `fin` (`AAAA-MM-JJ`, facultatifs) bornent la
+campagne ; hors fenêtre la bannière n'est pas affichée, et s'il n'en reste **aucune**,
+le bloc n'est pas rendu du tout — pas d'espace vide.
+
+Ce que le visuel doit respecter — **mesuré par la campagne, pas jugé à l'œil** :
+
+- **colonne de gauche** : le texte doit commencer à **au moins 32 px** du bord gauche
+  de l'image ; les flèches (visibles au survol seulement) occupent 4 → 30 px. Le
+  contrôle S2 de `test_ui_scenarios.js` relit chaque bannière servie dans un canevas
+  et rejoue la mesure à chaque campagne de tests ;
+- **bande médiane** (25 → 85 % de la hauteur) : c'est là que la mesure cherche le
+  texte — un visuel qui n'écrit que plus haut ou plus bas passe sans discussion ;
+- **poids et ratio** : libres (`width: 100%`, `height: auto`, plafond
+  `min(38vh, 320px)` en `object-fit: cover`), comme pour le bandeau du Profil ;
+- **`image`** : chemin depuis la racine de l'application (`assets/ad/…`) ; `repli`
+  prend le relais si le premier fichier manque (`onerror`).
+
+Captures de référence : `graphify-out/revue-ui/accueil-carrousel-et-saison-jour.png`,
+`accueil-carrousel-fleches-au-survol-jour.png` et `accueil-pleine-page-jour.png`
+(rejouables par `d-aona-server/_shots_panneaux.js`, base jetable).
 
 ## Ce que fait la version vectorielle de secours
 

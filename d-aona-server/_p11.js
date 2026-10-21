@@ -155,34 +155,97 @@ async function s10_notifications(browser) {
     return Number(c) >= 1 ? true : "compteur inattendu : " + c;
   });
 
-  await step("l'écran Notifications s'ouvre depuis la cloche et liste les événements", async () => {
-    await A.page.click("#btn-notif");
-    await sleep(1500);
-    if (!(await visible(A.page, "#notifications-root"))) return "l'écran Notifications ne s'ouvre pas depuis la cloche";
-    const n = await A.page.locator("#notifications-root .feed-item").count();
-    if (n < 1) return "aucune notification listée";
-    const txt = await textOf(A.page, "#notifications-root");
-    return /inscri/i.test(txt || "") ? true : "la notification d'inscription est absente : « " + (txt || "").slice(0, 90) + " »";
-  });
-
-  await step("marquer une notification comme lue décrémente le compteur", async () => {
+  await step("la cloche ouvre le panneau ANCRÉ (sans changer de page), et le compteur retombe à zéro", async () => {
+    const route = await routeOf(A.page);
     const before = Number((await A.page.getAttribute("#btn-notif", "data-count")) || 0);
-    const btn = A.page.locator('#notifications-root button[onclick*="readNotification"]').first();
-    if (!(await btn.count())) return "aucun bouton « Marquer lu » sur les notifications non lues";
-    await btn.click();
-    await sleep(2000);
-    const after = Number((await A.page.getAttribute("#btn-notif", "data-count")) || 0);
-    return after === before - 1 ? true : `compteur ${before} -> ${after} (attendu ${before - 1})`;
+    await A.page.click("#btn-notif");
+    await sleep(1200);
+    const etat = await A.page.evaluate(() => {
+      const p = document.getElementById("notif-panel");
+      const bar = document.querySelector(".topbar");
+      if (!p || p.hidden) return null;
+      const r = p.getBoundingClientRect(), b = bar.getBoundingClientRect();
+      return {
+        ancree: r.top >= b.bottom - 2 && r.top <= b.bottom + 40,
+        largeur: Math.round(r.width), hauteur: Math.round(r.height),
+        vue: r.top >= 0 && r.bottom <= window.innerHeight + 2 && r.left >= 0 && r.right <= window.innerWidth + 2,
+        titre: (p.querySelector(".pp-head h3") || {}).textContent || "",
+        items: p.querySelectorAll(".pp-item").length,
+        points: p.querySelectorAll(".pp-dot").length,
+        texte: p.innerText || "",
+      };
+    });
+    if (!etat) return "le panneau ne s'ouvre pas depuis la cloche";
+    if (!etat.ancree) return "le panneau n'est pas ancré sous la barre du haut";
+    if (!etat.vue) return "le panneau dépasse de la fenêtre";
+    if (!/notifications/i.test(etat.titre)) return "l'en-tête du panneau ne dit pas « Notifications »";
+    if (etat.items < 1) return "aucune notification listée dans le panneau";
+    if (!/inscri/i.test(etat.texte)) return "la notification d'inscription est absente : « " + etat.texte.slice(0, 90) + " »";
+    if ((await routeOf(A.page)) !== route) return "l'ouverture du panneau a changé de page";
+    /* Exigence n° 1 : le compteur tombe à zéro quand le panneau est ouvert… */
+    const apres = (await A.page.getAttribute("#btn-notif", "data-count")) || "";
+    if (apres !== "") return "le compteur n'est pas remis à zéro à l'ouverture : " + apres;
+    /* …mais les points bleus restent affichés (sinon l'ouverture effacerait
+       l'information qu'elle vient de montrer). */
+    return before >= 1 && etat.points >= 1 ? true
+      : `l'état non lu n'est pas visible (compteur avant ${before}, points ${etat.points})`;
   });
 
-  await step("« Tout marquer lu » vide le compteur", async () => {
-    const btn = A.page.locator("#notifications-root button", { hasText: "Tout marquer lu" });
-    if (!(await btn.count())) return "bouton « Tout marquer lu » absent";
-    await btn.first().click();
-    await sleep(2000);
+  await step("un SECOND clic sur la cloche referme le panneau", async () => {
+    await A.page.click("#btn-notif");
+    await sleep(700);
+    const ouvert = await A.page.evaluate(() => !document.getElementById("notif-panel").hidden);
+    return ouvert ? "le panneau reste ouvert après un second clic sur la cloche" : true;
+  });
+
+  await step("un clic À L'EXTÉRIEUR referme le panneau", async () => {
+    await A.page.click("#btn-notif");
+    await sleep(700);
+    const pt = await A.page.evaluate(() => {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      for (const [x, y] of [[24, vh - 24], [vw / 2, vh - 30], [24, 120]]) {
+        const el = document.elementFromPoint(x, y);
+        if (!el) continue;
+        if (el.closest("button, a, input, select, textarea, [role=button]")) continue;
+        return { x, y };
+      }
+      return null;
+    });
+    if (!pt) return "aucun point neutre trouvé pour le clic extérieur";
+    await A.page.mouse.click(pt.x, pt.y);
+    await sleep(700);
+    const ouvert = await A.page.evaluate(() => !document.getElementById("notif-panel").hidden);
+    return ouvert ? "le panneau reste ouvert après un clic à l'extérieur" : true;
+  });
+
+  await step("les deux filtres « Toutes » et « Non lues » trient la liste", async () => {
+    await A.page.click("#btn-notif");
+    await sleep(800);
+    await A.page.click('#notif-panel [data-pp-filtre="unread"]');
+    await sleep(400);
+    const nonLues = await A.page.locator("#notif-panel .pp-item").count();
+    await A.page.click('#notif-panel [data-pp-filtre="all"]');
+    await sleep(400);
+    const toutes = await A.page.locator("#notif-panel .pp-item").count();
+    if (toutes < 1) return "l'onglet « Toutes » n'affiche rien";
+    /* Après l'ouverture, tout est marqué lu : « Non lues » peut donc être vide —
+       ce qui compte est qu'il ne montre JAMAIS plus d'éléments que « Toutes ». */
+    if (nonLues > toutes) return `« Non lues » (${nonLues}) dépasse « Toutes » (${toutes})`;
+    /* Le bouton œil (marquer comme lu) est présent dès qu'il y a des éléments. */
+    const oeil = await A.page.locator("#notif-panel [data-pp-lu]").count();
+    if (!oeil) return "le bouton « œil » de marquage n'est pas dans l'en-tête";
+    await A.page.click("#notif-panel [data-pp-lu]");
+    await sleep(900);
+    const points = await A.page.locator("#notif-panel .pp-dot").count();
     const c = (await A.page.getAttribute("#btn-notif", "data-count")) || "";
-    if (c !== "") return "le compteur n'est pas vidé : " + c;
-    const txt = await textOf(A.page, "#notifications-root");
-    return /0 non lue/i.test(txt || "") ? true : "l'en-tête n'annonce pas 0 non lue : « " + (txt || "").slice(0, 60) + " »";
+    if (points !== 0) return "des points bleus subsistent après le marquage global";
+    return c === "" ? true : "le compteur reste allumé après le marquage global : " + c;
+  });
+
+  await step("le panneau se referme par le bouton de fermeture du navigateur (Échap)", async () => {
+    await A.page.keyboard.press("Escape");
+    await sleep(600);
+    const ouvert = await A.page.evaluate(() => !document.getElementById("notif-panel").hidden);
+    return ouvert ? "Échap ne referme pas le panneau" : true;
   });
 }

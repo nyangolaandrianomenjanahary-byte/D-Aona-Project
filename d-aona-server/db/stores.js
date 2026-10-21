@@ -455,12 +455,12 @@ const Skins = {
   },
 };
 
-/* ---------- Apparence des pions (couleur × motif), UNE LIGNE PAR CAMP ----------
-   Deux champs séparés, jamais d'identifiant combiné : la variété vient du
-   produit des deux catalogues (data.js), pas de la base. Les identifiants sont
-   validés par l'appelant (server.js) contre `PION_COLORS` / `PION_PATTERNS` et
-   contre le GROUPE du camp AVANT d'arriver ici : aucune valeur arbitraire ni
-   aucune couleur hors groupe ne peut être écrite. */
+/* ---------- Apparence des pions (forme × couleur × motif), UNE LIGNE PAR CAMP ----------
+   Trois champs séparés, jamais d'identifiant combiné : la variété vient du
+   produit des trois catalogues (data.js), pas de la base. Les identifiants sont
+   validés par l'appelant (server.js) contre `PION_SHAPES` / `PION_COLORS` /
+   `PION_PATTERNS` et contre le GROUPE du camp AVANT d'arriver ici : aucune
+   valeur arbitraire ni aucune couleur hors groupe ne peut être écrite. */
 const PionStyle = {
   CAMPS: DATA.PION_CAMPS,
   DEFAULTS: DATA.PION_DEFAULTS,
@@ -468,27 +468,39 @@ const PionStyle = {
      d'inscription (voir Skins.ensureDefaults) : une seule définition, donc
      aucune divergence possible entre `User.createOrUpdate` et `Auth.register`. */
   ensureDefaults(userId) {
-    const ins = db.prepare("INSERT OR IGNORE INTO pion_style (user_id, camp, color, pattern) VALUES (?, ?, ?, ?)");
+    const ins = db.prepare("INSERT OR IGNORE INTO pion_style (user_id, camp, color, pattern, shape) VALUES (?, ?, ?, ?, ?)");
     for (const c of DATA.PION_CAMPS) {
       const d = DATA.PION_DEFAULTS[c.id];
-      ins.run(userId, c.id, d.color, d.pattern);
+      ins.run(userId, c.id, d.color, d.pattern, d.shape);
     }
   },
-  /* `{ light: { color, pattern }, dark: { color, pattern } }` — la forme est
-     TOUJOURS complète : un camp sans ligne (base d'avant la 010, ligne
-     supprimée à la main) retombe sur son défaut au lieu de manquer. */
+  /* `{ light: { shape, color, pattern }, dark: { … } }` — la forme est TOUJOURS
+     complète : un camp sans ligne (base d'avant la 010, ligne supprimée à la
+     main) retombe sur son défaut au lieu de manquer, et une base d'avant la 014
+     (colonne `shape` absente de la ligne) retombe sur la forme par défaut. */
   get(userId) {
     const out = {};
     for (const c of DATA.PION_CAMPS) out[c.id] = { ...DATA.PION_DEFAULTS[c.id] };
-    const rows = db.prepare("SELECT camp, color, pattern FROM pion_style WHERE user_id = ?").all(userId);
-    for (const r of rows) if (out[r.camp]) out[r.camp] = { color: r.color, pattern: r.pattern };
+    const rows = db.prepare("SELECT camp, color, pattern, shape FROM pion_style WHERE user_id = ?").all(userId);
+    for (const r of rows) if (out[r.camp]) {
+      out[r.camp] = {
+        shape: r.shape || DATA.PION_DEFAULTS[r.camp].shape,
+        color: r.color, pattern: r.pattern,
+      };
+    }
     return out;
   },
-  set(userId, camp, color, pattern) {
-    db.prepare(`INSERT INTO pion_style (user_id, camp, color, pattern) VALUES (?, ?, ?, ?)
-                ON CONFLICT(user_id, camp) DO UPDATE SET color = excluded.color, pattern = excluded.pattern`)
-      .run(userId, camp, color, pattern);
-    return { ok: true, camp, style: { color, pattern } };
+  set(userId, camp, color, pattern, shape) {
+    /* `shape` ABSENT (appelant d'avant la 014, ou client ancien qui change
+       seulement la couleur) : la forme DÉJÀ ENREGISTRÉE est conservée — un
+       changement de couleur ne remet pas la silhouette à zéro. Sans ligne
+       existante, c'est la forme par défaut du camp (la colonne est NOT NULL). */
+    const cur = db.prepare("SELECT shape FROM pion_style WHERE user_id = ? AND camp = ?").get(userId, camp);
+    const sh = shape || (cur && cur.shape) || DATA.PION_DEFAULTS[camp].shape;
+    db.prepare(`INSERT INTO pion_style (user_id, camp, color, pattern, shape) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, camp) DO UPDATE SET color = excluded.color, pattern = excluded.pattern, shape = excluded.shape`)
+      .run(userId, camp, color, pattern, sh);
+    return { ok: true, camp, style: { shape: sh, color, pattern } };
   },
 };
 

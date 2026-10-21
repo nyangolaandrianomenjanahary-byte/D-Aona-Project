@@ -1,0 +1,29 @@
+{
+  "_lisezmoi": [
+    "Bannieres du carrousel de l'Accueil. L'equipe ajoute, retire ou remplace une entree SANS toucher au code.",
+    "Champs : id (identifiant libre), titre (texte lu par les lecteurs d'ecran), image (chemin depuis la racine de l'application),",
+    "repli (image de secours si la premiere manque, facultatif), lien (ouvert dans un NOUVEL onglet), debut et fin (AAAA-MM-JJ, facultatifs).",
+    "Une banniere dont la date de fin est depassee n'est plus affichee ; une banniere dont la date de debut est future ne l'est pas encore.",
+    "Si AUCUNE banniere n'est active, le bloc disparait de l'Accueil et ne laisse aucun espace vide.",
+    "Le fichier est servi sans cache : une modification est visible au rechargement suivant, sans reprise du serveur."
+  ],
+  "pubs": [
+    {
+      "id": "yas-nperf-2025",
+      "titre": "Yas — élu meilleur réseau mobile de Madagascar (trophée nPerf 2025)",
+      "image": "assets/ad/yas-nperf-2025.webp",
+      "repli": "assets/ad/yas-nperf-2025.svg",
+      "lien": "https://www.yas.mg",
+      "debut": "2026-01-01",
+      "fin": "2026-12-31"
+    },
+    {
+      "id": "d-aona-maison",
+      "titre": "D-aôna — jouez au Fanorona et défiez vos amis",
+      "image": "assets/ad/d-aona-maison.svg",
+      "lien": "https://github.com/nyangolaandrianomenjanahary-byte/D-Aona",
+      "debut": "2026-01-01",
+      "fin": "2026-12-31"
+    }
+  ]
+}

@@ -346,6 +346,121 @@ async function s12_match(browser) {
     return g.pct < 100 && g.pct > 0 ? true : "jauge à " + g.pct + " % (ni entamée ni pleine)";
   });
 
+  /* ---- Mise personnalisée (retour terrain n° 7) : le bouton ouvre un champ en
+     Ariary, la validation nomme ce qui ne va pas, et le montant retenu vaut pour
+     les DEUX joueurs — pot recalculé, et le défi part réellement avec ce montant. */
+  await step("« Montant personnalisé » : chaque saisie invalide est refusée avec un message clair", async () => {
+    await goMatchTab(A.page, "defis");
+    const sel = '#mt-online-root [data-mtdefy="' + B.pseudo + '"]';
+    if (!(await until(A.page, (s) => !!document.querySelector(s), sel, 9000)))
+      return "adversaire absent de la colonne Joueurs en ligne";
+    await mtClick(A.page, sel);
+    if (!(await until(A.page, () => !!document.querySelector("#play-root [data-wager-perso]"), 9000)))
+      return "le bouton « Montant personnalisé » n'est pas proposé dans « Mise du défi »";
+    await mtClick(A.page, "#play-root [data-wager-perso]");
+    if (!(await until(A.page, () => !!document.getElementById("wager-perso"), 6000)))
+      return "le clic n'ouvre pas le champ de saisie";
+    const solde = Number((((await apiFromPage(A.page, "/api/user", "GET")).json || {}).user || {}).balance || 0);
+    const essais = [
+      ["abc", /chiffres seulement/i, "une saisie non numérique est acceptée"],
+      ["0", /minimale/i, "un montant nul est accepté"],
+      ["200", /minimale/i, "un montant sous le minimum est accepté"],
+      ["9999999", /maximale/i, "un montant au-dessus du maximum est accepté"],
+      [String(solde + 1000), /solde insuffisant/i, "un montant au-dessus du solde est accepté"],
+    ];
+    for (const [valeur, attendu, reproche] of essais) {
+      await A.page.fill("#wager-perso", valeur);
+      await A.page.click("#wager-perso-ok");
+      await sleep(500);
+      const msg = await A.page.evaluate(() => {
+        const e = document.getElementById("wager-perso-err");
+        return e ? e.innerText.trim() : "";
+      });
+      if (!attendu.test(msg)) return `${reproche} (saisie « ${valeur} » → « ${msg} »)`;
+      /* L'assistant ne doit PAS avancer tant que la mise n'est pas valide. */
+      if (!(await A.page.evaluate(() => !!document.getElementById("wager-perso"))))
+        return `l'assistant avance avec une mise invalide (« ${valeur} »)`;
+    }
+    /* « Annuler » ramène aux montants prédéfinis. */
+    await A.page.click("#wager-perso-non");
+    await sleep(500);
+    const retour = await A.page.evaluate(() => {
+      const on = document.querySelector("#play-root .pg-chip.on");
+      return { champ: !!document.getElementById("wager-perso"), chip: on ? on.innerText.trim() : "" };
+    });
+    if (retour.champ) return "« Annuler » laisse le champ personnalisé ouvert";
+    await goMatchTab(A.page, "defis");   // on rend l'écran à l'étape suivante
+    return /500|1 000|2 000/.test(retour.chip) ? true
+      : "« Annuler » ne revient pas sur une mise proposée (« " + retour.chip + " »)";
+  });
+
+  await step("le montant personnalisé s'applique aux DEUX joueurs et le pot est recalculé", async () => {
+    const MONTANT = 1500;
+    /* On rouvre l'assistant depuis la colonne des joueurs en ligne : l'étape
+       précédente a pu laisser l'écran ailleurs (elle se termine sur l'onglet
+       Défis), et un clic dans une vue masquée ne mesurerait rien. */
+    await goMatchTab(A.page, "defis");
+    const cible = '#mt-online-root [data-mtdefy="' + B.pseudo + '"]';
+    if (!(await until(A.page, (s) => !!document.querySelector(s), cible, 9000)))
+      return "adversaire absent de la colonne Joueurs en ligne";
+    await mtClick(A.page, cible);
+    if (!(await until(A.page, () => !!document.querySelector("#play-root [data-wager-perso]"), 9000)))
+      return "l'assistant ne s'ouvre pas sur la mise du défi";
+    await A.page.click("#play-root [data-wager-perso]");
+    await sleep(400);
+    await A.page.fill("#wager-perso", String(MONTANT));
+    await A.page.click("#wager-perso-ok");
+    /* La mise vaut validation : l'assistant passe à l'étape du format. */
+    if (!(await until(A.page, () => !!document.querySelector("#play-root .pg-fmt:not(.off)"), 8000)))
+      return "la mise personnalisée valide n'ouvre pas l'étape du format";
+    await mtClick(A.page, "#play-root .pg-fmt:not(.off)");
+    await sleep(600);
+    if (!(await until(A.page, () => !!document.getElementById("pg-cta"), 8000)))
+      return "l'étape de lancement ne s'ouvre pas";
+    const recap = await A.page.evaluate(() => (document.querySelector(".pg-recap") || {}).innerText || "");
+    /* Les montants sont écrits avec une ESPACE FINE insécable (mise en forme
+       française des chiffres) : on compare sans aucun blanc, des deux côtés. */
+    const sansBlancs = (s) => String(s).replace(/[\s\u00a0\u202f]/g, "");
+    if (!sansBlancs(recap).includes(String(MONTANT)))
+      return "le récapitulatif n'affiche pas la mise personnalisée : « " + recap.replace(/\n/g, " · ") + " »";
+    if (!sansBlancs(recap).includes(String(MONTANT * 2)))
+      return "le pot total n'est pas recalculé (attendu " + MONTANT * 2 + " Ar)";
+    await mtClick(A.page, "#pg-cta");
+    await sleep(1500);
+    const m = (await modalText(A.page)) || "";
+    await dismissModals(A.page);
+    if (!/défi envoyé/i.test(m)) return "le défi personnalisé n'est pas confirmé : « " + m.slice(0, 60) + " »";
+    /* Chez le destinataire (B) : la carte du défi porte le MÊME montant — c'est la
+       règle affichée (« chaque joueur dépose le même montant »). */
+    await goMatchTab(B.page, "defis");
+    const vu = await until(B.page, (n) => {
+      const root = document.getElementById("defi-recu-root");
+      if (!root) return false;
+      return root.innerText.replace(/[\s\u00a0\u202f]/g, "").includes(n);
+    }, String(MONTANT), 12000);
+    /* On REFUSE ce défi de test : il a rempli son rôle (montant vérifié chez les
+       deux joueurs) et le laisser en attente ferait échouer l'étape suivante, qui
+       compte les cartes reçues. Le refus rembourse l'envoyeur — c'est le chemin
+       normal, celui d'un vrai joueur qui ne veut pas de ce défi. Le clic vise la
+       carte qui porte le montant, pas « la première » : avec deux cartes en
+       attente, « la première » ne serait pas forcément la bonne. */
+    const refus = await B.page.evaluate((n) => {
+      const carte = [...document.querySelectorAll("#defi-recu-root .mt-defi")]
+        .find((c) => c.innerText.replace(/[\s\u00a0\u202f]/g, "").includes(n));
+      const b = carte && carte.querySelector(".mt-defi__acts button.danger");
+      if (!b) return false;
+      b.click();
+      return true;
+    }, String(MONTANT));
+    await sleep(1200);
+    await goMatchTab(A.page, "defis");     // on rend l'écran à l'étape suivante
+    if (!vu) {
+      const txt = await textOf(B.page, "#defi-recu-root");
+      return "la carte du défi reçu n'annonce pas la mise personnalisée (" + MONTANT + " Ar) : « " + (txt || "").slice(0, 120) + " »";
+    }
+    return refus ? true : "le défi personnalisé ne peut pas être refusé par le destinataire";
+  });
+
   await step("la jauge se vide avec le temps réel, et le refus libère la carte", async () => {
     const g1 = await mtGauge(A.page);
     if (!g1) return "jauge absente avant la mesure";

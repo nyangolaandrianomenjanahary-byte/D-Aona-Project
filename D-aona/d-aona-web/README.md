@@ -24,17 +24,17 @@ Le client communique avec le serveur via l'API REST (`/api/*`) et le WebSocket
 | Accueil : wallet, tournoi à la une + countdown, jeux, top 5, activité | §7.1 |
 | Jeux : Fanorona MVP (+ Katro « arrive bientôt »), modes Classé / Défi / Entraînement IA | §2.3, §2.5 |
 | Formats Blitz 10 min · Rapide 60 min · Pro 2 h (Pro bloqué en matchmaking) | §2.4 |
-| **Plateau Fanorona 9×5 jouable** : captures par approche/retrait, capture obligatoire, prises en chaîne, IA comportementale (plafond de difficulté), pendules, journal des coups, abandon = forfait | §2.5, §19 (anti-triche), Glossaire |
+| **Plateau Fanorona 9×5 jouable** : captures par approche/retrait, déplacement libre, prises en chaîne, IA comportementale (plafond de difficulté), pendules, journal des coups, abandon = forfait | §2.5, §19 (anti-triche), Glossaire |
 | Matchmaking simulé ±200 Elo, élargissement progressif, 60 s max | §2.5 Mode 1 |
 | Défi entre amis : mise optionnelle, lien partageable (WhatsApp/Messenger/SMS), expiration 15 min, commission 10% | §2.5 Mode 3, §8.1 |
 | Entraînement IA : accessible sans KYC, aucun impact Elo/wallet | §2.5 Mode 4, §4.4 |
 | Lien spectateur & lien d'invitation (parrainage +1 000 Ar) | §2.6, §16.3 |
 | Système Elo (K=32), classement par place et badges (paliers de rang retirés), règles de saison | §3 |
-| Classement national / régional / par jeu / saisonnier | §9 |
+| Classement national / provincial (podium + liste + carte personnelle, maquette « proposition 2 ») | §9 |
 | Tournois : mise remboursable top 3, répartition 50/25/0 + commission 25%, bracket auto, **simulation complète** avec distribution et contrôle d'équilibre du pool | §2.5 Mode 2, §4.3 |
 | Wallet : dépôt/retrait MVola · Orange Money · Airtel Money (~2% opérateur), 0% commission interne, retrait min 1 000 / max 500 000 Ar/j (plafond **appliqué côté serveur**), bonus de bienvenue non retirable, carte « Frais transparents » + historique **paginé et filtré par le serveur** (période, type, moyen, statut, recherche), fiche détail et export CSV | §4 |
 | KYC par photo CIN obligatoire avant toute transaction réelle (flux simulé) | §4.4 |
-| Skins et pions — **deux apparences par joueur** (une pour le camp clair, une pour le camp sombre), appliquées à **SES** pions selon le camp que le tirage lui donne : couleur × motif indépendants (8 + 8 couleurs, 9 motifs — **4 illustrés** servis par `assets/pions/`, 5 silhouettes SVG), et l'adversaire garde la sienne — la vôtre ne l'habille **jamais** (elle voyage avec l'état du match) + skins de plateau, trace lumineuse, animation de victoire | §2.7, §8.1 |
+| Skins et pions — **deux apparences par joueur** (une pour le camp clair, une pour le camp sombre), appliquées à **SES** pions selon le camp que le tirage lui donne : **forme × couleur × motif** indépendants (3 formes, 8 + 8 couleurs, 9 motifs — **4 illustrés** servis par `assets/pions/`, 5 silhouettes SVG), et l'adversaire garde la sienne — la vôtre ne l'habille **jamais** (elle voyage avec l'état du match) ; les familles « Plateau & effets » ne sont plus proposées (le catalogue et l'API d'achat restent, pour les achats existants) | §2.7, §8.1 |
 | Chat textuel restreint aux contacts connus | §12 |
 | Back-office admin (KPIs, file KYC, tickets service client, suivi dev) | §10, §11, §13 |
 | Toasts sonores visuels : grain discret, animations, responsive mobile | §6.3 Design System |
@@ -51,8 +51,9 @@ d-aona-web/
     │                        (dessins vectoriels, cf. son README)
     ├── pions/               Les quatre motifs de pion illustrés — lémurien,
     │                        zébu, crocodile, ravinala (cf. son README)
-    └── ad/                  Visuel de l'emplacement publicitaire du Profil
-                             (JPEG officiel + SVG de secours, cf. son README)
+    └── ad/                  Bandeaux publicitaires : celui du Profil (WebP officiel
+                             + SVG de secours) et le carrousel de l'Accueil
+                             (`pubs.json` + bannière maison, cf. son README)
 ```
 
 Le design system est embarqué dans `index.html` : **thème Jour (défaut) et
@@ -145,6 +146,33 @@ de la maquette) devient un **visuel réel** : l'annonce « Yas, élu meilleur r�
 | Lien | l'annonce ouvre `https://www.yas.mg` dans un nouvel onglet (`rel="noopener noreferrer"`) |
 | ✕ | fermeture mémorisée sur l'appareil (inchangée) ; zone de touche portée de 26 à **44 px** par un pseudo-élément, sans changer le visuel |
 
+**Carrousel publicitaire de l'Accueil (n° 4, 10/10/2026)** — le bloc de profil
+« Saison 2 2026 » de la tête de l'accueil est remplacé par un **carrousel de
+bannières**, et son contenu ne vit PAS dans le code : il est lu dans
+[`assets/ad/pubs.json`](assets/ad/pubs.json), servi **sans cache** — l'équipe change
+une campagne sans toucher à l'écran ni redémarrer le serveur. Deux bannières sont en
+place : le partenaire **Yas** (l'asset existant, avec son repli SVG) et une bannière
+**maison** (`assets/ad/d-aona-maison.svg`).
+
+| Point | Décision |
+|---|---|
+| Contenu | `pubs.json` : `image`, `titre` (lu par les lecteurs d'écran), `lien`, `debut` / `fin` facultatifs. Fonction **pure** `App.pubsActives()` ; hors fenêtre de dates la bannière n'est pas affichée, et s'il n'en reste **aucune**, le bloc **n'est pas rendu** — pas d'espace vide |
+| Gestes | défilement automatique toutes les 6 s ; **pause au survol, au focus et pendant un glissement** — trois états indépendants, car au relâchement le curseur est encore sur le carrousel (un seul booléen faisait repartir la rotation sous les yeux, et pouvait télescoper le geste) ; points cliquables ; **glissement horizontal** au doigt ; flèches sur desktop |
+| Flèches | visibles **au survol seulement** (au clavier, `visibility` les sort de l'ordre de tabulation), 26 px bordées à 4 px. **Mesuré au pixel** : elles laissent 3 px au texte du partenaire (qui commence à 34 px du bord) et 15 px à la bannière maison ; la campagne rejoue cette mesure **sur chaque bannière servie** (`test_ui_scenarios.js`, S2) |
+| Points | cible de **24 × 24 px** (WCAG 2.2) pour un point visible de 8 px (20 px allumé) : l'apparence ne bouge pas, seule la zone tapée grandit |
+| Liens | chaque bannière ouvre son lien dans un **nouvel onglet** (`target="_blank" rel="noopener noreferrer"`) |
+| Contraste | pastille « Publicité », fond sombre à **62 %** d'opacité : **5,8:1** mesurés (elle tombait à 4,47:1 à 55 %, relevé par `_revue_ui.js`) |
+
+**Carte de saison de l'Accueil (n° 5, 10/10/2026)** — la carte de tournoi de la
+colonne de droite laisse la place au **bloc de saison** de la maquette : fil d'Ariane
+**cliquable** (« Wallet · tournois · jeux · classement »), saison, avatar, pseudo,
+pastille d'**Elo** et **trois indicateurs** (parties jouées, victoires, solde wallet).
+Toutes les valeurs viennent des **données réelles** du joueur connecté — rien n'est
+codé en dur — et suivent la mise en forme du reste du site : séparateur de milliers
+(espace fine) et unité « Ar ». Les tournois restent accessibles par le fil d'Ariane
+(« tournois » ouvre l'onglet Tournois de l'écran Match) et par le bloc
+« Mes tournois en cours », inchangé quand on est inscrit.
+
 ## Pièce du tirage au sort (28/09/2026 ; photos détourées le 03/10/2026 ; lancer plein écran le 03/10/2026 ; le gagnant prend les pions clairs le 03/10/2026)
 
 La pièce du tirage au sort n'est plus dessinée en CSS (un rond doré portant le mot
@@ -234,6 +262,80 @@ neutralisé sur les trois couches, les 20 règles image de la feuille générée
 le dessin de son camp), et la peinture **sur le plateau** pour mon camp et celui de
 l'adversaire (captures dans `%TEMP%\daona_shots\pions-*.png`). Provenance, poids,
 empreintes et refaire la copie : [`assets/pions/README.md`](assets/pions/README.md).
+
+### La FORME du pion : ronde, carrée, triangulaire (13/10/2026)
+
+Troisième **axe indépendant** de la personnalisation, à côté de la couleur et du
+motif, et réglé **par camp** comme eux : `pion_style` gagne une colonne `shape`
+(migration `014_pion_style_shape.sql`, `NOT NULL DEFAULT 'ronde'`) — un compte qui
+n'a rien choisi garde donc **exactement** la silhouette d'avant, et une base
+restaurée depuis une sauvegarde antérieure reste lisible.
+
+| Forme | Rayon | Découpe | Anneau (sélection / « jouable ») |
+|---|---|---|---|
+| Ronde | `50 %` | aucune | autour du pion (`inset: -14 %` / `-16 %`) |
+| Carrée | `22 %` | aucune | autour, coins arrondis |
+| Triangulaire | `0` | `polygon(50% 2%, 98% 96%, 2% 96%)` | **à l'intérieur** (`+12 %`), sinon la découpe l'emporterait |
+
+Le triangle n'existe que par **`clip-path`** : la découpe **rogne les enfants** (le
+motif et l'anneau suivent donc la forme) et **emporte la `box-shadow`** du pion —
+l'ombre est donc **reposée** en `drop-shadow`, qui épouse la silhouette. Les
+impulsions de refus et d'indice, qui n'étaient qu'une `box-shadow`, reçoivent le même
+halo : sur un pion triangulaire elles resteraient sinon invisibles. Une forme tient
+en six valeurs, générées par `mountPionStyles` sous les **quatre jeux de variables**
+(mes pions clairs et sombres, ceux de l'adversaire) : 3 formes × 4 = **12 règles**,
+mêmes suffixes que la couleur. La boutique gagne un panneau **« Forme — <camp> »**
+(trois vignettes de pion nu sur **monture blanche**, comme les motifs) et le résumé
+porte trois lignes : Forme, Couleur, Motif.
+
+**Ce qui a été retiré.** Les familles **« Plateau & effets »** ne sont plus proposées
+(demande de terrain) : leur vitrine (`.skc`, reflet au survol, tags, achat/équipement)
+et ses helpers sont supprimés au profit des formes. Le catalogue, l'achat
+(`/api/skins/buy`) et l'équipement (`/api/skins/equip`) restent en place côté
+serveur : **aucun achat passé n'est perdu**, les comptes qui possèdent un plateau ou
+un effet les gardent en base.
+
+**Vérification.** Campagne API **277/277** (+10) : catalogue des trois formes, défaut
+`ronde` par camp, écriture par camp, forme inconnue refusée (400), **forme conservée
+quand l'appel n'en porte pas** (compatibilité d'un client d'avant), persistance,
+étanchéité par compte, trois axes présents dans l'apparence relayée au plateau. Sonde
+dédiée : rayon et découpe **mesurés** par forme, enregistrement puis relecture après
+rechargement complet, deux camps indépendants, et **sur une vraie partie
+d'entraînement IA : les 22 pièces du camp clair rendues en `polygon(…)`, les 22 du
+camp sombre en `none`** — 0 erreur JS.
+
+## Classement — l'organisation de la maquette « proposition 2 » (13/10/2026)
+
+Le **podium passe en tête**, pleine largeur, et porte le **sélecteur de portée**
+(🇲🇬 MG National / 📍 Province) : c'est lui qui gouverne tout l'écran — podium, liste
+et carte personnelle. Trois marches de hauteurs croissantes (62 / 44 / 34 px mesurés),
+médailles, avatar (photo réelle), pseudo cliquable, province, badge de rang et Elo ;
+un bandeau de pied rappelle que le classement est actualisé après chaque match et
+situe la portée (« Madagascar · toutes les provinces » ou « Province d'Analamanga »).
+
+En dessous, **deux colonnes** :
+
+| Colonne | Contenu |
+|---|---|
+| **Le classement** (la plus large) | compteur des joueurs **affichés**, recherche dépliable (inchangée), pastille de portée, en-tête `# / Joueur / Elo`, rang sur deux chiffres, badge sur chaque ligne, pied « Saison 2 · classement … » et bouton **« Voir tous les joueurs »** (désactivé quand tout est déjà affiché, sinon il revient au national complet) |
+| **Votre classement** | identité + badge, **ELO ACTUEL** et rang (national, ou provincial recalculé), **progression vers le prochain palier**, trois statistiques, note de calibration, « Voir mon profil » (ouvre l'écran Profil) et partage (`copyLink`) |
+
+**Données réelles uniquement.** Elo, rang, parties jouées et victoires viennent du
+classement serveur ; le **palier** est le multiple de 50 suivant (les rangs nommés ont
+été retirés le 20/09) ; le **delta sur 30 jours** est lu sur les instantanés de parties
+(`eloSeries("M")`, la même source que la courbe du Profil) et s'affiche « — » quand la
+fenêtre ne contient pas deux parties suivies.
+
+**Décisions assumées.** La colonne latérale disparaît (la carte personnelle passe à
+droite, et **en premier** en une seule colonne à ≤ 1080 px, comme la maquette mobile) ;
+la colonne 🏅 du tableau disparaît (les médailles vivent sur le podium) ; le
+**sélecteur de saison de la maquette n'est pas repris** — le serveur ne connaît qu'un
+Elo, sans historique par saison : un bouton sans effet serait un mensonge (la pastille
+de saison du bandeau d'écran reste).
+
+**Vérification.** Campagne UI **126/126** ; captures jour / portée Province / nuit /
+mobile 390 : 0 débordement, marches 44 / 62 / 34 px, 3 colonnes de tableau, compteur
+« 19 joueurs », carte personnelle avant la liste en mobile, 0 erreur JS.
 
 ## Statistiques du Profil et courbe de progression Elo (27/09/2026)
 

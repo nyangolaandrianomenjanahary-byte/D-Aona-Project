@@ -312,12 +312,26 @@ async function s8_skins(browser) {
       });
       if (d.styles !== 1) return "la feuille #pion-styles n'est pas générée (ou en double)";
       if (!/radial-gradient/.test(d.bigBg || "")) return `${camp} : l'aperçu n'a pas de dégradé : ` + d.bigBg;
-      /* La vignette de motif montre le MOTIF COURANT teinté de la couleur choisie :
-         on ne compare donc les fonds que si le motif de l'aperçu est le même. Le
-         camp sombre a « Crocodile » en brouillon, d'où la comparaison sur la
-         vignette de CE motif quand il est sélectionné. */
-      if (!d.dark && d.bigBg !== d.miniBg)
-        return `aperçu et vignette ne partagent pas la couleur : ` + JSON.stringify([d.bigBg, d.miniBg]);
+      /* La vignette de motif est une MONTURE BLANCHE, découplée de la couleur du
+         camp : elle ne doit donc PAS reprendre le dégradé de l'aperçu (c'est le
+         contrat écrit dans `pionPatternCardHtml`, et `_probe_skins_neon.js` le
+         tient de son côté). Ce que les trois rendus partagent, c'est la RECETTE DU
+         DESSIN : le fichier PNG est le même pour l'aperçu du camp et pour la
+         vignette — mesuré ici sur la vignette du motif lémurien, qui ne porte
+         aucun suffixe de camp et peint donc toujours le dessin CLAIR. */
+      if (/radial-gradient/.test(d.miniBg || ""))
+        return `${camp} : la vignette de motif reprend la couleur du camp : ` + d.miniBg;
+      const vg = await A.page.evaluate(() => {
+        const el = document.querySelector('#skins-root [data-pick-pattern="lemurien"] .pion-view');
+        if (!el) return null;
+        const s = getComputedStyle(el, "::before");
+        return { img: s.backgroundImage + "", mask: (s.webkitMaskImage || s.maskImage || "none") + "" };
+      });
+      if (!vg) return "la vignette du motif lémurien est introuvable";
+      if (!/assets\/pions\/lemurien\.png/.test(vg.img || ""))
+        return "la vignette ne peint pas le dessin du lémurien : " + String(vg.img).slice(0, 130);
+      if (!/^none$/i.test(String(vg.mask).trim()))
+        return "un masque rognerait le dessin de la vignette : " + String(vg.mask).slice(0, 110);
       /* DEUX familles de motifs, deux peintures — et jamais les deux à la fois :
          — IMAGE (le lot de `assets/pions/`) : le fichier est peint par
            `background-image`, et le masque reste `none` (sinon il rognerait

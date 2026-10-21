@@ -46,6 +46,81 @@ async function s11_chat(browser) {
     }, [A.pseudo, txt], 14000);
     return vu ? true : "le message n'est pas arrivé chez le destinataire";
   });
+
+  /* ---------- Retour terrain n° 8 : fermeture des fenêtres de conversation ----------
+     Trois exigences mesurées ici : la croix ferme VRAIMENT (l'ancien bouton
+     « réduire » ne faisait que replier la fenêtre), le clic À L'EXTÉRIEUR ferme
+     aussi, et le brouillon non envoyé revient à la réouverture — c'est l'option
+     retenue (conserver) plutôt qu'une confirmation qui interromprait la frappe. */
+  await step("la croix ferme la fenêtre de conversation et le brouillon est conservé", async () => {
+    const fenetre = await uiOpenChatPopup(A.page, C.pseudo);
+    if (fenetre !== true) return fenetre;
+    const champ = `[data-pop-field="${C.pseudo}"]`;
+    await A.page.fill(champ, "brouillon conservé");
+    const reduire = await A.page.evaluate((p) =>
+      !!document.querySelector(`.chat-pop[data-pop="${p}"] [data-pop-min]`), C.pseudo);
+    if (reduire) return "le bouton « réduire » est toujours dans la fenêtre";
+    await A.page.click(`[data-pop-close="${C.pseudo}"]`);
+    await sleep(600);
+    const restee = await A.page.evaluate((p) =>
+      !!document.querySelector(`.chat-pop[data-pop="${p}"]`), C.pseudo);
+    if (restee) return "la croix ne ferme pas la fenêtre de conversation";
+    const reouvert = await uiOpenChatPopup(A.page, C.pseudo);
+    if (reouvert !== true) return reouvert;
+    await sleep(400);
+    const valeur = await A.page.inputValue(champ).catch(() => "");
+    if (valeur !== "brouillon conservé") return "le brouillon est perdu à la fermeture : « " + valeur + " »";
+    /* On referme : la fenêtre est en `fixed` au-dessus de la liste des amis, et la
+       laisser ouverte empêcherait le geste de l'étape suivante. */
+    await A.page.click(`[data-pop-close="${C.pseudo}"]`).catch(() => {});
+    await sleep(500);
+    return true;
+  });
+
+  await step("un clic À L'EXTÉRIEUR de la fenêtre la referme et garde le brouillon", async () => {
+    /* Un point NEUTRE de la page : hors de toute fenêtre et sans action propre,
+       sinon le clic extérieur naviguerait au passage et fausserait la mesure. */
+    const pointNeutre = () => A.page.evaluate(() => {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      for (const [x, y] of [[24, vh - 24], [vw / 2, 8], [24, 8], [vw - 8, vh - 8]]) {
+        const el = document.elementFromPoint(x, y);
+        if (!el) continue;
+        if (el.closest("button, a, input, select, textarea, [role=button]")) continue;
+        return { x, y };
+      }
+      return null;
+    });
+    /* Mise à zéro : on referme ce qui aurait pu rester ouvert avant de mesurer. */
+    const nettoyage = await pointNeutre();
+    if (nettoyage) await A.page.mouse.click(nettoyage.x, nettoyage.y);
+    await sleep(400);
+    const fenetre = await uiOpenChatPopup(A.page, C.pseudo);
+    if (fenetre !== true) return fenetre;
+    const champ = `[data-pop-field="${C.pseudo}"]`;
+    await A.page.fill(champ, "clic extérieur");
+    const pt = await pointNeutre();
+    if (!pt) return "aucun point neutre trouvé pour le clic extérieur";
+    await A.page.mouse.click(pt.x, pt.y);
+    await sleep(600);
+    const restee = await A.page.evaluate((p) =>
+      !!document.querySelector(`.chat-pop[data-pop="${p}"]`), C.pseudo);
+    if (restee) return "la fenêtre reste ouverte après un clic à l'extérieur";
+    /* Un clic DANS la fenêtre ne doit PAS la fermer : sans cela, écrire un message
+       refermerait la conversation. */
+    const reouvert = await uiOpenChatPopup(A.page, C.pseudo);
+    if (reouvert !== true) return reouvert;
+    await sleep(400);
+    const valeur = await A.page.inputValue(champ).catch(() => "");
+    if (valeur !== "clic extérieur") return "le brouillon du clic extérieur est perdu : « " + valeur + " »";
+    await A.page.click(`[data-pop-field="${C.pseudo}"]`);
+    await sleep(400);
+    const dedans = await A.page.evaluate((p) =>
+      !!document.querySelector(`.chat-pop[data-pop="${p}"]`), C.pseudo);
+    if (!dedans) return "un clic DANS la fenêtre la referme : on ne peut plus écrire";
+    await A.page.click(`[data-pop-close="${C.pseudo}"]`).catch(() => {});   // remise en état
+    await sleep(400);
+    return true;
+  });
 }
 
 /* =========================================================================
@@ -108,6 +183,17 @@ let BROWSER = null;
       if (!/function avatarInnerHtml/.test(html)) missing.push("fabrique d'avatar unique");
       if (!/function mapGameRows/.test(html)) missing.push("lecture unique de l'historique");
       if (!/\.link-pseudo \{/.test(html)) missing.push("styles des noms cliquables");
+      /* Retours terrain n° 6 et n° 8 : le verrou de zoom mobile et la fermeture des
+         fenêtres de conversation (par la croix ou par un clic à l'extérieur). */
+      if (!/maximum-scale=1\.0, user-scalable=no/.test(html)) missing.push("verrou de zoom mobile");
+      if (!/closeChatPopupsOutside/.test(html)) missing.push("fermeture du chat par clic extérieur");
+      if (!/function closeChatPopup\(/.test(html)) missing.push("fermeture d'une conversation");
+      if (/data-pop-min/.test(html)) missing.push("bouton « réduire » toujours présent");
+      /* Retour terrain n° 1 : les notifications et les amis s'ouvrent en panneau
+         ancré (les deux conteneurs + la fermeture au clic extérieur). */
+      if (!/id="notif-panel"/.test(html) || !/id="friends-panel"/.test(html)) missing.push("panneaux ancrés absents");
+      if (!/closePanelsOutside/.test(html)) missing.push("fermeture des panneaux par clic extérieur");
+      if (!/function renderNotifPanel\(/.test(html) || !/function renderFriendsPanel\(/.test(html)) missing.push("rendu des panneaux ancrés");
       return missing.length === 0 ? true : "correctifs absents du fichier servi : " + missing.join(", ");
     });
     await step("le mot de passe erroné est bien refusé par le serveur (401 attendu, hors erreurs applicatives)",

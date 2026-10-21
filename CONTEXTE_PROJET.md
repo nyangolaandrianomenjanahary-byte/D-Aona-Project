@@ -12,7 +12,7 @@
 ## 1. Vue d'ensemble
 
 **D-aôna** : plateforme compétitive de jeux traditionnels malgaches en ligne — MVP =
-**Fanorona** (plateau 9×5, captures par approche/retrait, capture obligatoire, IA).
+**Fanorona** (plateau 9×5, captures par approche/retrait, déplacement libre, IA).
 
 - **Frontend** : SPA HTML/CSS/JS *vanilla* (aucun build, aucune dépendance).
 - **Backend** : serveur **Node.js** (`commonjs`) HTTP + **WebSocket** (`ws`) + **SQLite** embarquée (`node:sqlite`).
@@ -107,6 +107,7 @@
 | **Rejouer la revue UX/UI mesurée** | `node d-aona-server\_revue_ui.js` (≈ 4 min — base jetable, aucune donnée réelle) |
 | **Contrôler la géométrie (recouvrements, barre haute, cliquables au clavier)** | `node d-aona-server\_s7_probe.js` (lecture seule, port 8093) |
 | **Contrôler la fin de course (air sous le dernier contenu)** | `node d-aona-server\_s7_fin.js` (lecture seule, port 8092) |
+| **Vérifier le verrou de zoom mobile (n° 6)** | `node d-aona-server\_zoom_probe.js` (base jetable, pincement synthétisé CDP + page témoin, port 8093) |
 | **Réinitialiser un mot de passe** | `node d-aona-server\reset_password.js <pseudo> "<motDePasse>"` |
 | Diagnostic réseau | `node d-aona-server\diag.js` |
 | Mise à jour manuelle du journal | `maj_journal.bat` (ou `node update_log.js`) |
@@ -123,6 +124,24 @@
 
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
+
+## 2026-10-10 — Message d'amitié écrit par le demandeur (« De aona ? Masahy amiko ? ») · « Terminer la prise » réparé pour le joueur n°2 (mobile) · déplacement libre (fin de la capture obligatoire) · anti-triche WS (entrée MANUELLE)
+
+**Demande (3 points).** (1) Le message automatique d'amitié doit venir de la personne qui a ENVOYÉ la demande — pas de celle qui l'accepte — et dire : « De aona ? Masahy amiko ? ». (2) Le bouton « Terminer la prise » ne fonctionne pas sur mobile. (3) Les pions se déplacent LIBREMENT : plus de capture obligatoire ; un déplacement reste interdit si la case d'arrivée est occupée par un pion adverse.
+
+**1. Message d'amitié (`server.js`).** `acceptFriendRequest()` couvre les trois chemins (répondre, demande croisée, rétrocompat) : le message est désormais ÉCRIT par le demandeur (`Chat.saveMessage(sender → accepting)`) et POUSSÉ à celui qui a accepté (`chat_message` signé du pseudo du demandeur). Texte remplacé par « De aona ? Masahy amiko ? ».
+
+**2. « Terminer la prise » (`index.html`).** Cause racine : dans `endChain()`, le garde-fou comparait `G.turn !== 1` — valeur FIGÉE — alors que le joueur local vaut `G.playerNum` (`meVal()`). En défi/partie classée, le joueur n°2 — typiquement celui qui ouvre le lien d'invitation sur son téléphone — voyait le bandeau mais son tap ne faisait rien. Correctif : `G.turn !== meVal()` (+ garde `G.spectator`) ; même remède pour le même piège dans la continuation locale (`G.turn === meVal()`).
+
+**3. Déplacement libre (`game.js` + `index.html`, miroirs).** `legalMoves()` renvoyait « les prises s'il en existe, sinon tout » (capture obligatoire) dans les DEUX moteurs : il renvoie maintenant TOUS les pas vers une intersection vide. Les prises restent automatiques quand la géométrie les déclenche, la continuation de chaîne exige toujours une prise, et une case d'arrivée occupée interdit le pas. L'IA (serveur et client) continue de préférer les prises de son propre chef — aucun changement. Textes alignés : liste des règles du plateau, modale « Règles », catalogue (`data.js`), `README.md`, vue d'ensemble de ce document.
+
+**4. Anti-triche WS (`server.js`, validé en plan).** `move`/`end_chain` ne vérifiaient pas que l'émetteur est le joueur dont c'est le tour, et `resign`/`pick_side` retombaient sur « joueur 2 » pour tout émetteur tiers. Nouveau `playerNumOf(session, userId)` (1 | 2 | 0) : refus « Ce n'est pas votre tour » / « Vous n'êtes pas joueur de cette partie ».
+
+**Preuves.** `node --check` (server.js, game.js, data.js, test_scenarios.js) OK · `_check_html.js` OK (7 388 lignes, balises équilibrées, syntaxe compilée, `_inline.js` régénéré) · `test_scenarios` **267/267** — dont les unités moteur « prise toujours proposée / pas simple accepté MALGRÉ une prise / case occupée interdite / coup forgé refusé », le message d'amitié au bon auteur (côté demandeur « me », côté accepteur « them », demande croisée comprise) et « joueur hors tour refusé, aucun coup appliqué » · `test_auth` TOUS LES TESTS PASSENT (4 comptes de test supprimés) · campagne UI **115/115** · sonde nouvelle `_chain_mobile.js` (tactile : iPhone SE 320, iPhone 12 390, Pixel 9 360) **42/42** — le tap réel envoie `end_chain` pour le joueur n°2 en défi (cas du bug), n°1 non régressé, branche IA locale OK, bandeau masqué hors tour, bouton atteignable au doigt (`elementFromPoint`), 0 erreur JS.
+
+**Redémarrage du serveur + preuve EN DIRECT.** Le serveur hôte (port 8080) tournait un processus ÉLEVÉ non arrêtable depuis la session de travail (« Accès refusé ») : redémarré via une invite UAC (script jetable auto-supprimé, nouveau PID à 11 h 56) — l'ancien processus gardait le code d'avant. Vérification sur le serveur ACTIF : une acceptation d'amitié réelle (entre les deux comptes de test) produit bien « De aona ? Masahy amiko ? », ÉCRIT par le demandeur et reçu par celui qui accepte (« me » côté demandeur, « them » côté accepteur — constaté sur les deux fils). Les messages d'amitié antérieurs (ancien texte) restent en historique : le correctif ne réécrit pas le passé, il s'applique aux NOUVELLES acceptations. Côté client : `index.html` est servi depuis le disque — bouton « Terminer la prise », coups libres et textes des règles actifs après un simple rechargement (Ctrl+F5).
+
+**Fichiers :** `d-aona-server/server.js`, `d-aona-server/game.js`, `d-aona-server/data.js`, `d-aona-server/test_scenarios.js`, `d-aona-server/_chain_mobile.js` (sonde conservée, hors git), `D-aona/d-aona-web/index.html`, `D-aona/d-aona-web/README.md`, `CONTEXTE_PROJET.md`.
 
 ## 2026-10-07 — Header : la recherche de joueurs passe À DROITE, à côté du badge KYC (entrée MANUELLE)
 
@@ -2901,7 +2920,357 @@ monture blanche), `d-aona-server/_probe_boutique_v1.js` (résumé 3 valeurs).
 Git), `tasks/plan.md` + `tasks/todo.md` (suivi de l'intégration). Le prototype
 du Bureau reste inchangé (référence de style).
 
+## 10/10 → 13/10/2026 — Retour terrain n° 1 à 8 : les huit demandes livrées (lots A, B et C)
+
+**Demandes.** Le PDF `D-aona_prompts_modification_revus.pdf` (et le .docx d'origine)
+reformule **huit** demandes de terrain, toutes traitées dans cette session : la cloche
+et l'onglet Amis en **panneau ancré** (n° 1), les **deux faces de la pièce** pendant
+le vol + contraste du bouton « Commencer » (n° 2), la **bordure carrée** du plateau
+(n° 3), la **bannière publicitaire en carrousel** de l'accueil (n° 4), le **bloc de
+saison** à la place de la carte tournoi (n° 5), le **zoom mobile bloqué** (n° 6), la
+**mise personnalisée** du défi (n° 7) et la **fermeture des fenêtres de message**
+avec retrait du bouton « réduire » (n° 8). Restent les lots **hors PDF** : le
+Classement « proposition 2 » et les formes de pions par camp (voir « Reste à faire »).
+
+### 1. Cloche et Amis en panneau ancré (n° 1)
+
+Les notifications et les demandes ne prennent plus un onglet : elles s'ouvrent
+**sous leur icône** (`.pop-panel`, `position: fixed`, repère `top` calculé sur la
+hauteur RÉELLE de la barre), se ferment par un **second clic** sur l'icône, par un
+**clic à l'extérieur** (`pointerdown` en capture) ou par **Échap**, et occupent la
+largeur de l'écran sur mobile avec défilement interne. Le contenu vient de **trois
+sources** — notifications serveur, demandes d'ami en attente, défis reçus — ce qui
+correspond aux types de la maquette (demande d'ami, défi, invitation de tournoi,
+résultat de partie). Chaque élément porte un avatar, un **badge de type**, l'heure
+**relative** (« 4 min », « 3 h »), un **point bleu** si non lu, et les demandes
+affichent **Accepter / Refuser** ; une décision prise laisse une trace écrite
+(« Demande acceptée ✓ ») au lieu de disparaître. Filtres « Toutes » / « Non lues »
+et en-tête « Nouvelles » / « Antérieures » avec « Voir tout » vers l'écran complet
+(qui reste, pour les liens profonds). **Compteur** : l'ouverture marque lu côté
+serveur (le badge tombe à zéro, comme demandé) **mais** les points bleus restent
+affichés jusqu'à la fermeture — l'instantané est figé à l'ouverture, sinon
+l'ouverture effacerait l'information qu'elle vient de montrer. Le temps réel
+redessine le panneau ouvert (notification, demande d'ami, défi).
+
+### 2. Fenêtres de message : clic extérieur et croix (n° 8)
+
+Le bouton « réduire » est **supprimé** (gabarit et `[data-pop-min]`), seul la
+**croix** reste. Un clic **à l'extérieur** ferme la fenêtre (`pointerdown` en
+capture, avec `.chat-panel` et la pastille comptés comme « dedans » pour que le
+clic sur la cloche n'ouvre pas puis ne referme pas le panneau dans le même geste) ;
+un clic **dedans** ne la ferme pas. Le **brouillon** est conservé (`chatDrafts`,
+carte persistante) et revient à la réouverture — c'est l'option retenue par la
+demande, plutôt qu'une confirmation qui interromprait la frappe.
+
+### 3. Mise personnalisée du défi (n° 7)
+
+Un bouton « Montant personnalisé » rejoint les mises proposées ; il ouvre un champ
+en Ariary (saisie numérique, Entrée valide) et un contrôle PUR
+(`controleMisePerso`) refuse, dans cet ordre, ce qui n'est pas un entier, ce qui
+est sous le minimum du projet (500 Ar, le même plancher que le serveur), ce qui
+dépasse le maximum (100 000 Ar) et ce qui dépasse le **solde du wallet** — chaque
+refus est nommé sous le champ et l'assistant **n'avance pas**. Une mise valide vaut
+validation (elle avance, comme les mises proposées) ; le récapitulatif affiche la
+mise **et le pot total des deux joueurs** (mise × 2), et le défi part réellement
+avec ce montant chez le destinataire. « Annuler » ramène aux montants proposés.
+
+
+### 4. Pile ou face : deux faces pendant le vol, contraste du bouton (n° 2)
+
+La rotation 3D **ne garantissait pas** l'alternance : dans un sous-arbre dont la 3D
+est aplatie par une animation, `backface-visibility` n'agit plus et le vol ne
+montrait qu'une seule des deux faces (mesuré sur le problème déjà documenté de
+l'aplatissement `filter`/animation). L'alternance est donc pilotée par l'**OPACITÉ**
+(`steps(1, end)`, un cran par demi-tour, six demi-tours sur 2 s), sans dépendre d'un
+moteur 3D : l'ordre demandé (pile → face → pile…), jusqu'à l'arrêt sur le résultat
+tiré, et les deux plans sont **plats** — plus de face en miroir possible.
+Deuxième défaut, de **contraste** : `.coin-toss-go` et `.coin-opt.sel` référençaient
+des jetons **inexistants** (`--brand-1`, `--shadow-md`), d'où un `background`
+invalide — bouton **transparent à texte blanc** en mode clair. Les deux passent par
+`--brand` (#0e5c44 : **5,5:1** jour, **4,8:1** nuit) et `--shadow-1`. Aucun jeton
+fantôme ne subsiste (relevé fait sur tout le fichier).
+
+### 5. Bordure carrée du plateau (n° 3)
+
+Le conteneur arrondissait un contour **déjà** dessiné dans l'image : le
+`border-radius: var(--r-md)` du plateau est passé à **0** et le contour de l'asset a
+été aplati (`_squarify_board.py`). Aucune autre carte ni bouton n'a été touché.
+
+### 6. Zoom mobile bloqué (n° 6)
+
+Trois verrous, tous réservés au **pointeur grossier** (`(pointer: coarse)`, donc
+tactile) : la déclaration de vue (`maximum-scale=1.0, user-scalable=no`), le
+`touch-action: manipulation` sur `html, body` (le double tap ne zoome plus, le
+défilement reste) et les gardes du script (`gesturestart/change/end` pour Safari,
+deux doigts sur `touchmove` pour Chromium). La **loupe du pion** garde son geste :
+son conteneur est en `touch-action: none`. Le **desktop n'est pas bridé** (il reste
+en `auto`).
+
+### Preuves (mesurées, pas affirmées)
+
+* **`d-aona-server/_zoom_probe.js` (NOUVELLE sonde) : 9/9.** Base jetable + serveur
+  sur copie. Contrôle **comparatif** : un pincement synthétisé (CDP
+  `Input.synthesizePinchGesture`) **zoome** une page témoin et **ne zoome pas**
+  l'application — sans ce témoin, un « scale = 1 » ne prouverait rien. Mesurés
+  aussi : `touch-action` = `manipulation` au doigt et `auto` au clavier/souris, et
+  le pincement à deux doigts qui **pilote la loupe du pion** (l'échelle peinte
+  change).
+* **`test_ui_scenarios.js`** : S10 **6/6** au nouveau contrat (panneau ancré sous la
+  barre, sans changement de page, compteur à zéro + points bleus visibles, second
+  clic, clic extérieur, filtres, œil, Échap) · S11 **5/5** (croix qui ferme, clic
+  extérieur qui ferme, clic intérieur qui ne ferme pas, brouillon conservé) ·
+  S12 **23/23** (les **cinq** saisies invalides refusées avec leur message,
+  l'assistant qui n'avance pas, « Annuler », mise personnalisée dans le
+  récapitulatif **et** le pot ×2, montant identique sur la carte du destinataire,
+  refus) · S8 **16/16**, S13 complet · S2 **20/20** avec les quatre contrôles des
+  n° 4 et 5 : carrousel conforme à `pubs.json` (bannières actives, « Publicité »,
+  `_blank` + `noopener`), défilement automatique + pause au survol + points +
+  glissement, carte de saison (pseudo, Elo, soldes réels), fil d'Ariane dont les
+  quatre mots mènent à leur section.
+* **Flèches du carrousel : la mesure est DANS la campagne.** Le contrôle relit
+  chaque bannière servie dans un canevas (même origine), refait la correspondance
+  `object-fit: cover` et cherche le premier pixel de texte sombre sur fond clair de
+  la colonne de gauche ; la flèche (relevée au survol) doit rester en deçà, à 2 px
+  près. **Relevé : flèches à 30 px du bord gauche · texte dès 33 px
+  (`yas-nperf-2025.webp`) et dès 45 px (`d-aona-maison.svg`) : marge 3 px et 15 px.
+  Avant correction, la flèche de 38 px posée à 10 px occupait 10 → 48 px et
+  recouvrait 12 à 14 px du texte** — c'est ce relevé qui a fixé les dimensions
+  retenues (26 px, bordées à 4 px, sans grossissement au survol pour garder la
+  boîte mesurée). Le contrôle échoue aussi si une flèche s'affiche **hors survol**
+  ou colle au bord.
+* **`_check_html.js`** : balises équilibrées, syntaxe compilée — et il **nomme
+  désormais la LIGNE** de l'échec avec son contexte (le message de `vm.Script` était
+  nu : « Unexpected token ')' »). Un vrai défaut de syntaxe a été trouvé par ce
+  chemin : un `delete chatDrafts[…]` laissé **hors** de son gestionnaire.
+* Les **jetons fantômes** (`--brand-1`, `--shadow-md`, `--line-strong`,
+  `--brand-soft`) ont été audités sur tout le fichier : jamais définis, jamais
+  posés par le JS non plus.
+* **Campagne complète `test_ui_scenarios.js` : 126/126** (contre 121/121 avant cette
+  session : +4 contrôles pour les n° 4 et 5, +1 contrôle mesuré des flèches),
+  **0 échec**, `test_scenarios.js` (API) **267/267**.
+* **`_revue_ui.js`** (relevé complet, 60 captures, **rejoué après les n° 4 et 5**) :
+  **0 débordement horizontal**, **0 erreur JS**, **0 bouton sans nom accessible**,
+  **504** segments de texte mesurés — les seuls écarts AA (4) restent les pastilles
+  « prize » du **Wallet** (2,38:1), déjà consignées dans `REVUE_UI_UX.md`
+  (§ « Pastilles de type ») et **hors** de cette session ; l'accueil est à **13/13**
+  de jour et **13/13** de nuit. Cibles tactiles sous 24 px : **93** (103 au premier
+  passage — les points du carrousel ont été corrigés). C'est cet instrument qui a
+  révélé le badge « Publicité » à 4,47:1 et les points de 8 × 8 px : les deux sont
+  corrigés et **revérifiés** (plus aucune ligne d'écart pour l'accueil). Les deux
+  nouveaux panneaux passent : notifications **9/9** et amis **10/10** conformes.
+
+**Fichiers.** *Modifiés :* `D-aona/d-aona-web/index.html` (déclaration de vue ;
+verrous anti-zoom ; `.pop-panel` et ses éléments ; `openPanel`/`closePanel`/
+`renderNotifPanel`/`renderFriendsPanel`/`panelEnCours` ; croix et brouillon du chat ;
+`controleMisePerso` + champ de mise personnalisée et son CSS ; faces de la pièce en
+opacité `steps()` ; angles droits du plateau ; **carrousel publicitaire** `#ad-car`
+avec `binderCarrousel`/`pubsActives` et des flèches aux dimensions mesurées ;
+**carte de saison** avec son fil d'Ariane cliquable) ·
+`d-aona-server/_p5.js` (S2 : carrousel, carte de saison, fil d'Ariane et le contrôle
+mesuré des flèches) · `d-aona-server/_p11.js` (S10 au contrat panneau) · `d-aona-server/_p12.js`
+(S11 : clic extérieur + brouillon ; garde-fous SX) · `d-aona-server/_p13.js` (S12 :
+mise personnalisée) · `d-aona-server/_p14.js` (S13 : badge Amis par le panneau) ·
+`d-aona-server/_check_html.js` (nomme la ligne de l'échec de syntaxe) ·
+`d-aona-server/_shots_panneaux.js` (photographie aussi les flèches AU SURVOL et
+relève leur rectangle) · `d-aona-server/test_ui_scenarios.js` (régénéré par
+`node _build.js`) · `d-aona-server/_inline.js` (extrait par `_check_html.js`) · ce
+journal (table des commandes) · `.gitignore` (la règle « outils jetables de session »
+couvre désormais aussi `d-aona-server/_*.py`, comme les `_*.js`) ·
+`D-aona/d-aona-web/README.md` et `D-aona/d-aona-web/assets/ad/README.md` (le carrousel
+et la carte de saison documentés : décisions, mesure anti-recouvrement, manutention
+des campagnes). *Ajoutés :* `d-aona-server/_zoom_probe.js` (sonde de
+preuve du n° 6, motif `_*.js` donc hors Git) · `d-aona-server/_drag_probe.js` (sonde
+du geste de glissement du carrousel, même motif) ·
+`D-aona/d-aona-web/assets/ad/pubs.json` (les bannières, configurables) ·
+`D-aona/d-aona-web/assets/ad/d-aona-maison.svg` (bannière maison).
+
+* **Captures** (nouvelle sonde `_shots_panneaux.js`, base jetable) :
+  `graphify-out/revue-ui/panneau-notifications-jour.png`, `panneau-amis-jour.png`,
+  `panneau-notifications-nuit.png`, `panneau-notifications-mobile-390.png`
+  (mobile : panneau 374/390 px, pleine largeur) — plus, pour l'accueil,
+  `accueil-carrousel-et-saison-jour.png`,
+  `accueil-carrousel-fleches-au-survol-jour.png` (les flèches y sont relevées :
+  28 → 54 px et 841 → 867 px) et `accueil-pleine-page-jour.png`, dont la hauteur est
+  exactement celle de la fenêtre (1440 × 900, relevé) : l'accueil **ne défile pas**.
+
+### 7. Carrousel publicitaire de l'accueil (n° 4)
+
+Le bloc de profil « Saison 2 2026 » de la tête de l'accueil est remplacé par un
+**carrousel de bannières**. Le contenu ne vient PAS du code : il est lu dans
+`assets/ad/pubs.json` (`image`, `titre`, `lien`, `debut`, `fin`) — l'équipe change
+les publicités sans toucher à l'écran, et le fichier est servi sans cache, donc la
+modification est visible au rechargement suivant, sans reprise du serveur. Deux
+bannières sont en place : le partenaire **Yas** (l'asset existant, avec son repli
+SVG) et une bannière **maison** dessinée pour l'occasion
+(`assets/ad/d-aona-maison.svg`). Les bannières hors fenêtre de dates ne sont pas
+affichées (`pubsActives`, fonction PURE et exposée) ; s'il n'en reste **aucune**, le
+bloc **n'est pas rendu** — pas d'espace vide. Comportement : défilement automatique
+toutes les 6 s, **pause au survol, au focus et pendant un glissement**, points
+cliquables, flèches sur desktop, **glissement horizontal** au doigt (mêmes
+événements pointeur), et chaque bannière ouvre son lien dans un **nouvel onglet**
+(`target="_blank" rel="noopener noreferrer"`). Les flèches ne sont visibles
+qu'au survol — posées en permanence et larges de 38 px, elles **recouvraient de 12
+à 14 px** le texte de la bannière partenaire (relevé au pixel, puisqu'aucune
+capture ne montre ce qui n'apparaît qu'au survol) ; elles sont passées à **26 px,
+bordées à 4 px**, et la mesure tourne désormais **dans la campagne** (marges
+relevées : 3 px sur la bannière partenaire, 15 px sur la bannière maison).
+`visibility` (et non `opacity`) les sort aussi de l'ordre de tabulation tant
+qu'elles sont masquées. Deux autres écarts ont été **trouvés par la revue UI** sur
+ce bloc neuf et corrigés dans la foulée : le badge « Publicité » tombait à
+**4,47:1** (seuil AA 4,5 à 11 px) — son fond passe de 55 % à **62 %** d'opacité,
+soit **5,8:1** mesurés ; et les points de navigation, **8 × 8 px**, étaient sous la
+**cible tactile minimale de 24 px** (WCAG 2.2) — le bouton passe à 24 × 24 px
+pendant que le point visible reste de 8 px (20 px allumé), dessiné par
+`::before`, donc sans changement d'apparence. Un troisième défaut, **révélé par la
+campagne elle-même** : au relâchement d'un glissement, la pause retombait aussitôt
+(`pubPause = false`) alors que le curseur — ou le doigt — est encore sur le
+carrousel ; la rotation repartait sous les yeux et pouvait télescoper le geste qui
+venait d'être fait. La pause repose désormais sur **trois états indépendants**
+(survol, focus, glissement) et ne reprend que lorsque **aucun** n'est actif. Le
+contrôle S2 du glissement, instable par construction (il tombait parfois sur un
+tick de 6 s), est devenu **déterministe : trois passages consécutifs, 20/20**
+(la sonde `_drag_probe.js`, outil de mesure local, a d'abord prouvé que le geste
+lui-même fonctionnait — index 1, `translateX(-100%)` — pour ne pas corriger au
+mauvais endroit).
+
+### 8. Carte de saison à la place de la carte de tournoi (n° 5)
+
+La carte de tournoi de la colonne de droite laisse la place au **bloc de saison**
+de la maquette : fil d'Ariane **cliquable** (« Wallet · tournois · jeux ·
+classement », choix confirmé par l'utilisateur — « tournois » ouvre l'onglet
+Tournois de l'écran Match), puis la saison (« Saison 2 — 2026 · classé ouvert »),
+l'avatar, le pseudo, la pastille d'**Elo** et les **trois indicateurs** (parties
+jouées, victoires, solde wallet). Toutes les valeurs viennent des **données réelles
+du joueur connecté** — rien n'est codé en dur — et le formatage suit le reste du
+site : séparateur de milliers (espace fine) et unité « Ar ». Les tournois restent
+accessibles par le fil d'Ariane et par le bloc « Mes tournois en cours » (inchangé
+quand on est inscrit), qui vit toujours dans la colonne principale.
+
+### Reste à faire (lots suivants)
+
+> **Livrés le 13/10/2026** — voir l'entrée suivante : le fichier de la maquette a été
+> fourni (`index (3).html`) et la liste des formes a été confirmée (ronde, carrée,
+> triangulaire). Ce qui restait à faire ici est donc fait ; il ne reste aucun lot
+> hors PDF ouvert.
+
+## 13/10/2026 — Les deux lots hors PDF livrés : Classement « proposition 2 » porté dans l'application · formes de pion (ronde / carrée / triangulaire) par camp
+
+**Demandes (2).** (1) Porter l'écran **Classement** de la maquette `proposition-2.html`
+— fournie cette fois (chemin d'origine `C:\Users\WINDOWS 10\Downloads\Nouveau
+dossier (2)\index (3).html`) : plus besoin de description, le fichier est la
+référence. (2) Remplacer les familles de skins **« Plateau & effets »** par des
+**formes de pions par camp** ; liste exacte confirmée : **ronde, carrée,
+triangulaire**.
+
+### 1. Classement — l'organisation de la maquette, les jetons du site
+
+Le **podium monte en tête**, pleine largeur, et porte le sélecteur de portée
+(🇲🇬 MG National / 📍 Province) : c'est lui qui gouverne tout l'écran. Trois marches
+de hauteurs croissantes (62/44/34 px, mesurées), médailles, avatar (photo réelle via
+la fabrique globale `avatarBox`), pseudo cliquable, province, badge et Elo ; bandeau
+de pied « Classement actualisé après chaque match » + contexte de portée
+(« Madagascar · toutes les provinces » / « Province d'Analamanga »). Dessous, deux
+colonnes : la **liste** (compteur des joueurs AFFICHÉS, recherche dépliable conservée,
+pastille de portée, en-tête # / Joueur / Elo, rang sur deux chiffres, badge sur chaque
+ligne, pied « Saison 2 · classement … » et bouton « Voir tous les joueurs ») et
+**Votre classement** (identité, ELO ACTUEL et rang — national ou provincial,
+**progression vers le prochain palier**, trois statistiques, note de calibration,
+actions).
+
+Trois décisions assumées, écrites dans le code : la **colonne latérale disparaît**
+(la carte personnelle passe à droite, et EN PREMIER en une seule colonne à ≤ 1080 px,
+comme la maquette mobile) ; la **colonne 🏅 du tableau disparaît** (les médailles
+vivent sur le podium, la liste reste # / Joueur / Elo) ; le **sélecteur de saison de
+la maquette n'est PAS repris** — le serveur ne connaît qu'un Elo, sans historique par
+saison : un bouton qui ne changerait rien serait un mensonge (la pastille de saison du
+bandeau d'écran reste). En portée Province, le rang du joueur est le **rang provincial
+recalculé**, indépendant du national.
+
+Ce qui est affiché vient de données RÉELLES : Elo et rang du classement serveur ;
+**palier = multiple de 50 suivant** (les rangs nommés n'existent plus depuis le
+20/09) ; parties jouées et taux de victoires du classement ; **delta d'Elo sur
+30 jours lu sur les instantanés de parties** (`eloSeries("M")`, la même source que la
+courbe du Profil) — et « — » quand la fenêtre ne contient pas deux parties suivies.
+Les actions sont réelles : « Voir mon profil » ouvre l'écran Profil (aucune fenêtre
+dupliquée) et le partage copie un texte vrai via `copyLink`.
+
+### 2. Formes de pion — un troisième axe, indépendant, par camp
+
+**Côté serveur.** `PION_SHAPES` (ronde / carrée / triangulaire) rejoint les deux
+catalogues existants dans `data.js` et devient la source de vérité des IDENTIFIANTS ;
+la **migration 014** ajoute `shape TEXT NOT NULL DEFAULT 'ronde'` à `pion_style` —
+donc **aucun pion ne change** pour un compte existant (ronde = la silhouette
+d'avant). `GET /api/skins` expose `shapes` ; `POST /api/pion/style` accepte `shape` et
+**refuse (400) une forme hors catalogue**, jamais remplacée en silence. Un appel
+**sans** `shape` (client d'avant cette mise à jour) **CONSERVE la forme enregistrée** :
+changer la couleur depuis un ancien client ne remet pas la silhouette à zéro.
+
+**Côté plateau.** `mountPionStyles` génère un quatrième bloc : **3 formes × 4 jeux de
+variables** (mes pions clairs et sombres, ceux de l'adversaire) = 12 règles, mêmes
+suffixes que les couleurs et les motifs. Une forme tient en six valeurs : rayon,
+**découpe**, position et rayon de l'anneau, rayon de la zone du motif, ombre. Le
+triangle n'existe que par `clip-path` — deux conséquences traitées : la découpe
+**emporte la `box-shadow`** du pion (l'ombre est donc reposée en `drop-shadow`, qui
+suit la silhouette) et elle **rogne les anneaux** (sélection / « jouable ») : leur
+position devient une variable, négative autour du pion pour les formes non rognées,
+**positive à l'intérieur** pour le triangle. Les impulsions de refus et d'indice, qui
+n'étaient qu'une `box-shadow`, reçoivent le même halo `drop-shadow` — sinon un pion
+triangulaire n'aurait plus aucun retour visuel. La forme suit le camp exactement comme
+la couleur : `paintPionStyles` pose `data-pion-forme` (et `-dark`, `-opp`,
+`-opp-dark`) sur le plateau, tandis que l'aperçu et les vignettes consomment les mêmes
+variables — l'aperçu ne peut donc pas mentir sur le rendu.
+
+**Boutique.** Un panneau **« Forme — <camp> »** ouvre la colonne des axes : trois
+vignettes de pion nu sur **monture blanche** (la même que les motifs, et pour la même
+raison — on y compare des silhouettes, la couleur se juge sur le pion d'aperçu), essai
+au survol et clic comme les autres axes, ligne « Forme » dans le résumé, pastille
+d'aperçu à trois valeurs. Les familles **« Plateau & effets » sont retirées**
+(demande) : leur vitrine (`.skc`), ses helpers et son CSS sont supprimés ; le
+catalogue, l'achat (`/api/skins/buy`) et l'équipement (`/api/skins/equip`) restent en
+place pour la compatibilité — aucun achat passé n'est perdu ni invalidé. Les sondes
+`_probe_skins_neon.js` et `_proto_neon_verif.js`, qui mesuraient cette vitrine,
+deviennent obsolètes (elles ne sont plus rejouables telles quelles).
+
+### Preuves
+
+*Classement* — campagne **UI 126/126** (S2 « carrousel » et S13 « classement »
+ré-adaptés : la cellule Elo porte désormais sa valeur + son unité empilée, le rang est
+sur deux chiffres `.rk-num`) ; sonde jetable puis captures **jour / province / nuit /
+mobile 390** : 0 débordement, 19 lignes, marches 44/62/34 px, 3 colonnes, compteur
+« 19 joueurs », palier « 1 150 Elo », badge « N°18 national » puis « N°12 ·
+Antananarivo » en portée province, carte personnelle AVANT la liste en mobile,
+0 erreur JS.
+
+*Formes* — campagne **API 277/277** (+10 vérifications : catalogue des 3 formes,
+défaut ronde par camp, écriture par camp, forme inconnue « losange » refusée, forme
+CONSERVÉE quand l'appel n'en porte pas, persistance et étanchéité par compte, trois
+axes présents dans l'apparence relayée au plateau) ; sonde jetable : rayon et découpe
+mesurés par forme (50 % / 22 % / `polygon(50% 2%, 98% 96%, 2% 96%)`), résumé et
+pastille, enregistrement puis relecture après rechargement complet, deux camps
+indépendants, et **la preuve du plateau : une partie d'entraînement IA réelle — les
+22 pièces du camp clair rendues en `polygon(…)`, les 22 du camp sombre en `none`**,
+0 erreur JS ; captures boutique (jour, choix, appliqué, deux camps, mobile 390) et
+plateau réel.
+
+**Fichiers.** *Modifiés :* `D-aona/d-aona-web/index.html`, `d-aona-server/data.js`,
+`d-aona-server/db/stores.js`, `d-aona-server/server.js`,
+`d-aona-server/test_scenarios.js`, `d-aona-server/_p5.js` + `_p14.js` (scénarios),
+`d-aona-server/test_ui_scenarios.js` (régénéré par `_build.js`),
+`D-aona/d-aona-web/README.md`, `CONTEXTE_PROJET.md`. *Ajouté :*
+`d-aona-server/migrations/014_pion_style_shape.sql`. Les sondes jetables
+(`_tmp_ranks_shots.js`, `_tmp_formes_probe.js`) et leurs journaux ont été supprimés
+après usage ; la maquette de référence n'est pas versionnée (elle reste chez son
+auteur — l'organisation retenue est décrite ici et dans le `README`).
+
+
+
+
 <!-- JOURNAL_AUTO_START -->
+## 2026-10-18
+**Modifiés :** `.gitignore`, `plateau_clean.png`, `plateau_clean.webp`, `index.html`, `auth.js`, `check_wallet.js`, `data.js`, `core.js`, `schema.js`, `stores.js`, `demo_seed.js`, `game.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `http.js`, `server.js`, `test_scenarios.js`, `test_ui_scenarios.js`, `_check_html.js`, `_dbg_wallet.js`, `_inline.js`, `_layout_fill_report.txt`, `_p10.js`, `_p11.js`, `_p12.js`, `_p13.js`, `_p14.js`, `_p5.js`, `_probe_profil_v3.js`, `_shots_profil_v3.js`, `last_query_stamp`, `desktop-jour__chat.png`, `desktop-jour__friends.png`, `desktop-jour__home.png`, `desktop-jour__match.png`, `desktop-jour__notifications.png`, `desktop-jour__play.png`, `desktop-jour__profile.png`, `desktop-jour__ranks.png`, `desktop-jour__skins.png`, `desktop-jour__wallet.png`, `desktop-nuit__home.png`, `mobile-390__profile.png`, `desktop-1440x900-home.png`, `desktop-1440x900-match-tournois.png`, `desktop-1440x900-match.png`, `desktop-1440x900-ranks.png`, `desktop-1440x900-wallet.png`, `mobile-360x760-home.png`, `mobile-360x760-match.png`, `mobile-390x844-home.png`, `mobile-390x844-match.png`, `captures.md`, `desktop-jour__plateau-ia-coups.png`, `desktop-jour__plateau-ia.png`, `desktop-jour__plateau-tirage.png`, `desktop-jour__tournament.png`, `desktop-nuit__chat.png`, `desktop-nuit__friends.png`, `desktop-nuit__match.png`, `desktop-nuit__notifications.png`, `desktop-nuit__plateau-ia-coups.png`, `desktop-nuit__plateau-ia.png`, `desktop-nuit__plateau-tirage.png`, `desktop-nuit__play.png`, `desktop-nuit__profile.png`, `desktop-nuit__ranks.png`, `desktop-nuit__skins.png`, `desktop-nuit__tournament.png`, `desktop-nuit__wallet.png`, `etat__match-defis.png`, `etat__match-tournois.png`, `etat__profil-public.png`, `etat__ranks-province.png`, `etat__tournoi-detail.png`, `etat__wallet-depot.png`, `etat__wallet-retrait.png`, `mesures.json`, `mesures.txt`, `mobile-360__home.png`, `mobile-360__match.png`, `mobile-360__profile.png`, `mobile-360__tournament.png`, `mobile-390__chat.png`, `mobile-390__friends.png`, `mobile-390__home.png`, `mobile-390__match.png`, `mobile-390__notifications.png`, `mobile-390__plateau-ia-coups.png`, `mobile-390__plateau-ia.png`, `mobile-390__plateau-tirage.png`, `mobile-390__play.png`, `mobile-390__profile-pleine-page.png`, `mobile-390__ranks.png`, `mobile-390__skins.png`, `mobile-390__tournament.png`, `mobile-390__wallet.png`, `vide__chat.png`, `vide__friends.png`, `vide__home.png`, `vide__notifications.png`, `vide__tournament.png`, `vide__wallet.png`
+**Ajoutés :** `d-aona-maison.svg`, `pubs.json`, `013_wallet_labels_accents.sql`, `014_pion_style_shape.sql`, `avatar_74_1791318464699.jpg`, `avatar_75_1791317016506.png`, `avatar_75_1791317966280.png`, `avatar_78_1791319229624.jpg`, `avatar_78_1791398436579.jpg`, `avatar_78_1791405629187.jpg`, `avatar_78_1791640001821.jpg`, `avatar_79_1791318968390.png`, `avatar_80_1791622097779.jpg`, `avatar_83_1791396457814.png`, `avatar_83_1791399687704.png`, `avatar_83_1791402090643.png`, `avatar_83_1791402994110.png`, `avatar_83_1791404326318.png`, `avatar_83_1791405338037.png`, `avatar_83_1791406409109.png`, `avatar_84_1791634248534.jpg`, `avatar_84_1791635782443.jpg`, `avatar_84_1791636106261.jpg`, `avatar_84_1791636471422.jpg`, `avatar_84_1791637928672.jpg`, `avatar_84_1791640320164.jpg`, `avatar_84_1791915602378.jpg`, `avatar_84_1791916642363.jpg`, `avatar_84_1791917383922.jpg`, `avatar_84_1791918986705.jpg`, `avatar_84_1791919499307.jpg`, `avatar_84_1791921567211.jpg`, `avatar_85_1791621749035.png`, `avatar_85_1791919034032.jpg`, `avatar_89_1791634532316.png`, `avatar_89_1791915777224.png`, `avatar_89_1791920585333.png`, `avatar_89_1791920724472.png`, `_chain_mobile.js`, `_dbg_hdr_search.js`, `_dbg_wl_cal.js`, `_dbg_wl_fix.js`, `_dbg_wl_ovf.js`, `_dbg_wl_statut.js`, `_drag_probe.js`, `_shots_panneaux.js`, `_squarify_board.py`, `_wallet_shots.js`, `_wallet_size_probe.js`, `_zoom_probe.js`, `01e4a694f46ddba71bc3bd3b05d5be2ff51e985d64e1a76d9efc9016ad3e68df.json`, `026f63205f526cef6f0b627734aba2423105a620882552cc9b27838bae2294a6.json`, `0ac23a4359e6b80933bb1eea3fbaeebbb23f40aafd59771cf3e5c22859501533.json`, `0b2d86c3e4d81279554a271a2024b96bc622f4a2ed5881d8d14cc3526afbb9c4.json`, `12e2f1a016b063672e02cc0c1d63928c5f415534ad93bbcf44f5d853cfcca4e1.json`, `297ecde5ce902f705a2ef2ab71f98e891f63905ada4d3c60b980e668c928739d.json`, `37e8e74324276c9b235c302b70742d674db47b171c510463bde38e2994328f25.json`, `403b2a1018b6f8c0b8f8fceb589fd5a9462c78698ffa3df6797cb30744a04f1b.json`, `6897cef942cdbaa4715d79a4cd59caf20d1a478a312fdba404133d6becbf7c66.json`, `6a2bb07d75dd14ffd61fe477f144c4b1efe20e47f6494fa7ff2240f8bbb0b35d.json`, `8257c52d9a2c3628b677367c5cca3da709bd5a4c1fac0a0dc988a14596930d14.json`, `8b58551184608d0c42ff3706fc4f36e748feac79b95b147ef252d533ea6f5958.json`, `982b1a408839e7af234c40d4bfe4add56c1f5cdce60139bcf304732f230d5bce.json`, `b711332ffc08d46b8a943a79ed3cbe1f1654545b180f717ce4212560376403cb.json`, `bbe155d5e1964e58ee66e3b2f35789ab6dbb5764993c67e5baa97d832aeeded5.json`, `bc72390acfc77e3a7fc85367c73ba52d27ddcc5dafabd0375e0441e5096e6f6a.json`, `d16006c3ee34bab70270c6e8be85d5555f3cf95e54a406e7dd5207a39f8db5b5.json`, `dec4b2767982d5ceaa87343717ad43d834f92afe3f4b2b356d6cfb40b52c6ebf.json`, `e1d3f64fb2604b2cdc2185297ce0add8cabb3614bb43d85288d92756a277cce1.json`, `accueil-carrousel-et-saison-jour.png`, `accueil-carrousel-fleches-au-survol-jour.png`, `accueil-pleine-page-jour.png`, `classement-proposition-2-jour.png`, `classement-proposition-2-mobile-390-pleine-page.png`, `classement-proposition-2-mobile-390.png`, `classement-proposition-2-nuit.png`, `classement-proposition-2-province.png`, `formes-pion-applique.png`, `formes-pion-boutique-jour.png`, `formes-pion-deux-camps.png`, `formes-pion-mobile-390.png`, `formes-pion-plateau-ia.png`, `formes-pion-triangulaire-choisi.png`, `panneau-amis-jour.png`, `panneau-notifications-jour.png`, `panneau-notifications-mobile-390.png`, `panneau-notifications-nuit.png`
+**Supprimés :** `test_ui_scenarios.fixed.js`, `_back2sum.txt`, `_bounds.txt`, `_c1.txt`, `_c10.txt`, `_c11.txt`, `_c12.txt`, `_c13.txt`, `_c14.txt`, `_c2.txt`, `_c3.txt`, `_c4.txt`, `_c5.txt`, `_c6.txt`, `_c7.txt`, `_c8.txt`, `_c9.txt`, `_carte.txt`, `_cline_pid.txt`, `_coin_verif.txt`, `_ev.txt`, `_exports.txt`, `_fe.txt`, `_fe2.txt`, `_fe3.txt`, `_g1.txt`, `_g2.txt`, `_map3.txt`, `_mapA.txt`, `_mods.txt`, `_notifs.txt`, `_pions_verif.txt`, `_prag.txt`, `_probe2.err`, `_pv.txt`, `_pwcheck.txt`, `_req.txt`, `_s7_releve.txt`, `_s8_verif.txt`, `_sel1.txt`, `_sel2.txt`, `_sessions_grep.txt`, `_snip.txt`, `_structure.txt`, `_tail2.txt`, `_tap2.txt`, `_tap3.txt`, `_tour.txt`, `_ui_map.txt`, `_ui_range.txt`, `_ui_range2.txt`, `_ui_range3.txt`, `_ui_run.txt`, `_ui_zone.txt`, `_verif.txt`, `_v_cont.err.txt`, `_v_cont.txt`, `_v_elo.err.txt`, `_v_elo.txt`, `_v_formes.err.txt`, `_v_formes.txt`, `_v_ovf.err.txt`, `_v_ovf.txt`, `_v_pv3.err.txt`, `_v_pv3.txt`, `_v_tus.err.txt`, `_v_tus.txt`, `_z.txt`, `_z1.txt`, `_z2.txt`, `_z3.txt`, `_z4.txt`, `_zoneA.txt`, `_tmp_listen.txt`
+
 ## 2026-10-05
 **Modifiés :** `AGENTS.md`, `yas-nperf-2025.svg`, `yas-nperf-2025.webp`, `index.html`, `.env.example`, `auth.js`, `MANIFEST.txt`, `data.js`, `db.js`, `demo_live.js`, `demo_seed.js`, `game.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `LIEN_REMOTE.bat`, `004_unique_contact.sql`, `005_skins_foreign_keys.sql`, `006_game_elo_snapshot.sql`, `007_friends_seen.sql`, `008_skins_pions_type.sql`, `009_pion_style.sql`, `SECURITE_AUTH.md`, `server.js`, `test_auth.js`, `test_scenarios.js`, `test_ui_scenarios.js`, `wipe_db.js`, `_build.js`, `_chk_fresh.js`, `_cline_pid.txt`, `_inline.js`, `_layout_fill_report.txt`, `_p1.js`, `_p10.js`, `_p11.js`, `_p12.js`, `_p13.js`, `_p14.js`, `_p2.js`, `_p3.js`, `_p5.js`, `_p6.js`, `_p9.js`, `_probe_boutique_v1.js`, `_revue_ui.js`, `_s6_verif.js`, `_s8_verif.js`, `_s8_verif.txt`, `_seed_parties_manifest.json`, `_shapes_apply.js`, `last_query_stamp`, `desktop-jour__chat.png`, `desktop-jour__friends.png`, `desktop-jour__home.png`, `desktop-jour__match.png`, `desktop-jour__notifications.png`, `desktop-jour__play.png`, `desktop-jour__profile.png`, `desktop-jour__ranks.png`, `desktop-jour__skins.png`, `desktop-jour__wallet.png`, `desktop-nuit__home.png`, `mobile-390__profile.png`, `desktop-1440x900-home.png`, `desktop-1440x900-match-tournois.png`, `desktop-1440x900-match.png`, `desktop-1440x900-ranks.png`, `desktop-1440x900-wallet.png`, `mobile-360x760-home.png`, `mobile-360x760-match.png`, `mobile-390x844-home.png`, `mobile-390x844-match.png`, `captures.md`, `desktop-jour__plateau-ia-coups.png`, `desktop-jour__plateau-ia.png`, `desktop-jour__plateau-tirage.png`, `desktop-jour__tournament.png`, `desktop-nuit__chat.png`, `desktop-nuit__friends.png`, `desktop-nuit__match.png`, `desktop-nuit__notifications.png`, `desktop-nuit__plateau-ia-coups.png`, `desktop-nuit__plateau-ia.png`, `desktop-nuit__plateau-tirage.png`, `desktop-nuit__play.png`, `desktop-nuit__profile.png`, `desktop-nuit__ranks.png`, `desktop-nuit__skins.png`, `desktop-nuit__tournament.png`, `desktop-nuit__wallet.png`, `etat__match-defis.png`, `etat__match-tournois.png`, `etat__profil-public.png`, `etat__ranks-province.png`, `etat__tournoi-detail.png`, `etat__wallet-depot.png`, `etat__wallet-retrait.png`, `mesures.json`, `mesures.txt`, `mobile-360__home.png`, `mobile-360__match.png`, `mobile-360__profile.png`, `mobile-360__tournament.png`, `mobile-390__chat.png`, `mobile-390__friends.png`, `mobile-390__home.png`, `mobile-390__match.png`, `mobile-390__notifications.png`, `mobile-390__plateau-ia-coups.png`, `mobile-390__plateau-ia.png`, `mobile-390__plateau-tirage.png`, `mobile-390__play.png`, `mobile-390__profile-pleine-page.png`, `mobile-390__ranks.png`, `mobile-390__skins.png`, `mobile-390__tournament.png`, `mobile-390__wallet.png`, `vide__chat.png`, `vide__friends.png`, `vide__home.png`, `vide__notifications.png`, `vide__tournament.png`, `vide__wallet.png`, `GUIDE_LIEN_REMOTE.md`, `REVUE_UI_UX.md`, `_graphify_ver.txt`
 **Ajoutés :** `face.webp`, `pile.webp`, `crocodile-sombre.png`, `crocodile.png`, `lemurien-sombre.png`, `lemurien.png`, `ravinala-sombre.png`, `ravinala.png`, `zebu-sombre.png`, `zebu.png`, `avatar_31_1790621465549.jpg`, `avatar_35_1790622047443.jpg`, `avatar_35_1791021008804.jpg`, `avatar_35_1791035082722.jpg`, `avatar_35_1791036359795.jpg`, `avatar_35_1791040113685.jpg`, `avatar_35_1791042682860.jpg`, `avatar_35_1791043163395.jpg`, `avatar_35_1791130843145.jpg`, `avatar_35_1791132934761.jpg`, `avatar_36_1790621126761.png`, `avatar_40_1790621805857.png`, `avatar_40_1791034839337.png`, `avatar_40_1791036125493.png`, `avatar_40_1791039843206.png`, `avatar_40_1791039866408.png`, `avatar_40_1791042446546.png`, `avatar_40_1791131280684.png`, `4fbdd98b4d0c433c5b977fdf99712e72df2293cdca29bad315f9cb7c7d86bf55.json`, `b6ea206843332fef4c8f677d5fd7ffe430d4bd55757cf32171552ab95b1ce4ec.json`, `c7798580f51e47042b87e7dad784a2517b5b966c582c3151d5cf33f362197ed1.json`, `e1953bba93963a05f74ee3c49e18ab72a775231e5ce0c8972def11d70254a7af.json`, `010_pion_style_camps.sql`, `011_pion_style_coherence.sql`, `_coin_3d.js`, `_coin_apercu.js`, `_coin_prep.js`, `_coin_verif.js`, `_coin_verif.txt`, `_pions_verif.js`, `_pions_verif.txt`, `_probe_skins_neon.js`, `_proto_neon_verif.js`, `_verif_jeux_mobile.js`, `_xss_probe.js`, `jeux__1440__home.png`, `jeux__1440__match.png`, `jeux__1440__ranks.png`, `jeux__1440__wallet.png`, `jeux__1920__home.png`, `jeux__1920__match.png`, `jeux__1920__ranks.png`, `jeux__1920__wallet.png`, `jeux__360__home.png`, `jeux__360__match.png`, `jeux__360__ranks.png`, `jeux__360__wallet.png`, `jeux__768__home.png`, `jeux__768__match.png`, `jeux__768__ranks.png`, `jeux__768__wallet.png`, `mesures-jeux.json`, `rapport-jeux.md`, `0a0ec27cdd0190fd30b55122500ae21e44ae9e7624fec41d2dc296218069ff98.json`, `170997dd5ea947f73b5cc48ea1c2ac7a026d47f5aa208f81efbb82f2bbb59662.json`, `18adb9f3afd5adda0630b0c3e8c1f36ec2143521debc4c66e70a6cda5dd2150d.json`, `19dac8a5b0bf00bb006625fe195bc21694469ef37668227eabcd4843e74301e0.json`, `266f51f8f3b09e3866c0f1e55ab4f4f34a07dd8b838569c0c8dc5ad49fd620a2.json`, `328f4697a0beaf028868e6c78e267df5881f29df95b8cbd6c06db561e87ef8d1.json`, `3780c2cfebc7585dcd978deb51fdcf9bd3ed71ba16096b5712cb10174febd4bf.json`, `38ff0196cc7df7ddeb5e418582a51125171f6406a62ac1c44de08873776f68b9.json`, `45c7ffe89298b38b6916e0ebaed4cf4d8dd82e30b86c9613702d806148e7af5a.json`, `46c7bd3434f93fe9d97c1cce949276794c3ad731c66d95b5f5429363103b68d9.json`, `56f8e6921ba64ac74b08d86d8992bb41bfbacfbb36c68364038e72ec87e632a2.json`, `5fb205f7c3f55ecd0ec8cd35e719589c27b81b127d4d5224819325789d37c286.json`, `7137d051ed228f1cb0e652de227389bf9fd26a5b685f3915688fa76034e89837.json`, `7f94b2527adcf1611517ce7b3a71c44b9933088f8a119c40890d8644b732e4b2.json`, `8e378db24e6f80b26ea77209460bbe0f7d4c82cb1dfc7a6d0ec63b95c41922d1.json`, `915caf925b17518786db5781557be817bf89b1db34709fc285dca786fc460a6c.json`, `965415163b388e2db49cf5371f986601be653df10574b45cfbe789841b545dd3.json`, `9be0132d49fc7e033065fd3e46f5955cbea132ec856fe531dcc4563134448671.json`, `a2ee7ea48af693498acef3f98de050b604bc6c4f9ad8b125481407be16460aed.json`, `c5e79fb82e519d9eff3909e7e22315d2aae8b8fcd55ca22c8152555fa7445ee7.json`, `e3058c0dd4d10c19b6f486b0db85f8f95e8dd49b76131541c2b281cbc04ac7c5.json`, `e65fd965942089d439b92745cafb0d210b48bbc6c23fa78a0d5a5573006ce4dd.json`, `e8cb15ce36bfcb9ff1432a327e9318285b9b66d68e0d2a43e2a8ff0758d5e866.json`, `ec50668f77095f0b07069d282a0e66028d2c0ff57e1d1b24104b3ee71107d888.json`, `f521f62f7606f6e37444c46e8babb75db89cd278dbcfc41ef941e0224fae573a.json`, `f5dc4a9aef021d7262b6c8923da5edc9a94438360e8e82f07ac50ba04ebd5f58.json`, `f6c2ef78ae106c19cd5809ae8a97de5dd23704f5540df26cbb56f10d080ef13b.json`, `f83e4c6aeb0f2771bb77c136abd7190d42439f7160d728aaab035680a87c909d.json`, `f89d432f2ca13ba7527157290faaabaa55660c7dfb1b23fcf4bdbd4ee9c3037d.json`, `couleurs-camp-ia-gagne.png`, `couleurs-camp-je-gagne.png`, `verif-tirage-desktop.png`, `verif-tirage-mobile.png`, `plan.md`, `todo.md`, `_tmp_listen.txt`

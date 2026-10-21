@@ -119,7 +119,7 @@ async function s13_datafix(browser) {
       if (!row) return null;
       return {
         elo: (row.querySelector(".elo") || {}).innerText || "",
-        rank: (row.querySelector(".mono") || {}).innerText || "",
+        rank: (row.querySelector(".rk-num") || {}).innerText || "",
         photo: !!row.querySelector(".who-line img"),
         link: !!row.querySelector(".who-pseudo[onclick]"),
         onclick: (row.querySelector(".who-pseudo") || {}).getAttribute("onclick") || "",
@@ -128,8 +128,13 @@ async function s13_datafix(browser) {
     if (!html) return `ligne introuvable pour ${newPseudo}`;
     const src = (await apiFromPage(A.page, "/api/leaderboard", "GET")).json.leaderboard.find((p) => p.id === newId);
     if (!src) return "le joueur est absent de la réponse /api/leaderboard";
-    if (html.elo.trim() !== String(src.elo)) return `Elo affiché « ${html.elo} » contre ${src.elo} côté API`;
-    if (html.rank.trim() !== String(src.rank)) return `rang affiché « ${html.rank} » contre ${src.rank} côté API`;
+    /* La cellule Elo porte la VALEUR puis son unité empilée (« 1100 » / « Elo »)
+       depuis la maquette « proposition 2 » : on compare donc les NOMBRES, et le
+       rang se lit sur deux chiffres (« 03 ») — c'est le format affiché. */
+    if (parseInt(html.elo.replace(/\s|\u202F/g, ""), 10) !== src.elo)
+      return `Elo affiché « ${html.elo} » contre ${src.elo} côté API`;
+    if (html.rank.trim() !== String(src.rank).padStart(2, "0"))
+      return `rang affiché « ${html.rank} » contre ${src.rank} côté API`;
     if (html.photo) return "une photo est affichée alors qu'aucune n'a été déposée";
     if (!html.link) return "le pseudo du classement n'ouvre pas de profil";
     if (!html.onclick.includes("openProfileById(" + newId + ")"))
@@ -168,18 +173,28 @@ async function s13_datafix(browser) {
     return /demande/i.test(after.title) ? true : `l'infobulle n'explique pas le badge (« ${after.title} »)`;
   });
 
-  await step("ouvrir l'écran Amis éteint le badge, et la demande reste listée", async () => {
+  await step("ouvrir le PANNEAU Amis éteint le badge, et la demande reste listée", async () => {
     await E.page.click("#btn-friends");
     await sleep(1500);
     const seen = await until(E.page, () => {
       const el = document.getElementById("btn-friends");
       return !!el && !el.getAttribute("data-count");
     }, 9000);
-    if (!seen) return "le badge reste allumé après ouverture de l'écran Amis";
+    if (!seen) return "le badge reste allumé après ouverture du panneau Amis";
+    /* Retour terrain n° 1 : les demandes se traitent DANS le panneau (boutons
+       Accepter / Refuser), sans quitter la page — l'écran Amis reste accessible
+       par « Voir tout ». */
+    const dansPanneau = await until(E.page, () => {
+      const p = document.getElementById("friends-panel");
+      return !!p && !p.hidden && !!p.querySelector("[data-pp-decline]");
+    }, 9000);
+    if (dansPanneau) return true;
+    /* Repli : on accepte aussi la vérification par l'écran complet, si la mesure
+       a lieu après une navigation vers « Voir tout ». */
     return (await until(E.page, () => {
       const p = document.getElementById("freq-panel");
       return !!p && !!p.querySelector("[data-decline]");
-    }, 9000)) ? true : "la demande reçue n'est plus visible dans l'écran Amis";
+    }, 3000)) ? true : "la demande reçue n'est plus visible (ni dans le panneau, ni dans l'écran Amis)";
   });
 
   await step("APRÈS RECHARGEMENT le badge reste éteint (le repère est côté serveur)", async () => {

@@ -1,0 +1,23 @@
+-- =========================================================
+-- 014 — Forme du pion : RONDE · CARRÉE · TRIANGULAIRE
+-- ---------------------------------------------------------
+-- Constat : `pion_style` portait UNE apparence par camp sous forme de deux
+-- colonnes (couleur, motif). La demande de terrain ajoute un TROISIÈME axe :
+-- la FORME du pion (ronde, carrée, triangulaire), réglable PAR CAMP.
+--
+-- Modèle retenu — une colonne de plus, et rien d'autre :
+--   `pion_style(user_id, camp, color, pattern, shape)`
+--     · la forme est INDÉPENDANTE de la couleur et du motif, comme eux le sont
+--       entre eux : aucune combinaison n'est stockée, le produit des trois
+--       catalogues donne toutes les apparences (3 formes × 16 couleurs × 9 motifs) ;
+--     · le défaut est `ronde`, la silhouette historique du pion : un compte qui
+--       n'a rien choisi garde EXACTEMENT le pion d'avant la migration, et une
+--       base restaurée depuis une sauvegarde antérieure reste lisible.
+--
+-- Aucune liste d'identifiants à recopier ici (contrairement à la 011) : une
+-- colonne ajoutée avec une valeur par défaut n'a pas d'état incohérent à
+-- corriger — toute valeur écrite passe par la validation du serveur, qui refuse
+-- (400) une forme absente de `PION_SHAPES` (data.js).
+-- =========================================================
+
+ALTER TABLE pion_style ADD COLUMN shape TEXT NOT NULL DEFAULT 'ronde';

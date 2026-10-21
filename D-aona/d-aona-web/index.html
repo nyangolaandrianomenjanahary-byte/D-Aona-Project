@@ -2,7 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ANTI-ZOOM MOBILE (retour terrain n° 6) : la vue doit garder son échelle, et un
+     zoom entré par accident tronquait le contenu. Cette déclaration couvre
+     Chromium ; iOS Safari l'IGNORE depuis iOS 10 — les deux verrous qui la
+     complètent sont dans la feuille (`touch-action: manipulation` sur tactile) et
+     dans le script (gardes `gesture*` / pincement à deux doigts), tous deux
+     réservés au POINTAGE GROSSIER : la version desktop ne change pas. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>D-aôna — Fanorona compétitif en ligne</title>
 <meta name="description" content="D-aôna — Fanorona compétitif : tournois en Ariary, défis et classement Elo.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231D9E75'/%3E%3Ccircle cx='11' cy='11' r='3' fill='%23F7EAD0'/%3E%3Ccircle cx='21' cy='21' r='3' fill='%230A0A0F'/%3E%3Ccircle cx='16' cy='16' r='1.1' fill='%23F5C25E'/%3E%3C/svg%3E">
@@ -627,6 +633,110 @@ html[data-theme="night"] .lgtab {
 
 .side-stack { display: flex; flex-direction: column; gap: 16px; }
 
+/* =========================================================================
+   CARROUSEL PUBLICITAIRE DE L'ACCUEIL (retour terrain n° 4)
+   -------------------------------------------------------------------------
+   Il prend la place du bloc de profil : même rangée de la colonne principale
+   (`auto` en plein écran), donc hauteur bornée. Le contenu vient d'un fichier
+   CONFIGURABLE (`assets/ad/pubs.json`) : quand aucune bannière n'est active, le
+   bloc n'est pas rendu du tout — pas d'espace vide.
+   Le défilement est un simple `translateX` sur une piste de diapositives : une
+   seule animation, coupée au survol, au focus et pendant un glissement.
+   ========================================================================= */
+.ad-car {
+  position: relative; overflow: hidden; border-radius: var(--radius-card);
+  border: .5px solid var(--line); background: var(--panel); box-shadow: var(--shadow-1);
+}
+.ad-car__track { display: flex; transition: transform .5s cubic-bezier(.2, .8, .3, 1); will-change: transform; }
+.ad-car__slide { flex: 0 0 100%; position: relative; line-height: 0; display: block; }
+.ad-car__slide img {
+  display: block; width: 100%; height: auto;
+  max-height: min(38vh, 320px); object-fit: cover; object-position: 50% 45%;
+}
+.ad-car__tag {
+  position: absolute; top: 10px; left: 10px; z-index: 1;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .05em; color: #fff;
+  /* Opacité relevée de .55 à .62 : MESURÉ, le texte blanc du badge tombait à
+     4,47:1 sur la bannière partenaire (seuil AA 4,5 pour 11 px) — la revue UI le
+     relevait sur les quatre captures d'accueil. À .62 le composite passe 5,8:1. */
+  background: rgba(6, 8, 14, .62); border-radius: 999px; padding: 3px 9px; line-height: 1.4;
+  backdrop-filter: blur(6px);
+}
+.ad-car__arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 26px; height: 26px; display: grid; place-items: center;
+  border: none; border-radius: 50%; cursor: pointer; font-size: 16px; line-height: 1;
+  background: rgba(6, 8, 14, .45); color: #fff; backdrop-filter: blur(6px);
+  transition: background .16s, opacity .16s;
+  /* Révélées au survol / au focus : posées en permanence, elles recouvraient le
+     texte de la bannière. `visibility` (et non `opacity`) les sort AUSSI de
+     l'ordre de tabulation tant qu'elles sont masquées — un contrôle invisible ne
+     doit pas prendre le focus. DIMENSIONS MESURÉES : sur la bannière partenaire,
+     la colonne de texte commence à 33,5 px du bord gauche de l'image ; la flèche
+     (4 → 30 px) laisse donc 3,5 px de marge (relevé au pixel, et contrôle
+     automatisé « flèches … hors du texte » qui rejoue la mesure sur CHAQUE
+     bannière servie). */
+  visibility: hidden; opacity: 0;
+}
+.ad-car:hover .ad-car__arrow, .ad-car:focus-within .ad-car__arrow { visibility: visible; opacity: 1; }
+/* Pas de grossissement au survol : la boîte de la flèche doit rester celle qui a été
+   mesurée (une mise à l'échelle rapprocherait le bord du texte). Le survol se lit au
+   fond, plus sombre. */
+.ad-car__arrow:hover { background: rgba(6, 8, 14, .68); }
+.ad-car__arrow:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.ad-car__arrow.prev { left: 4px; }
+.ad-car__arrow.next { right: 4px; }
+.ad-car__dots { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; justify-content: center; gap: 0; }
+/* Le BOUTON porte une cible de 24 px (WCAG 2.2, taille minimale — la revue UI
+   relevait « 8×8 » et « 20×8 ») ; le point VISIBLE reste de 8 px (20 px allumé) et
+   est dessiné par `::before`, donc l'apparence ne bouge pas. `bottom: 0` avec des
+   boutons de 24 px replace le point à 8 px du bord, exactement comme avant. */
+.ad-car__dot {
+  width: 24px; height: 24px; padding: 0; border: none; background: none; cursor: pointer;
+  display: grid; place-items: center;
+}
+.ad-car__dot::before {
+  content: ""; display: block; width: 8px; height: 8px; border-radius: 999px;
+  background: rgba(255, 255, 255, .45); transition: background .16s, width .16s;
+}
+.ad-car__dot:hover::before { background: rgba(255, 255, 255, .75); }
+.ad-car__dot:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.ad-car__dot.on::before { background: #fff; width: 20px; }
+/* La croix de fermeture n'existe PAS ici : une bannière tournante de l'accueil se
+   masque par sa configuration (dates), pas par un clic mémorisé dans le
+   navigateur — sinon l'emplacement resterait vide sans que l'équipe le sache. */
+@media (max-width: 860px) {
+  /* Sur mobile, la flèche disparaît : le glissement horizontal la remplace. */
+  .ad-car__arrow { display: none; }
+  .ad-car__slide img { max-height: min(30vh, 220px); object-position: 0% 50%; }
+}
+
+/* =========================================================================
+   CARTE DE SAISON DE L'ACCUEIL (retour terrain n° 5)
+   -------------------------------------------------------------------------
+   Elle remplace la carte de tournoi dans la colonne de droite : fil d'Ariane
+   CLIQUABLE, puis la saison, le joueur et ses trois indicateurs — les valeurs
+   réelles de l'utilisateur connecté, jamais des nombres d'exemple.
+   ========================================================================= */
+.season-card {
+  display: flex; flex-direction: column;
+  background: var(--panel); border: .5px solid var(--line);
+  border-radius: var(--radius-card); padding: 16px; box-shadow: var(--shadow-1);
+}
+.season-crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; font-size: 11.5px; color: var(--muted); }
+.season-crumb button {
+  border: none; background: none; padding: 2px 4px; border-radius: var(--r-sm);
+  font: inherit; font-size: 11.5px; color: var(--brand-ink); cursor: pointer;
+}
+.season-crumb button:hover { background: var(--panel-3); text-decoration: underline; }
+.season-crumb .sep { opacity: .6; }
+.season-card > .pill { align-self: flex-start; margin-bottom: 12px; }
+.season-card .dash-stats { margin-top: 16px; }
+@media (max-width: 700px) {
+  .season-card .dash-stats { flex-wrap: wrap; }
+  .season-card .dash-stat { min-width: calc(50% - 5px); }
+}
+
 .lb-row {
   display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center;
   padding: 8px 10px; border-radius: var(--r-sm); font-size: 13.5px;
@@ -905,6 +1015,19 @@ html[data-theme="night"] #modal .rp-btn-ghost:hover { background: rgba(43, 163, 
 }
 .pg-chip:active { transform: scale(.95); }
 .pg-chip.on { background: #31e0a0; color: #052018; border-color: #31e0a0; box-shadow: 0 6px 18px rgba(49, 224, 160, .35); }
+/* Mise PERSONNALISÉE (retour terrain n° 7) : champ + Valider/Annuler sur une même
+   ligne, sous les montants proposés. Le champ reste sur la largeur de la scène de
+   l'assistant (fond sombre), donc l'encre et le filet suivent le même langage que
+   `.pg-select` voisin. */
+.pg-mise-perso { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.pg-mise-perso input {
+  flex: 1 1 150px; min-width: 0; padding: 10px 12px; font: inherit; font-size: 13.5px;
+  color: #fff; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: var(--r-sm); font-family: var(--mono);
+}
+.pg-mise-perso input::placeholder { color: #8b96a8; font-family: inherit; }
+.pg-mise-perso input:focus { outline: none; border-color: #31e0a0; box-shadow: 0 0 0 3px rgba(49, 224, 160, .18); }
+.pg-note.neg { color: #ffb4b4; }
 
 /* --- Récapitulatif --- */
 /* --- Étape 4 : récap + aperçu du plateau côte à côte (desktop) --- */
@@ -1158,7 +1281,11 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   width: min(100%, 700px);
   aspect-ratio: 1/1;
   margin: 1.1rem auto;
-  border-radius: var(--r-md);
+  /* ANGLES DROITS (retour terrain n° 3) : le rayon du conteneur était `--r-md`
+     (16 px) et doublait l'arrondi DÉJÀ GRAVÉ dans l'image du plateau. Les deux
+     ont été retirés : le contour de l'asset a été aplati (script
+     `_squarify_board.py`) et le conteneur ne redessine plus aucun coin. */
+  border-radius: 0;
   border: none;
   overflow: hidden;
   background: none;
@@ -1196,7 +1323,17 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
 .cells { position: absolute; inset: 0; z-index: 4; }
 .pieces { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
 .piece {
-  position: absolute; width: 5.4%; aspect-ratio: 1; border-radius: 50%;
+  position: absolute; width: 5.4%; aspect-ratio: 1;
+  /* SILHOUETTE du pion — la FORME choisie en boutique (ronde / carrée /
+     triangulaire). Trois valeurs suffisent, posées par camp par
+     `mountPionStyles` (`--pion-radius`, `--pion-clip`, `--pion-filtre`) :
+     le rayon, la DÉCOUPE (seul moyen d'obtenir un triangle) et l'ombre portée —
+     car une découpe emporte la `box-shadow`, remplacée par un `drop-shadow` qui
+     suit la silhouette. Les replis sont ceux du pion rond d'avant : rien ne
+     change pour un compte qui n'a pas choisi de forme. */
+  border-radius: var(--pion-radius, 50%);
+  clip-path: var(--pion-clip, none);
+  filter: var(--pion-filtre, none);
   transform: translate(-50%, -50%);
   transition: left var(--dur-4) var(--ease-in-out), top var(--dur-4) var(--ease-in-out),
               opacity var(--dur-4) var(--ease-out), scale var(--dur-4) var(--ease-out),
@@ -1238,6 +1375,14 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   --pion-mask: var(--pion-mask-dark, none);
   --pion-motif-ink: var(--pion-motif-ink-dark, transparent);
   --pion-motif-img: var(--pion-motif-img-dark, none);
+  /* La FORME suit le camp, exactement comme la couleur : les pions sombres ne
+     peuvent pas porter la silhouette choisie pour les clairs. */
+  --pion-radius: var(--pion-radius-dark, 50%);
+  --pion-clip: var(--pion-clip-dark, none);
+  --pion-filtre: var(--pion-filtre-dark, none);
+  --pion-ring: var(--pion-ring-dark, -14%);
+  --pion-ring-radius: var(--pion-ring-radius-dark, 50%);
+  --pion-motif-radius: var(--pion-motif-radius-dark, 50%);
   background: var(--pion-grad);
 }
 /* --- Les skins appartiennent au JOUEUR, pas à la couleur -------------------
@@ -1259,6 +1404,14 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   --pion-mask: var(--pion-mask-opp, none);
   --pion-motif-ink: var(--pion-motif-ink-opp, transparent);
   --pion-motif-img: var(--pion-motif-img-opp, none);
+  /* La forme de l'adversaire vient de SON apparence, jamais de la mienne (même
+     règle que la couleur — le repli est le pion rond Vato). */
+  --pion-radius: var(--pion-radius-opp, 50%);
+  --pion-clip: var(--pion-clip-opp, none);
+  --pion-filtre: var(--pion-filtre-opp, none);
+  --pion-ring: var(--pion-ring-opp, -14%);
+  --pion-ring-radius: var(--pion-ring-radius-opp, 50%);
+  --pion-motif-radius: var(--pion-motif-radius-opp, 50%);
   background: var(--pion-grad);
 }
 .board .piece.opp.sombre {
@@ -1267,6 +1420,12 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   --pion-mask: var(--pion-mask-opp-dark, none);
   --pion-motif-ink: var(--pion-motif-ink-opp-dark, transparent);
   --pion-motif-img: var(--pion-motif-img-opp-dark, none);
+  --pion-radius: var(--pion-radius-opp-dark, 50%);
+  --pion-clip: var(--pion-clip-opp-dark, none);
+  --pion-filtre: var(--pion-filtre-opp-dark, none);
+  --pion-ring: var(--pion-ring-opp-dark, -14%);
+  --pion-ring-radius: var(--pion-ring-radius-opp-dark, 50%);
+  --pion-motif-radius: var(--pion-motif-radius-opp-dark, 50%);
   background: var(--pion-grad);
 }
 /* --- Pion personnalisé : la COULEUR et le MOTIF sont deux axes INDÉPENDANTS --
@@ -1294,7 +1453,12 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   background: var(--pion-grad, radial-gradient(circle at 32% 28%, #f7ead0 0%, #d9b988 52%, #9c7a4c 100%));
 }
 .pion-view {
-  position: relative; display: block; flex: none; border-radius: 50%;
+  position: relative; display: block; flex: none;
+  /* Même silhouette que sur le plateau : l'aperçu, les vignettes et le pion réel
+     consomment les MÊMES variables `--pion-*` (voir `.piece`). */
+  border-radius: var(--pion-radius, 50%);
+  clip-path: var(--pion-clip, none);
+  filter: var(--pion-filtre, none);
   background: var(--pion-grad, radial-gradient(circle at 32% 28%, #f7ead0 0%, #d9b988 52%, #9c7a4c 100%));
   box-shadow: 0 3px 7px rgba(0, 0, 0, .5), inset 0 -2.5px 5px rgba(90, 60, 20, .45);
 }
@@ -1308,10 +1472,18 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
   --pion-mask: var(--pion-mask-dark, none);
   --pion-motif-ink: var(--pion-motif-ink-dark, transparent);
   --pion-motif-img: var(--pion-motif-img-dark, none);
+  /* La FORME suit le camp, comme la couleur : l'aperçu des pions sombres ne peut
+     pas montrer la silhouette des clairs (voir `mountPionStyles`). */
+  --pion-radius: var(--pion-radius-dark, 50%);
+  --pion-clip: var(--pion-clip-dark, none);
+  --pion-filtre: var(--pion-filtre-dark, none);
+  --pion-ring: var(--pion-ring-dark, -14%);
+  --pion-ring-radius: var(--pion-ring-radius-dark, 50%);
+  --pion-motif-radius: var(--pion-motif-radius-dark, 50%);
   box-shadow: 0 3px 7px rgba(0, 0, 0, .55), inset 0 -2.5px 5px rgba(0, 0, 0, .5);
 }
 .pion-view::before, .board .piece.clair::before, .board .piece.sombre::before {
-  content: ""; position: absolute; inset: 13%; border-radius: 50%;
+  content: ""; position: absolute; inset: 13%; border-radius: var(--pion-motif-radius, 50%);
   /* Le motif se peint de DEUX façons, jamais les deux à la fois :
      — SILHOUETTE (`svg`) : `--pion-motif-ink` porte l'encre de la couleur
        choisie et `--pion-mask` la géométrie. L'encre n'est définie QUE par un
@@ -1334,22 +1506,28 @@ label.f-label { display: block; font-size: 12px; color: var(--muted); margin: 10
 }
 .board.myturn .piece.playable { pointer-events: none; }
 .board.myturn .piece.playable::after {
-  content: ""; position: absolute; inset: -14%; border-radius: 50%;
+  content: ""; position: absolute; inset: var(--pion-ring, -14%); border-radius: var(--pion-ring-radius, 50%);
   border: 1.5px solid rgba(54, 201, 154, .65);
   animation: breathe 2s infinite;
 }
 @keyframes breathe { 50% { transform: scale(1.14); opacity: .45; } }
 .piece.sel::after {
-  content: ""; position: absolute; inset: -16%; border-radius: 50%;
+  content: ""; position: absolute; inset: calc(var(--pion-ring, -14%) - 2%); border-radius: var(--pion-ring-radius, 50%);
   border: 2px solid var(--amber) !important;
   box-shadow: 0 0 14px rgba(229, 158, 39, .55);
   animation: none !important;
 }
 .piece.captured { opacity: 0; scale: .2; }
+/* Impulsions de refus et d'indice : elles portaient une `box-shadow`, que la
+   DÉCOUPE d'un pion triangulaire emporte entièrement (le pion ne réagirait
+   plus). Le halo est donc doublé d'un `drop-shadow`, qui suit la silhouette
+   quelle que soit la forme — le pion rond garde son anneau d'origine. */
 @keyframes rejectPulse { 0%{box-shadow:0 0 0 0 rgba(229,72,77,0);} 35%{box-shadow:0 0 0 8px rgba(229,72,77,.55);} 100%{box-shadow:0 0 0 0 rgba(229,72,77,0);} }
 @keyframes hintPulse { 0%{box-shadow:0 0 0 3px rgba(54,201,154,0);} 40%{box-shadow:0 0 0 7px rgba(54,201,154,.6);} 100%{box-shadow:0 0 0 3px rgba(54,201,154,0);} }
-.piece.reject { animation: rejectPulse .55s ease; }
-.piece.pulse { animation: hintPulse .9s ease; }
+@keyframes rejectGlow { 0%{filter:drop-shadow(0 0 0 rgba(229,72,77,0));} 35%{filter:drop-shadow(0 0 9px rgba(229,72,77,.85));} 100%{filter:drop-shadow(0 0 0 rgba(229,72,77,0));} }
+@keyframes hintGlow { 0%{filter:drop-shadow(0 0 0 rgba(54,201,154,0));} 40%{filter:drop-shadow(0 0 8px rgba(54,201,154,.8));} 100%{filter:drop-shadow(0 0 0 rgba(54,201,154,0));} }
+.piece.reject { animation: rejectPulse .55s ease, rejectGlow .55s ease; }
+.piece.pulse { animation: hintPulse .9s ease, hintGlow .9s ease; }
 
 .dots { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
 .dot {
@@ -1929,30 +2107,87 @@ body.is-fill .hg-scroll > .mt-state { height: 100%; justify-content: center; }
 .prize-table td { font-family: var(--mono); font-size: 12.5px; }
 .prize-table td:first-child { font-family: Roboto, sans-serif; font-weight: 600; }
 
-/* ============ Classement ============ */
-.rank-layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
-.podium { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin: 6px 0 14px; }
-.pod { flex: 1; text-align: center; border: .5px solid var(--line); border-radius: var(--r-md) var(--r-md) 0 0; background: var(--panel-2); padding: 12px 6px 10px; }
-.pod.p1 { padding-top: 20px; background: linear-gradient(180deg, rgba(227, 178, 60, .14), transparent), var(--panel-2); border-color: rgba(227, 178, 60, .4); }
-.pod.p2 { background: linear-gradient(180deg, rgba(154, 163, 173, .12), transparent), var(--panel-2); }
-.pod.p3 { background: linear-gradient(180deg, rgba(138, 90, 59, .14), transparent), var(--panel-2); }
-.pod .crown { font-size: 18px; }
+/* ============ Classement — organisation « proposition 2 » ====================
+   Le PODIUM monte en tête, pleine largeur, et porte le sélecteur National /
+   Province (il gouverne tout l'écran) ; en dessous, deux colonnes — la LISTE
+   (la plus large) et VOTRE CLASSEMENT, la carte personnelle qui quitte la
+   colonne latérale qu'elle occupait. Structure de la maquette, couleurs des
+   jetons : aucune teinte en dur, les deux thèmes suivent. */
+.rank-hero { margin-bottom: var(--sp-4); }
+.rank-hero-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.rank-hero-head h2 { font-size: 17px; color: var(--text-strong); }
+.rank-hero-head h2 span { color: var(--muted); font-weight: 500; }
+/* Marches du podium : hauteurs CROISSANTES 1er > 2e > 3e (maquette : 62/44/34). */
+.podium-stage { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: var(--sp-3); max-width: 760px; margin: 14px auto 0; }
+.pod { display: flex; min-width: 0; flex-direction: column; align-items: center; text-align: center; }
+.pod-info { display: flex; min-height: 118px; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 8px; }
+.pod.p1 .pod-info { min-height: 132px; }
+.pod .crown { font-size: 17px; line-height: 1; }
 /* Avatar du podium : présent comme dans la table voisine ; le pseudo reste le
    seul lien cliquable. */
-.pod .pod-av { width: 34px; height: 34px; font-size: 12px; margin: 6px auto 0; cursor: default; }
-.pod .pn { font-weight: 700; color: var(--text-strong); font-size: 12.5px; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pod .pe { font-family: var(--mono); font-size: 12px; color: var(--amber); }
+.pod .pod-av { margin-top: 4px; cursor: default; }
+.pod .pn { max-width: 100%; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--text-strong); font-size: 12.5px; }
+.pod .pod-city { margin-top: 2px; color: var(--muted); font-size: 11px; }
+.pod .badge-chip { margin-top: 5px; }
+.pod .pod-score { margin-top: 5px; font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--text-strong); }
+.pod .pod-score small { margin-left: 3px; color: var(--muted); font-size: 9px; letter-spacing: .08em; }
+.pod-step { width: 100%; min-height: 34px; display: grid; place-items: center; border: .5px solid var(--line); border-bottom: 0; border-radius: var(--r-sm) var(--r-sm) 0 0; background: linear-gradient(180deg, var(--panel-2), transparent); color: var(--muted); font-size: 11.5px; font-weight: 700; }
+.pod.p2 .pod-step { min-height: 44px; }
+.pod.p1 .pod-step { min-height: 62px; color: var(--amber); border-color: rgba(229, 158, 39, .45); background: linear-gradient(180deg, var(--amber-soft), transparent); }
+.rank-hero-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: .5px solid var(--line); color: var(--muted); font-size: 11.5px; }
+.pod-live { display: inline-flex; align-items: center; gap: 7px; }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-ink); box-shadow: 0 0 0 3px rgba(29, 158, 117, .16); }
+.rank-layout { display: grid; grid-template-columns: minmax(0, 1.56fr) minmax(300px, .94fr); gap: var(--sp-4); align-items: start; }
+/* En-tête de carte (liste et carte personnelle) : titre + valeur à droite. */
+.rank-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.rank-head h2 { font-size: 17px; color: var(--text-strong); }
+.count-chip { padding: 5px 10px; border-radius: var(--r-pill); background: var(--panel-2); color: var(--muted); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.rank-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: .5px solid var(--line); }
+/* --- Carte « Votre classement » (colonne de droite) --- */
+.my-row { display: flex; align-items: center; gap: 11px; margin-top: 12px; }
+.my-row .my-copy { min-width: 0; }
+.my-row .my-copy b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-strong); font-size: 14.5px; }
+.my-row .my-copy span { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; }
+.elo-highlight { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; margin-top: 14px; padding: 12px 14px; border: .5px solid rgba(29, 158, 117, .35); border-radius: var(--r-md); background: rgba(29, 158, 117, .07); }
+.elo-label { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+.elo-number { font-family: var(--mono); font-size: 26px; font-weight: 700; line-height: 1.15; color: var(--text-strong); }
+.elo-number span { margin-left: 2px; color: var(--muted); font-size: 11px; font-weight: 600; }
+.rank-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: .5px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2); color: var(--brand-ink); font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.prog-wrap { margin-top: 14px; }
+.prog-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 11.5px; }
+.prog-label strong { color: var(--text-strong); font-family: var(--mono); }
+.prog-track { height: 6px; overflow: hidden; margin-top: 7px; border-radius: var(--r-pill); background: var(--panel-2); }
+.prog-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--brand-2), var(--brand-ink)); }
+.prog-cap { margin-top: 5px; color: var(--muted); font-size: 11px; }
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 14px; padding: 12px 0; border-top: .5px solid var(--line); border-bottom: .5px solid var(--line); }
+.stat { display: flex; flex-direction: column; align-items: center; gap: 3px; border-right: .5px solid var(--line); }
+.stat:last-child { border-right: 0; }
+.stat strong { font-family: var(--mono); font-size: 16px; color: var(--text-strong); }
+.stat strong small { font-size: 10px; }
+.stat span { color: var(--muted); font-size: 10.5px; text-align: center; }
+.calib-note { display: flex; gap: 8px; margin-top: 12px; padding: 10px; border: .5px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2); color: var(--muted); font-size: 11px; line-height: 1.5; }
+.rank-actions { display: flex; gap: var(--sp-2); margin-top: 12px; }
+.rank-actions .btn { flex: 1 1 auto; }
+.rank-actions .icon-only { flex: 0 0 auto; width: 44px; padding: 0; }
+
+
 .rank-row {
-  display: grid; grid-template-columns: 40px 1fr 92px 46px; gap: 10px; align-items: center;
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) 92px; gap: 10px; align-items: center;
   padding: 9px 12px; border-radius: var(--r-sm); font-size: 13.5px; border: .5px solid transparent;
 }
 .rank-row:hover { background: var(--panel-2); }
 .rank-row.me { background: rgba(29, 158, 117, .1); border-color: rgba(29, 158, 117, .4); }
 .rank-row.head { color: var(--muted); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; font-weight: 600; }
 .rank-row.head:hover { background: none; }
-.rank-row .elo { font-family: var(--mono); color: var(--text-strong); font-weight: 700; }
+/* Rang sur deux chiffres (« 01 ») : colonne de largeur FIXE, donc les pseudos
+   s'alignent sur toute la liste. */
+.rank-row .rk-num { font-family: var(--mono); color: var(--muted); text-align: center; }
+.rank-row.me .rk-num { color: var(--brand-ink); font-weight: 700; }
+/* Elo : la valeur, puis son unité en petit — la colonne reste alignée à droite
+   (l'en-tête porte « ELO »). */
+.rank-row .elo { text-align: right; font-family: var(--mono); color: var(--text-strong); font-weight: 700; }
+.rank-row .elo small { display: block; font-family: Roboto, sans-serif; font-size: 10px; font-weight: 600; color: var(--muted); }
 .rank-row .wr { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.rank-row .medal { text-align: center; font-size: 17px; }
 /* Pseudo + badge, région en dessous */
 .rank-who { min-width: 0; }
 .rank-who .who-line { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
@@ -2494,60 +2729,16 @@ html[data-theme="night"] .tx-ic.k-other { color: #a4b1ab; background: rgba(255, 
 .pion-sum + .btn { margin-top: 12px; min-height: 46px; }
 .pion-apply-hint { margin: 9px 2px 0; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
 
-/* ---- Cartes « Plateau & effets » (style vitrine) ---- */
-#skins-root .skins-grid { grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 14px; }
-#skins-root .skc {
-  position: relative; border-radius: var(--r-md); overflow: hidden; cursor: default;
-  display: flex; flex-direction: column; border: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--panel), var(--panel-2));
-  transition: transform .2s cubic-bezier(.2,.8,.3,1), border-color .2s, box-shadow .2s;
-}
-#skins-root .skc:hover { transform: translateY(-5px); border-color: rgba(255,255,255,.18); box-shadow: var(--shadow); }
-#skins-root .skc.owned { border-color: var(--green); }
-#skins-root .skc.equipped-card { border-color: var(--brand-ink); box-shadow: 0 0 0 1px var(--brand-ink), var(--shadow); }
-/* Vignette « vitrine » : tuile sombre assumée — c'est l'objet acheté qu'on
-   montre — dont le halo reprend la couleur propre du skin (--k-c ; teintes
-   relevées dans la feuille de l'application, comme le prototype). */
-#skins-root .skc-visual {
-  height: 112px; display: grid; place-items: center; position: relative; overflow: hidden;
-  background: radial-gradient(70% 90% at 50% 100%, rgba(255,255,255,.09), transparent 70%), rgba(0,0,0,.30);
-}
-#skins-root .skc-visual::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
-  background: radial-gradient(120% 60% at 50% 120%, var(--k-c, #2BA37E), transparent 62%);
-}
-#skins-root .skc-visual .k-ico { position: relative; z-index: 2; display: grid; place-items: center; font-size: 34px; filter: drop-shadow(0 8px 14px rgba(0,0,0,.5)); }
-/* Reflet qui balaie la vignette au survol — la signature « vitrine ». */
-#skins-root .skc-shine {
-  position: absolute; top: -60%; left: -70%; width: 50%; height: 220%; transform: rotate(18deg);
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent);
-  transition: left .6s ease; pointer-events: none; z-index: 3;
-}
-#skins-root .skc:hover .skc-shine { left: 130%; }
-#skins-root .skc-top { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between; z-index: 4; }
-#skins-root .tag {
-  font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
-  padding: 4px 8px; border-radius: 99px; color: #E6E1D6;
-  background: rgba(4,7,12,.78); border: 1px solid var(--k-c, #2BA37E); backdrop-filter: blur(6px);
-}
-#skins-root .tag.owned-tag { color: #4ADE80; border-color: rgba(74,222,128,.40); }
-#skins-root .tag.eq-tag { color: #2BA37E; border-color: rgba(43,163,126,.45); }
-#skins-root .skc-body { padding: 11px 12px 13px; display: flex; flex-direction: column; gap: 9px; flex: 1; }
-#skins-root .skc-name { font-size: 13.5px; font-weight: 800; color: var(--text-strong); }
-#skins-root .skc-desc { font-size: 11.5px; color: var(--muted); line-height: 1.45; margin-top: 3px; }
-#skins-root .skc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 4px; }
-#skins-root .price { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13.5px; color: #B45309; font-variant-numeric: tabular-nums; }
-html[data-theme="light"] #skins-root .price { color: #92400e; }
-html[data-theme="night"] #skins-root .price { color: var(--amber); }
-#skins-root .buy, #skins-root .equip {
-  padding: 8px 13px; border-radius: var(--r-sm); font-size: 11px; font-weight: 800;
-  letter-spacing: .08em; text-transform: uppercase; transition: .18s; border: 1px solid transparent;
-}
-#skins-root .buy { background: var(--mt-grad-gold); color: #ffffff; }
-#skins-root .buy:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -8px #B45309; }
-#skins-root .equip { background: transparent; border-color: var(--brand-ink); color: var(--brand-ink); }
-#skins-root .equip:hover { background: var(--panel-3); }
-#skins-root .equip.on { background: var(--brand); color: #ffffff; border-color: transparent; }
+/* ---- Cartes de FORME du pion (grille du catalogue) --------------------------
+   Les trois formes se comparent à MONTURE ÉGALE : la vignette est un pion nu sur
+   fond blanc (`.pion-view--motif`), donc seul le rayon ou la découpe les
+   distingue — la couleur se juge sur le pion d'aperçu, comme pour les motifs. */
+#skins-root .pion-grid--formes { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+/* ---- (Historique) Cartes « Plateau & effets » -------------------------------
+   La vitrine de ces deux familles a été RETIRÉE le 13/10/2026 : leur place est
+   prise par les formes du pion. Leurs règles `.skc*`, `.tag*`, `.price`, `.buy`
+   et `.equip` sont supprimées avec elle ; le catalogue, l'achat et l'équipement
+   restent côté serveur (compatibilité des achats existants). */
 
 /* Étincelles d'application (retour visuel « Appliquer »). */
 .sk-spark { position: fixed; z-index: 400; pointer-events: none; width: 9px; height: 9px; border-radius: 2px; }
@@ -2556,7 +2747,6 @@ html[data-theme="night"] #skins-root .price { color: var(--amber); }
 @media (max-width: 1080px) { #skins-root .skins-layout { grid-template-columns: 1fr; } }
 @media (max-width: 760px) {
   #skins-root .skins-layout { padding-bottom: 16px; }
-  #skins-root .skins-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 11px; }
   #skins-root .stage { min-height: 320px; }
   #skins-root .stage-real .view-hint { display: none; }
 }
@@ -2876,7 +3066,6 @@ body.is-fill #skins-root .side-stack { padding-bottom: 48px; }
 @media (max-width: 1080px) { #skins-root .skins-layout { grid-template-columns: 1fr; } }
 @media (max-width: 760px) {
   #skins-root .skins-layout { padding-bottom: 16px; }
-  #skins-root .skins-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 11px; }
   #skins-root .stage { min-height: 320px; }
   #skins-root .stage-real .view-hint { display: none; }
 }
@@ -3685,62 +3874,77 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
   font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
   color: var(--muted);
 }
-/* --- La pièce en l'air : DEUX faces empilées en 3D --------------------------
-   `preserve-3d` est porté par la pièce elle-même, et la pièce n'est jamais dans un
-   calque qui porte `backdrop-filter` : sinon la profondeur s'aplatirait sur WebKit.
-   La face arrière est tournée de 180°, `backface-visibility` cache celle qui ne
-   regarde pas le joueur : le vol montre donc réellement les DEUX faces. */
+/* --- LES DEUX FACES DÉFILENT PENDANT LE VOL (retour terrain n° 2) ------------
+   La rotation 3D ne le garantissait PAS : dans un sous-arbre dont la 3D est
+   aplatie par une animation (le même aplatissement que celui décrit plus bas,
+   déjà mesuré au sol), `backface-visibility` n'agit plus et le vol ne montrait
+   qu'une seule des deux faces. L'alternance est donc pilotée par l'OPACITÉ, en
+   `steps(1, end)` — un cran par demi-tour —, sans dépendre d'aucun moteur 3D.
+   Le vol dure 2 s et la pièce fait 3 tours, soit 6 demi-tours : un changement
+   toutes les 16,67 %. L'ORDRE demandé (« pile, puis face, puis pile… ») suit les
+   fichiers : `.coin-front` est PILE, `.coin-back` est FACE. L'alternance court
+   JUSQU'À L'ARRÊT, et c'est l'arrêt qui montre le résultat tiré (`.landed`).
+   Corollaire : les deux plans sont maintenant PLATS (`rotateY(180deg)` retiré)
+   et les images ne portent plus d'ombre « de groupe » — une face en MIROIR ne
+   peut donc plus apparaître, ni en vol ni à l'arrêt. */
+.coin-air {
+  position: relative; display: block; width: clamp(112px, 26vw, 184px); aspect-ratio: 1;
+}
+.coin-air i {
+  position: absolute; inset: 0; display: block;
+  -webkit-backface-visibility: visible; backface-visibility: visible;
+}
 .coin-toss-stage { position: relative; display: grid; place-items: center; height: clamp(150px, 32vw, 226px); }
 /* ATTENTION — `filter` est une propriété « de groupe » : posée sur l'élément qui porte
    `transform-style: preserve-3d` (ou sur un de ses ancêtres), elle force l'aplatissement
    de la 3D. L'ombre portée vit donc sur les IMAGES (des plans plats), jamais sur
    `.coin-air` : sinon `backface-visibility` cesse d'agir et la pièce montrait la face
    arrière EN MIROIR — le verdict disait FACE, la pièce montrait le « 50 » retourné. */
-.coin-air {
-  position: relative; display: block; width: clamp(112px, 26vw, 184px); aspect-ratio: 1;
-  transform-style: preserve-3d;
-}
-.coin-air i {
-  position: absolute; inset: 0; display: block;
-  -webkit-backface-visibility: hidden; backface-visibility: hidden;
-}
 .coin-air img { width: 100%; height: 100%; display: block; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .52)); }
-.coin-air .coin-back { transform: rotateY(180deg); }
-/* Position d'arrivée = face tirée : 1080° (3 tours pleins) montre PILE, 1260°
-   (3 tours + 180°) montre FACE. Ces angles sont des multiples exacts de 180°, donc
-   la face affichée à l'arrêt est TOUJOURS celle que le serveur a tirée. */
-.coin-air.pile { transform: rotateY(1080deg); }
-.coin-air.face { transform: rotateY(1260deg); }
-.coin-air.on.pile { animation: coinHurlPile 2s cubic-bezier(.2,.62,.26,1) both; }
-.coin-air.on.face { animation: coinHurlFace 2s cubic-bezier(.2,.62,.26,1) both; }
-/* --- L'ARRIVÉE NE DÉPEND PAS DE LA 3D --------------------------------------
-   Mesuré sur cette base : une rotation STATIQUE garde sa 3D (`preserve-3d` intact,
-   le plan arrière est bien celui qui regarde le joueur), mais une rotation ANIMÉE
-   APLATIT le sous-arbre — la pièce s'immobilisait alors sur le « 50 » RETOURNÉ sous
-   un verdict qui disait FACE (sonde `_coin_3d.js`, contrôle P9 de `_coin_verif.js`).
-   On ne parie donc pas sur le moteur : dès que le vol est fini, `.landed` coupe
-   l'animation ET la rotation, et c'est `display` qui décide du plan montré. L'image
-   est droite et juste, y compris sur un moteur sans `preserve-3d`. */
+/* Le vol lui-même : un arc et 3 tours SUR PLACE (rotation 2D en Z). La rotation
+   2D ne peut rien inverser, contrairement à `rotateY` : la face visible reste
+   lisible à chaque instant, et c'est l'OPACITÉ ci-dessous qui décide laquelle
+   des deux faces on voit à cet instant. */
+.coin-air.on { animation: coinHurl 2s cubic-bezier(.2,.62,.26,1) both; }
+/* Un cran par demi-tour : PILE (0-16,67 %), FACE (16,67-33,3 %), PILE, FACE,
+   PILE, FACE. `steps(1, end)` tient chaque valeur jusqu'au cran suivant. */
+.coin-air.on .coin-front { animation: coinAltFront 2s steps(1, end) both; }
+.coin-air.on .coin-back { animation: coinAltBack 2s steps(1, end) both; }
+/* --- L'ARRIVÉE NE DÉPEND PAS DE L'ANIMATION ---------------------------------
+   Dès que le vol est fini, `.landed` coupe TOUT : l'arc du conteneur, la
+   rotation, ET l'alternance des deux faces (`i`). C'est ensuite `display` seul
+   qui décide du plan montré — la face affichée au sol est donc exactement celle
+   que le serveur a tirée, sur n'importe quel moteur (sonde `_coin_3d.js`,
+   contrôle P9 de `_coin_verif.js`). Une animation résiduelle sur les `i`
+   remettrait une face en opacité 0 : elle est coupée ici, pas laissée au hasard. */
 .coin-air.landed { transform: none; animation: none; }
-/* Les deux plans redeviennent de simples images droites : sans cela, `.coin-back` reste
-   tourné de 180° et sa propre `backface-visibility: hidden` le rend INVISIBLE (c'est sa
-   face arrière qui regarde le joueur) — la pièce retombait alors sur une boîte vide. */
 .coin-air.landed .coin-front, .coin-air.landed .coin-back {
-  transform: none; -webkit-backface-visibility: visible; backface-visibility: visible;
+  animation: none; transform: none; opacity: 1;
+  -webkit-backface-visibility: visible; backface-visibility: visible;
 }
 .coin-air.landed .coin-front { display: block; }
 .coin-air.landed .coin-back { display: none; }
 .coin-air.landed.face .coin-front { display: none; }
 .coin-air.landed.face .coin-back { display: block; }
-@keyframes coinHurlPile {
-  0%   { transform: translateY(-56px) scale(.78) rotateY(0deg); opacity: .55; }
-  45%  { transform: translateY(-104px) scale(1) rotateY(540deg); opacity: 1; }
-  100% { transform: translateY(0) scale(1) rotateY(1080deg); opacity: 1; }
+/* L'arc du vol : 3 tours sur place en rotation 2D (voir `.coin-air.on`). */
+@keyframes coinHurl {
+  0%   { transform: translateY(-56px) scale(.78) rotate(0deg); opacity: .55; }
+  45%  { transform: translateY(-104px) scale(1) rotate(540deg); opacity: 1; }
+  100% { transform: translateY(0) scale(1) rotate(1080deg); opacity: 1; }
 }
-@keyframes coinHurlFace {
-  0%   { transform: translateY(-56px) scale(.78) rotateY(0deg); opacity: .55; }
-  45%  { transform: translateY(-104px) scale(1) rotateY(600deg); opacity: 1; }
-  100% { transform: translateY(0) scale(1) rotateY(1260deg); opacity: 1; }
+/* L'alternance des faces, un cran par demi-tour (16,67 % × 6 = 100 %).
+   `.coin-front` = PILE : il ouvre, puis alterne ; `.coin-back` = FACE : il prend
+   le relais à chaque cran impair. Les deux se retrouvent invisibles au dernier
+   cran — c'est `.landed` qui remet, en une image, le côté tiré. */
+@keyframes coinAltFront {
+  0% { opacity: 1; }   16.67% { opacity: 0; }  33.33% { opacity: 1; }
+  50% { opacity: 0; }  66.67% { opacity: 1; }  83.33% { opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes coinAltBack {
+  0% { opacity: 0; }   16.67% { opacity: 1; }  33.33% { opacity: 0; }
+  50% { opacity: 1; }  66.67% { opacity: 0; }  83.33% { opacity: 1; }
+  100% { opacity: 1; }
 }
 /* --- Le verdict, puis les DEUX attributions ---------------------------------
    Le texte est écrit par le JS AVANT l'affichage : seules les APPARITIONS sont
@@ -3788,11 +3992,20 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
 }
 .coin-toss-owner .ow.win .ow-side, .coin-toss-owner .ow.win .ow-go { color: var(--brand-ink); }
 .coin-toss-owner .ow.win .ow-camp { color: var(--brand-ink); }
+/* CONTRASTE (retour terrain n° 2) — la cause exacte, mesurée dans le CSS :
+   cette règle appelait `--brand-1` et `--shadow-md`, deux jetons qui N'EXISTENT
+   PAS dans le design system. Une `background` dont un `var()` est indéfini est
+   invalidée EN ENTIER : le bouton « Commencer » s'affichait donc TRANSPARENT,
+   avec son texte blanc `#fff` par-dessus la carte du lancer — contraste nul.
+   On reprend la paire de verts déjà employée par `.chat-fab.has-unread`
+   (`--brand` → `#0e5c44`) : blanc dessus = 5,5:1 en thème clair et 4,8:1 en
+   thème nuit, donc AA dans les deux thèmes. Même correction pour l'ombre, avec
+   le jeton existant `--shadow-1`. */
 .coin-toss-go {
   margin-top: 18px; padding: 12px 28px; border: none; border-radius: 999px;
   font-size: 15px; font-weight: 800; letter-spacing: .04em; cursor: pointer;
-  color: #fff; background: linear-gradient(135deg, var(--brand-2), var(--brand-1));
-  box-shadow: var(--shadow-md);
+  color: #fff; background: linear-gradient(135deg, var(--brand), #0e5c44);
+  box-shadow: var(--shadow-1);
   animation: coinIn .3s ease both; animation-delay: 2.72s;
   transition: filter .12s, transform .12s;
 }
@@ -3818,7 +4031,12 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
 .coin-opt .coin-thumb { display: block; width: 56px; height: 56px; margin: 0 auto 10px; }
 .coin-opt:hover { transform: translateY(-2px); border-color: var(--brand-2); box-shadow: var(--shadow-md); }
 .coin-opt.free:active { transform: scale(.97); }
-.coin-opt.sel { border-color: var(--brand-2); background: linear-gradient(180deg, var(--brand-2), var(--brand-1)); color: #fff; box-shadow: var(--shadow-md); }
+.coin-opt.sel { border-color: var(--brand-2); background: linear-gradient(180deg, var(--brand), #0e5c44); color: #fff; box-shadow: var(--shadow-1); }
+/* CONTRASTE (retour terrain n° 2) — même cause que `.coin-toss-go` ci-dessus :
+   `--brand-1` et `--shadow-md` n'existent pas, la `background` était invalidée
+   en entier et le côté SÉLECTIONNÉ (PILE ou FACE) s'affichait transparent avec
+   son libellé blanc. La paire `--brand` → `#0e5c44` donne 5,5:1 (clair) et
+   4,8:1 (nuit) pour le blanc : AA dans les deux thèmes. */
 .coin-opt[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
 /* ============ Coquille plein écran (desktop ≥ 1081 px) ============
    Le tableau de bord et les vues de consultation occupent EXACTEMENT la fenêtre :
@@ -3917,9 +4135,13 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
     flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
     scrollbar-width: thin; scrollbar-color: var(--line) transparent;
   }
-  /* Le héro respire avec la largeur et garde ses 3 statistiques alignées en bas */
-  body.is-fill .home-hero { display: flex; flex-direction: column; }
-  body.is-fill .home-hero .dash-stats { margin-top: auto; }
+  /* Le bloc de tête de la colonne principale (carrousel publicitaire, n° 4) garde
+     une hauteur bornée : sa rangée est `auto`, il ne doit donc pas pousser le
+     reste. La carte de saison (n° 5) respire avec la largeur et garde ses
+     3 statistiques alignées en bas, comme le faisait le héro. */
+  body.is-fill .season-card { display: flex; flex-direction: column; }
+  body.is-fill .season-card .dash-stats { margin-top: auto; }
+  body.is-fill .ad-car { flex: 0 0 auto; }
 }
 
 /* Fenêtres peu hautes (1366×768, 1280×720) : espacements compactés pour garantir
@@ -3930,6 +4152,8 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
   body.is-fill .home-grid, body.is-fill .hg-col { gap: 10px; }
   body.is-fill .home-hero { padding: 18px; }
   body.is-fill .home-hero h2 { font-size: 20px; }
+  body.is-fill .season-card { padding: 14px; }
+  body.is-fill .season-card .dash-info h2 { font-size: 20px; }
   body.is-fill .mt-hero { padding: 16px 20px; }
 }
 
@@ -3937,6 +4161,9 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
 @media (max-width: 1080px) {
   .board-shell { grid-template-columns: 1fr; }
   .home-grid, .rank-layout, .wallet-layout, .profile-layout, .skins-layout { grid-template-columns: 1fr; }
+  /* Classement en une colonne : la carte PERSONNELLE passe en tête (maquette
+     « proposition 2 ») — sur un téléphone, « votre classement » précède la liste. */
+  .rank-layout > aside { order: -1; }
   .play-layout { grid-template-columns: 1fr; }
   .chat-layout { grid-template-columns: 1fr; height: auto; }
   /* Accueil : les blocs du mode plein écran redeviennent de simples blocs de flux
@@ -3950,7 +4177,10 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
   .lgtab__tab svg { width: 20px; height: 20px; }
   .searchbar input { font-size: 16px; }   /* évite le zoom auto iOS au focus */
   .home-row { grid-template-columns: 1fr; }
-  .rank-row { grid-template-columns: 30px 1fr 76px 44px; }
+  /* Classement : la colonne du rang reste étroite (deux chiffres), la colonne
+     Elo porte la valeur ET son unité empilée — trois colonnes, plus de médaille
+     (le podium, au-dessus, porte les médailles). */
+  .rank-row { grid-template-columns: 30px minmax(0, 1fr) 76px; }
   .rank-row .wr { display: none; }
   /* Barre haute sur UNE ligne : le nom de l'application cède la place au logo
      (il est déjà dans les titres d'écran), la pastille KYC se réduit à sa coche
@@ -4015,7 +4245,9 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
 .chat-pop .cp-btn { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 2px 5px; border-radius: var(--r-sm); }
 .chat-pop .cp-btn:hover { color: var(--text-strong); background: var(--panel-3); }
 .chat-pop .cp-body { display: flex; flex-direction: column; height: 300px; }
-.chat-pop.min .cp-body { display: none; }
+/* L'état replié (`.chat-pop.min`) a été RETIRÉ avec le bouton « réduire »
+   (retour terrain n° 8) : la fenêtre se ferme (croix ou clic extérieur) au lieu
+   de se réduire, il n'y a donc plus de corps masqué à piloter. */
 .chat-pop .cp-msgs { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
 .chat-pop .cp-msgs .msg { max-width: 82%; padding: 7px 10px; border-radius: var(--r-md); font-size: 13px; background: var(--panel-2); color: var(--text); align-self: flex-start; }
 .chat-pop .cp-msgs .msg.me { background: var(--brand); color: #fff; align-self: flex-end; }
@@ -4060,6 +4292,63 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
 }
 
 /* =========================================================================
+   PANNEAUX ANCRÉS DE LA BARRE SUPÉRIEURE (retour terrain n° 1)
+   -------------------------------------------------------------------------
+   Les notifications et les demandes ne prennent plus un onglet entier : elles
+   s'ouvrent sous leur icône, comme une zone déroulante. Un seul composant pour
+   les deux (cloche et amis) — la structure est identique, seuls les éléments
+   changent. `hidden` porte la fermeture (aucun état CSS parallèle) et le clic
+   EXTÉRIEUR ferme les deux, sur mobile comme sur desktop.
+   `position: fixed` : le panneau s'affiche au-dessus de tout, y compris de la
+   barre d'onglets flottante, sans être rogné par le `overflow` de la topbar. Le
+   repère `top` est piloté par `placePanel()` (hauteur RÉELLE de la topbar).
+   ========================================================================= */
+.pop-panel {
+  position: fixed; top: 56px; right: 10px; z-index: 72;
+  width: min(94vw, 384px); max-height: min(74vh, 560px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow);
+  animation: popIn .16s var(--ease-out);
+}
+.pop-panel[hidden] { display: none; }
+@keyframes popIn { from { opacity: 0; transform: translateY(-6px) scale(.99); } to { opacity: 1; transform: none; } }
+.pp-head { display: flex; align-items: center; gap: 8px; padding: 13px 14px 9px; }
+.pp-head h3 { flex: 1; margin: 0; font-size: 16px; color: var(--text-strong); }
+.pp-eye { border: none; background: none; color: var(--muted); cursor: pointer; padding: 5px; border-radius: var(--r-sm); display: grid; place-items: center; }
+.pp-eye:hover { background: var(--panel-3); color: var(--text-strong); }
+.pp-filters { display: flex; gap: 6px; padding: 0 14px 9px; }
+.pp-tab { border: none; background: none; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.pp-tab:hover { background: var(--panel-3); color: var(--text-strong); }
+.pp-tab.on { background: var(--green-soft); color: var(--brand-ink); }
+.pp-body { flex: 1; overflow-y: auto; padding: 0 6px 8px; }
+.pp-group { display: flex; align-items: center; gap: 8px; padding: 8px 9px 4px; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.pp-group .pp-see { margin-left: auto; font-size: 11.5px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--brand-ink); background: none; border: none; cursor: pointer; padding: 2px 4px; border-radius: var(--r-sm); }
+.pp-group .pp-see:hover { background: var(--panel-3); }
+.pp-item { position: relative; display: flex; gap: 10px; padding: 9px 9px 10px; border-radius: var(--r-sm); }
+.pp-item:hover { background: var(--panel-2); }
+.pp-item.click { cursor: pointer; }
+.pp-av { position: relative; flex: none; width: 40px; height: 40px; }
+.pp-av .avatar { width: 40px; height: 40px; font-size: 13px; }
+.pp-type { position: absolute; right: -4px; bottom: -4px; width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; line-height: 1; background: var(--brand); color: #fff; border: 2px solid var(--panel); }
+.pp-type.warn { background: #c2740b; }
+.pp-type.info { background: #2f6fd0; }
+.pp-txt { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.45; color: var(--text); }
+.pp-txt b { color: var(--text-strong); }
+.pp-when { margin-top: 3px; font-size: 11px; color: var(--muted); }
+.pp-when .pp-etat { color: var(--brand-ink); font-weight: 700; }
+.pp-dot { flex: none; width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--brand-2, #4f8ff7); }
+.pp-actions { display: flex; gap: 8px; margin-top: 9px; }
+.pp-actions .btn { flex: 1; justify-content: center; }
+.pp-empty { padding: 26px 16px; text-align: center; color: var(--muted); font-size: 12.5px; }
+.pp-empty .pp-emoji { display: block; font-size: 28px; margin-bottom: 6px; }
+@media (max-width: 640px) {
+  /* Pleine largeur, hauteur maximale et défilement INTERNE (n° 1) : le panneau
+     ne pousse pas la page et ne recouvre jamais la barre d'onglets en entier. */
+  .pop-panel { left: 8px; right: 8px; width: auto; max-height: min(76vh, 620px); }
+}
+
+/* =========================================================================
    CHARTE GLOBALE — feedback, tactile, reduced-motion (skills emilkowalski)
    ========================================================================= */
 
@@ -4083,6 +4372,13 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
   .resume-bar:hover, .wallet-chip:hover, .btn:hover, .game-tile:hover, .defi-card:hover,
   .tn-card:hover, .coin-opt:hover, .chat-fab:hover, .op-card:hover, .pg-opt:hover,
   .wb-btn:hover, .wb-social:hover { transform: none; }
+  /* ANTI-ZOOM (retour terrain n° 6) : `manipulation` laisse défiler et pincer le
+     geste MAIS supprime le zoom par DOUBLE TAP — c'est exactement le verrou qu'on
+     veut, et il ne coûte rien au défilement des 16 écrans. Le pincement, lui, est
+     refusé par le script (gardes `gesture*` + deux doigts), car aucune valeur de
+     `touch-action` ne l'interdit tout en gardant le défilement. Réservé au
+     POINTAGE GROSSIER : au clavier/souris, rien ne change. */
+  html, body { touch-action: manipulation; }
 }
 
 /* 3) Reduced motion : entrées en fondu seul, décorations coupées,
@@ -4206,7 +4502,9 @@ body.is-fill #screens {
 @media (min-width: 1081px) {
   .mt-split       { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); gap: var(--sp-4); }
   .mt-grid2       { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
-  .rank-layout    { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: var(--sp-4); }
+  /* Classement (maquette « proposition 2 ») : la LISTE à gauche (la plus large),
+      la carte personnelle à droite — ce n'est plus une colonne latérale. */
+  .rank-layout    { grid-template-columns: minmax(0, 1.56fr) minmax(300px, .94fr); gap: var(--sp-4); }
   /* Wallet : proportions de la maquette, pas une colonne latérale — solde
      1.28fr, frais .92fr (330 px plancher), historique pleine largeur. */
   .wallet-layout  { grid-template-columns: minmax(0, 1.28fr) minmax(330px, .92fr); gap: var(--sp-4); }
@@ -4321,8 +4619,10 @@ body.is-fill #screens {
      · --r-md (16) tuiles et panneaux : .panel · .t-card · .game-tile · .defi-card ·
        .tn-card · .skin-card · .balance-card · .mt-tile · .pf3-ad / .pf3-bank /
        .pf3-add / .pf3-skin-cta · .dash-stat · .kpi · .stat-cell · .toast ·
-       .pg-opt · .pg-recap · .pg-fmt · .pion-stage · .coin-opt · .screen-board ·
+       .pg-opt · .pg-recap · .pg-fmt · .pion-stage · .coin-opt ·
        .wb-brand-tile · .coin-toss-card · .coin-toss-owner .ow
+       (.screen-board n'y est PLUS : ses angles sont DROITS, cf. son commentaire —
+       l'arrondi du plateau est gravé dans l'image et a été aplati dans l'asset)
      · --r-sm (10) contrôles, rangées et tuiles imbriquées : .btn (et .lg) ·
        .mini-btn · .choice-btn · .pg-cta · .wb-btn · .mt-cta-solid / -ghost ·
        select/input/textarea · .link-share input · .tx-filters input ·
@@ -4833,7 +5133,7 @@ body.is-fill #screens {
           <div class="hint" id="hint" style="margin-top:10px; font-size:12.5px; color:var(--brand-ink);"></div>
           <hr class="divider">
           <ul class="rules-list" style="font-size:12px;">
-            <li>Capture obligatoire — approche ou retrait</li>
+            <li>Déplacement libre — la prise n'est jamais obligatoire</li>
             <li>Prises en chaîne sans retour sur ses pas</li>
             <li>Quitter = forfait : défaite + perte d'Elo</li>
           </ul>
@@ -4886,7 +5186,7 @@ body.is-fill #screens {
   <!-- Classement -->
   <section class="screen" id="screen-ranks">
     <div class="page-head">
-      <div><h1>Classement</h1><div class="sub">National · régional · par jeu</div></div>
+      <div><h1>Classement</h1><div class="sub">Mesurez-vous aux meilleurs joueurs de Fanorona.</div></div>
       <span class="pill">🗓️ Saison 2 · juil. → déc. 2026</span>
     </div>
     <div id="ranks-root"></div>
@@ -5049,6 +5349,15 @@ body.is-fill #screens {
     <span class="fab-badge hidden" id="chat-fab-badge">0</span>
   </button>
 </div>
+
+<!-- ==================== PANNEAUX ANCRÉS (notifications / amis) ====================
+     Retour terrain n° 1 : ces deux zones s'ouvrent SOUS LEUR ICÔNE et ne prennent
+     plus un onglet entier. Elles vivent hors de la topbar (elle a un `overflow`
+     qui rognerait le panneau) et sont en `position: fixed`. Le contenu est
+     construit par `renderNotifPanel()` / `renderFriendsPanel()` : un seul gabarit,
+     deux jeux de données. -->
+<div class="pop-panel" id="notif-panel" role="dialog" aria-label="Notifications" hidden></div>
+<div class="pop-panel" id="friends-panel" role="dialog" aria-label="Amis et demandes" hidden></div>
 
 <script>
 /* =========================================================================
@@ -5465,10 +5774,12 @@ const PION_CAMPS = [
   { id: "dark",  label: "Pions sombres", group: "sombre", target: "opp", who: "le camp sombre" },
 ];
 const PION_CAMP_GROUP = { light: "clair", dark: "sombre" };
-/* Apparence par défaut de CHAQUE camp : les deux pions Vato de l'inscription. */
+/* Apparence par défaut de CHAQUE camp : les deux pions Vato de l'inscription.
+   La forme par défaut est « ronde » — la silhouette historique : un compte qui
+   n'a rien choisi garde exactement les pions d'avant l'ajout des formes. */
 const PION_DEFAULTS = {
-  light: { color: "blanc", pattern: "aucun" },
-  dark:  { color: "noir",  pattern: "aucun" },
+  light: { shape: "ronde", color: "blanc", pattern: "aucun" },
+  dark:  { shape: "ronde", color: "noir",  pattern: "aucun" },
 };
 
 /* Motifs — la GÉOMÉTRIE est livrée par le catalogue, sous DEUX formes exclusives :
@@ -5516,6 +5827,35 @@ const PION_PATTERNS = [
    camp (aucun aujourd'hui) — l'apparence des pions passe TOUJOURS par
    `pionColorOf(camp, id)`, seule fonction qui garantit l'appartenance au groupe. */
 const pionPattern = (id) => PION_PATTERNS.find((p) => p.id === id) || PION_PATTERNS[0];
+/* FORMES du pion — ronde, carrée, triangulaire (demande de terrain). MIROIR de
+   `data.js` : le serveur n'en connaît que les IDENTIFIANTS et refuse (400) tout
+   ce qui n'est pas ici ; la SILHOUETTE, elle, vit côté client — comme les
+   dégradés des couleurs et la géométrie des motifs.
+   Une forme n'est pas une décoration : elle change la silhouette du pion, donc
+   la lecture du plateau. Elle tient donc en QUATRE valeurs, appliquées par
+   `mountPionStyles` sous les quatre jeux de variables (mes pions clairs et
+   sombres, ceux de l'adversaire) — les mêmes que la couleur :
+     · `radius`      : le rayon du pion (ronde = 50 %, carrée = coins arrondis) ;
+     · `clip`        : la découpe, seule façon d'obtenir un TRIANGLE ; elle rogne
+                       les enfants (le motif et l'anneau suivent donc la forme) ;
+     · `ring`        : la position de l'anneau (de sélection / « jouable »).
+                       Négative = autour du pion (formes non rognées) ; positive
+                       = À L'INTÉRIEUR, sinon la découpe emporterait l'anneau ;
+     · `ringRadius`  : le rayon de cet anneau, pour qu'il épouse la silhouette ;
+     · `motifRadius` : le rayon de la zone du motif (le pseudo-élément), qui doit
+                       suivre la forme choisie ;
+     · `filtre`      : une découpe emporte l'ombre portée du pion : elle est donc
+                       REPOSÉE en `drop-shadow`, qui, lui, suit la silhouette. */
+const PION_SHAPES = [
+  { id: "ronde", name: "Ronde", desc: "Le pion traditionnel — cercle plein.",
+    radius: "50%", clip: "none", ring: "-14%", ringRadius: "50%", motifRadius: "50%", filtre: "none" },
+  { id: "carree", name: "Carrée", desc: "Silhouette carrée à coins arrondis.",
+    radius: "22%", clip: "none", ring: "-11%", ringRadius: "20%", motifRadius: "16%", filtre: "none" },
+  { id: "triangulaire", name: "Triangulaire", desc: "Triangle vers le haut.",
+    radius: "0", clip: "polygon(50% 2%, 98% 96%, 2% 96%)", ring: "12%", ringRadius: "50%", motifRadius: "0",
+    filtre: "drop-shadow(0 3px 4px rgba(0, 0, 0, .5))" },
+];
+const pionShape = (id) => PION_SHAPES.find((s) => s.id === id) || PION_SHAPES[0];
 const pionCampOf = (id) => PION_CAMPS.find((c) => c.id === id) || null;
 /* Couleurs proposables pour un camp : UNIQUEMENT celles de son groupe. */
 const pionColorsOfCamp = (camp) => PION_COLORS.filter((c) => c.group === PION_CAMP_GROUP[camp]);
@@ -5848,8 +6188,12 @@ const Fanorona = (() => {
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++)
         if (grid[r][c] === me) all = all.concat(movesFrom(grid, r, c, me, null));
-    const caps = all.filter((m) => m.cap.length);
-    return caps.length ? caps : all;
+    /* DÉPLACEMENT LIBRE (règle du produit) : la prise n'est JAMAIS obligatoire.
+       Miroir exact du moteur serveur (game.js) — les deux doivent rester
+       alignés, sinon l'interface proposerait ce que le serveur refuse. Les
+       prises restent automatiques quand la géométrie les déclenche ; une case
+       d'arrivée occupée interdit le pas (« chemin bloqué »). */
+    return all;
   }
 
   const countPieces = (grid, who) => grid.flat().filter((v) => v === who).length;
@@ -5885,13 +6229,15 @@ const Fanorona = (() => {
   let serverStyles = false;
 
   /* Normalisation : chaque camp ne retient que les couleurs de SON groupe
-     (`pionColorOf`) et un motif du catalogue — une valeur absente, inconnue ou
-     hors groupe retombe sur le défaut du camp, jamais sur celui de l'autre camp. */
+     (`pionColorOf`), un motif et une FORME du catalogue — une valeur absente,
+     inconnue ou hors groupe retombe sur le défaut du camp, jamais sur celui de
+     l'autre camp. */
   function normStyles(st) {
     const o = pionStyleDefaults();
     for (const camp of ["light", "dark"]) {
       const s = st && st[camp];
       o[camp] = {
+        shape: pionShape(s && s.shape).id,
         color: pionColorOf(camp, s && s.color).id,
         pattern: pionPattern(s && s.pattern).id,
       };
@@ -5909,6 +6255,7 @@ const Fanorona = (() => {
     const board = document.getElementById("fanorona-board");
     if (!board) return;
     const poser = (suf, st) => {
+      board.setAttribute("data-pion-forme" + suf, st.shape);
       board.setAttribute("data-pion-color" + suf, st.color);
       board.setAttribute("data-pion-motif" + suf, st.pattern);
     };
@@ -6147,7 +6494,7 @@ const Fanorona = (() => {
           eligibilityCache = cont;
           renderPieces(); // chaîne : reflète la prise en cours avant de continuer
           updateAll();
-          if (G.turn === 1) {
+          if (G.turn === meVal()) {
             document.getElementById("chain-bar").hidden = false;
             select(tr, tc);
           } else scheduleAi(560);
@@ -6161,7 +6508,10 @@ const Fanorona = (() => {
   }
 
   function endChain() {
-    if (!G || G.turn !== 1 || !G.chain) return;
+    /* `meVal()` et non `1` : en ligne/défi, le joueur local peut être le n°2 —
+       avec la valeur figée, SON bouton « Terminer la prise » ne faisait rien
+       (bug constaté sur mobile, où l'invité est typiquement le joueur 2). */
+    if (!G || G.spectator || !G.chain || G.turn !== meVal()) return;
     if (G.mode === "online" || G.mode === "defi") {
       if (onMoveCb) { G.sel = null; clearDots(); onMoveCb({ end: true }); }
       return;
@@ -6604,6 +6954,13 @@ const App = (() => {
 
   let S = DEFAULT_STATE();
   let playCfg = { mode: "online", format: "blitz", friend: "", wager: 0 };
+  /* Montant PERSONNALISÉ de la mise de défi (retour terrain n° 7) : le champ ne
+     s'affiche qu'à la demande (`wagerPerso`), la saisie en cours vit ici pour
+     survivre aux re-rendus de l'assistant, et `wagerErr` porte le message
+     d'erreur affiché sous le champ. */
+  const MISE_MIN = 500;              // même plancher que le serveur (défis gratuits refusés)
+  const MISE_MAX = 100000;           // plafond du projet : au-delà, la mise est refusée
+  let wagerPerso = false, wagerSaisie = "", wagerErr = "";
   let playStep = 1;   // Écran Jeux : 1=jeu, 2=mode, 3=format, 4=lancer
   let _pgLastCta = "";  // libellé CTA précédent (crossfade 200 ms)
   let _pgLastStep = 0;  // étape rendue au tour précédent (évite de rejouer l'entrée sur un simple clic)
@@ -7109,6 +7466,12 @@ const App = (() => {
   /* Messagerie flottante : fenêtres ouvertes (PC) / encoche (mobile), compteur de messages non lus */
   let chatDockOpen = false;
   let chatPopups = [];        // pseudos des conversations ouvertes en pop-up (PC)
+/* Brouillons par correspondant, HORS du DOM (retour terrain n° 8) : la fenêtre
+     se ferme désormais au clic extérieur, et un texte non envoyé serait perdu
+     avec elle. Le brouillon survit donc à la fermeture et revient à la
+     réouverture — c'est la seconde option admise par la demande (« conserve le
+     brouillon »), préférée à une confirmation qui interromprait la lecture. */
+  const chatDrafts = {};
   let unreadChats = {};       // pseudo -> nb de messages non lus
 
   /* ------------------ HELPERS UI ------------------ */
@@ -7176,7 +7539,7 @@ const App = (() => {
   }
 
   const currentRoute = () => (location.hash.replace("#/", "") || "home").split("?")[0];
-  function go(r) { if (r !== "play") _pgLastStep = 0; location.hash = "#/" + r; }
+  function go(r) { if (r !== "play") _pgLastStep = 0; arreterPub(); location.hash = "#/" + r; }
 
   /* ------------------ THÈME (nuit / jour) ------------------ */
   const THEMES = ["night", "light"];
@@ -7996,33 +8359,179 @@ const App = (() => {
   }
 
   /* ------------------ ACCUEIL ------------------ */
+  /* =========================================================================
+     CARROUSEL PUBLICITAIRE DE L'ACCUEIL (retour terrain n° 4)
+     -------------------------------------------------------------------------
+     Le contenu vient d'un fichier CONFIGURABLE (`assets/ad/pubs.json`) : c'est la
+     seule source, donc l'équipe change les publicités sans toucher au code de
+     l'écran. Les bannières hors de leur fenêtre de dates ne sont pas affichées, et
+     s'il n'en reste AUCUNE, le bloc n'est pas rendu du tout (pas d'espace vide).
+     `pubsActives` est la règle de dates, isolée et PURE : elle décide seule, la
+     même pour l'affichage et pour la vérification.
+     ========================================================================= */
+  const PUBS_URL = "assets/ad/pubs.json";
+  let publisChargees = false;      // une seule lecture par session
+  let publis = null;               // null = pas encore chargées ; [] = aucune active
+  let pubIdx = 0, pubMinuteur = null, pubPause = false;
+
+  function pubsActives(liste, jour = new Date()) {
+    const t = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate()).getTime();
+    return (Array.isArray(liste) ? liste : []).filter((p) => {
+      if (!p || !p.image) return false;
+      const debut = p.debut ? Date.parse(String(p.debut) + "T00:00:00") : null;
+      const fin = p.fin ? Date.parse(String(p.fin) + "T23:59:59") : null;
+      if (debut && !isNaN(debut) && t < debut) return false;
+      if (fin && !isNaN(fin) && t > fin) return false;
+      return true;
+    });
+  }
+
+  async function chargerPublis() {
+    if (publisChargees) return;
+    publisChargees = true;
+    try {
+      const r = await fetch(PUBS_URL, { cache: "no-store" });
+      const d = await r.json();
+      publis = pubsActives(d && d.pubs);
+    } catch (e) {
+      /* Fichier absent ou illisible : l'emplacement disparaît, sans bruit et sans
+         casser l'accueil (c'est une zone commerciale, pas une donnée de jeu). */
+      publis = [];
+    }
+  }
+
+  function arreterPub() { if (pubMinuteur) { clearInterval(pubMinuteur); pubMinuteur = null; } }
+
+  function adCarouselHtml() {
+    if (!publis || !publis.length) return "";      // aucune bannière active → rien
+    const n = publis.length;
+    return `
+      <div class="ad-car" id="ad-car" role="region" aria-label="Emplacement publicitaire">
+        <div class="ad-car__track" data-car-track>
+          ${publis.map((p, i) => `
+            <a class="ad-car__slide" data-car-slide="${i}" href="${escHtml(p.lien || "#")}"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="${escHtml(p.titre || "Publicité")}"${i ? ' aria-hidden="true" tabindex="-1"' : ""}>
+              <img src="${escHtml(p.image)}" alt="${escHtml(p.titre || "Publicité")}"
+                   ${p.repli ? `onerror="if (this.dataset.repli) return; this.dataset.repli='1'; this.src='${escHtml(p.repli)}';"` : ""}>
+              <span class="ad-car__tag">Publicité</span>
+            </a>`).join("")}
+        </div>
+        ${n > 1 ? `
+        <button type="button" class="ad-car__arrow prev" data-car-dir="-1" aria-label="Bannière précédente">‹</button>
+        <button type="button" class="ad-car__arrow next" data-car-dir="1" aria-label="Bannière suivante">›</button>
+        <div class="ad-car__dots">
+          ${publis.map((p, i) => `<button type="button" class="ad-car__dot${i === 0 ? " on" : ""}"
+            data-car-go="${i}" aria-label="Bannière ${i + 1} sur ${n}"></button>`).join("")}
+        </div>` : ""}
+      </div>`;
+  }
+
+  /* Monte les gestes du carrousel : défilement automatique (toutes les 6 s), pause
+     au survol, au focus et pendant un glissement, points cliquables, flèches
+     (desktop), glissement horizontal au doigt. Un seul minuteur, arrêté dès que
+     l'accueil est re-rendu ou quitté. */
+  function binderCarrousel() {
+    const car = document.getElementById("ad-car");
+    arreterPub();
+    if (!car || !publis || !publis.length) return;
+    const n = publis.length;
+    const piste = car.querySelector("[data-car-track]");
+    const aller = (i) => {
+      pubIdx = ((i % n) + n) % n;
+      if (piste) piste.style.transform = `translateX(-${pubIdx * 100}%)`;
+      car.querySelectorAll("[data-car-slide]").forEach((s, k) => {
+        const actif = k === pubIdx;
+        s.toggleAttribute("inert", !actif);          // l'invisible ne reçoit pas le clic
+        s.setAttribute("aria-hidden", actif ? "false" : "true");
+        s.tabIndex = actif ? 0 : -1;
+      });
+      car.querySelectorAll("[data-car-go]").forEach((d, k) => d.classList.toggle("on", k === pubIdx));
+    };
+    car.querySelectorAll("[data-car-go]").forEach((d) => d.onclick = () => aller(Number(d.dataset.carGo)));
+    car.querySelectorAll("[data-car-dir]").forEach((b) => b.onclick = () => aller(pubIdx + Number(b.dataset.carDir)));
+    /* Pause au survol / au focus / pendant un glissement : trois états INDÉPENDANTS
+       (un seul booléen ne suffisait pas : au relâchement d'un glissement, le curseur
+       ou le doigt est encore SUR le carrousel — la rotation repartait donc sous les
+       yeux, et pouvait même télescoper le geste qu'on venait de faire). Le minuteur
+       ne reprend que lorsque AUCUN des trois n'est actif. */
+    let survole = false, focalise = false, glisse = false;
+    const majPause = () => { pubPause = survole || focalise || glisse; };
+    car.addEventListener("pointerenter", () => { survole = true; majPause(); });
+    car.addEventListener("pointerleave", () => { survole = false; majPause(); });
+    car.addEventListener("focusin", () => { focalise = true; majPause(); });
+    car.addEventListener("focusout", () => { focalise = false; majPause(); });
+    /* Glissement horizontal : au doigt comme à la souris (mêmes événements
+       pointeur). Un petit mouvement ne déclenche rien — c'est un clic, pas un
+       glissement, et il doit suivre le lien de la bannière. */
+    let departX = null, departY = null;
+    car.addEventListener("pointerdown", (e) => { departX = e.clientX; departY = e.clientY; glisse = true; majPause(); });
+    car.addEventListener("pointerup", (e) => {
+      if (departX != null) {
+        const dx = e.clientX - departX, dy = e.clientY - departY;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) aller(pubIdx + (dx < 0 ? 1 : -1));
+      }
+      departX = departY = null;
+      glisse = false; majPause();
+    });
+    car.addEventListener("pointercancel", () => { departX = departY = null; glisse = false; majPause(); });
+    const suivant = () => { if (!pubPause && !document.hidden) aller(pubIdx + 1); };
+    if (n > 1) pubMinuteur = setInterval(suivant, 6000);
+    aller(0);
+  }
+
+  /* Carte de SAISON (retour terrain n° 5) : elle remplace la carte de tournoi dans
+     la colonne de droite. Fil d'Ariane CLIQUABLE (choix confirmé) — chaque mot
+     mène à sa section : Wallet, l'onglet Tournois de Match, Jeux, Classement. Les
+     trois indicateurs sont les valeurs RÉELLES du joueur connecté, mises en forme
+     comme le reste du site (espace fine des milliers, unité « Ar »). */
+  function blocSaisonHtml() {
+    const parties = S.games.length + S.wins + S.losses;
+    const crumb = [["Wallet", "wallet"], ["tournois", "tournois"], ["jeux", "jeux"], ["classement", "classement"]];
+    return `
+      <div class="season-card" id="season-card">
+        <nav class="season-crumb" aria-label="Accès directs">
+          ${crumb.map(([mot, cible], i) => `${i ? '<span class="sep" aria-hidden="true">·</span>' : ""}<button type="button" data-crumb="${cible}">${mot}</button>`).join("")}
+        </nav>
+        <span class="pill green">Saison 2 — 2026 · classé ouvert</span>
+        <div class="dash-profile">
+          <span class="avatar dash-avatar${S.avatar ? " has-photo" : ""}">${avatarInnerHtml(S)}</span>
+          <div class="dash-info">
+            <h2>${escHtml(S.pseudo)}</h2>
+            <div class="dash-meta"><span class="pill amber mono">${S.elo} Elo</span></div>
+          </div>
+        </div>
+        <div class="dash-stats">
+          <div class="dash-stat"><div class="v">${parties}</div><div class="k">Parties jouées</div></div>
+          <div class="dash-stat"><div class="v pos">${S.wins}</div><div class="k">Victoires</div></div>
+          <div class="dash-stat"><div class="v money amber">${fmtAr(S.balance)}</div><div class="k">Solde wallet</div></div>
+        </div>
+      </div>`;
+  }
+
+  /* Les quatre cibles du fil d'Ariane. « tournois » ouvre l'onglet Tournois de
+     l'écran Match (c'est là qu'ils vivent), les trois autres leur écran. */
+  function binderFilAriane() {
+    document.querySelectorAll("#season-card [data-crumb]").forEach((b) => b.onclick = () => {
+      const c = b.dataset.crumb;
+      if (c === "tournois") { setMatchTab("tournois"); go("match"); }
+      else if (c === "jeux") go("play");
+      else if (c === "classement") go("ranks");
+      else go("wallet");
+    });
+  }
+
   function renderHome() {
-    const nextT = S.tournaments.filter((t) => t.status === "inscriptions").sort((a, b) => a.startsInSec - b.startsInSec)[0];
     /* Trois tuiles pour trois valeurs : les anciennes cartes redondantes
        (« 0 VICTOIRES » et « 0% VICTOIRES ») sont retirées ; le taux de victoire
-       vit dans l'écran Profil, où il est détaillé. */
-    const parties = S.games.length + S.wins + S.losses;
+       vit dans l'écran Profil, où il est détaillé. La carte de tournoi de la
+       colonne de droite a laissé la place à la carte de SAISON (n° 5), et le bloc
+       de profil de tête au CARROUSEL publicitaire (n° 4). */
     const defisList = S.defis || [];
     document.getElementById("home-root").innerHTML = `
       <div class="home-grid">
         <div class="hg-col hg-col--main">
-          <div class="home-hero">
-            <span class="pill green" style="margin-bottom:12px;">Saison 2 — 2026 · classé ouvert</span>
-            <div class="dash-profile">
-              <span class="avatar dash-avatar${S.avatar ? " has-photo" : ""}">${avatarInnerHtml(S)}</span>
-              <div class="dash-info">
-                <h2>${escHtml(S.pseudo)}</h2>
-                <div class="dash-meta">
-                  <span class="pill amber mono">${S.elo} Elo</span>
-                </div>
-              </div>
-            </div>
-            <div class="dash-stats">
-              <div class="dash-stat"><div class="v">${parties}</div><div class="k">Parties jouées</div></div>
-              <div class="dash-stat"><div class="v pos">${S.wins}</div><div class="k">Victoires</div></div>
-              <div class="dash-stat"><div class="v money amber">${fmtAr(S.balance)}</div><div class="k">Solde wallet</div></div>
-            </div>
-          </div>
+          ${adCarouselHtml()}
           <div class="hg-block">
             <div class="panel-title">Dernières parties</div>
             <div class="panel hg-scroll">
@@ -8034,20 +8543,7 @@ const App = (() => {
           ${myTournamentsHtml()}
         </div>
         <div class="side-stack hg-col hg-col--side">
-          ${nextT ? `
-          <div class="t-card">
-            <div class="tn-head"><h3>${escHtml(nextT.name)}</h3><span class="pill amber">Cashprice</span></div>
-            <div class="t-meta">
-              <div class="row"><span>Mise d'entrée (remboursable top 3)</span><span>${fmtAr(nextT.entry)}</span></div>
-              <div class="row"><span>Pool estimé (8 joueurs)</span><span>${fmtAr(nextT.entry * nextT.maxPlayers)}</span></div>
-              <div class="row"><span>Inscrits</span><span>${nextT.registered.length}/${nextT.maxPlayers}</span></div>
-              <div class="row"><span>Début</span><span class="countdown" data-cd="${nextT.id}">${countdownParts(nextT.startsInSec)}</span></div>
-            </div>
-            <div class="progress"><i style="width:${(nextT.registered.length / nextT.maxPlayers) * 100}%"></i></div>
-            <button class="btn primary block" style="margin-top:12px;" onclick="App.openTournament('${nextT.id}')">
-              ${S.myRegs[nextT.id] ? "Voir mon inscription & bracket" : "S'inscrire — " + fmtAr(nextT.entry)}
-            </button>
-          </div>` : ""}
+          ${blocSaisonHtml()}
           <div class="panel hg-block">
             <div class="panel-title">Défis</div>
             <div class="defis-home hg-scroll">
@@ -8065,6 +8561,11 @@ const App = (() => {
           </div>
         </div>
       </div>`;
+    /* Gestes montés APRÈS l'écriture du DOM : le carrousel et le fil d'Ariane
+       n'existent que sur l'accueil, et chaque rendu les remonte — le minuteur du
+       carrousel est arrêté au passage (voir `binderCarrousel`). */
+    binderCarrousel();
+    binderFilAriane();
   }
 
   /* ------------------ ÉCRAN JEUX (Wizard 4 étapes) ------------------ */
@@ -8150,8 +8651,19 @@ const App = (() => {
           <div class="pd-field">
             <label>Mise du défi <span class="lg-only">(chaque joueur dépose le même montant)</span></label>
             <div class="pg-chips">
-              ${[500, 1000, 2000].map((w) => `<button class="pg-chip ${playCfg.wager === w ? "on" : ""}" data-wager="${w}">${fmtAr(w)}</button>`).join("")}
+              ${[500, 1000, 2000].map((w) => `<button class="pg-chip ${!wagerPerso && playCfg.wager === w ? "on" : ""}" data-wager="${w}">${fmtAr(w)}</button>`).join("")}
+              <button class="pg-chip ${wagerPerso ? "on" : ""} ${playCfg.wager && ![500, 1000, 2000].includes(playCfg.wager) ? "on" : ""}" data-wager-perso="1" title="Saisir un autre montant (chaque joueur dépose le même)">Montant personnalisé</button>
             </div>
+            ${wagerPerso || (playCfg.wager && ![500, 1000, 2000].includes(playCfg.wager)) ? `
+            <div class="pg-mise-perso">
+              <input type="text" inputmode="numeric" pattern="[0-9 ]*" id="wager-perso" value="${escHtml(wagerSaisie || (playCfg.wager ? String(playCfg.wager) : ""))}"
+                     placeholder="Montant en Ar" aria-label="Montant personnalisé de la mise, en Ariary" maxlength="9"
+                     aria-describedby="wager-perso-aide${wagerErr ? " wager-perso-err" : ""}">
+              <button class="btn primary mini-btn" id="wager-perso-ok">Valider</button>
+              <button class="btn ghost mini-btn" id="wager-perso-non">Annuler</button>
+            </div>
+            <p class="pg-note" id="wager-perso-aide">Entier entre ${fmtAr(MISE_MIN)} et ${fmtAr(MISE_MAX)} · chaque joueur dépose la même mise · solde : ${fmtAr(S.balance)}</p>
+            ${wagerErr ? `<p class="pg-note neg" id="wager-perso-err" role="alert">${escHtml(wagerErr)}</p>` : ""}` : ""}
           </div>
           <p class="pg-note">Commission : 10 % du pot.</p>
         </div>`;
@@ -8169,7 +8681,8 @@ const App = (() => {
             <div class="row"><span class="k">Jeu</span><span class="v">Fanorona</span></div>
             <div class="row"><span class="k">Mode</span><span class="v">${modeLabel}</span></div>
             ${playCfg.mode === "defi" ? `<div class="row"><span class="k">Adversaire</span><span class="v">${playCfg.friend || "—"}</span></div>
-            <div class="row"><span class="k">Mise</span><span class="v amber">${fmtAr(playCfg.wager)}</span></div>` : ""}
+            <div class="row"><span class="k">Mise</span><span class="v amber">${fmtAr(playCfg.wager)}</span></div>
+            <div class="row"><span class="k">Pot total (2 joueurs)</span><span class="v amber">${fmtAr(playCfg.wager * 2)}</span></div>` : ""}
             <div class="row"><span class="k">Format</span><span class="v">${fmtLabel}</span></div>
           </div>
           <div class="pg-launch-r">
@@ -8299,6 +8812,49 @@ const App = (() => {
       advance();
     }));
 
+    /* Étape 2 (défi) — MONTANT PERSONNALISÉ (retour terrain n° 7). Le bouton ouvre
+       le champ, « Valider » contrôle la saisie puis avance comme le ferait une
+       mise prédéfinie, « Annuler » ramène aux montants proposés. */
+    const perso = document.querySelector("#play-root [data-wager-perso]");
+    if (perso) perso.onclick = () => {
+      wagerPerso = true; wagerErr = "";
+      wagerSaisie = [500, 1000, 2000].includes(playCfg.wager) ? "" : String(playCfg.wager || "");
+      renderPlay();
+      setTimeout(() => { const i = document.getElementById("wager-perso"); if (i) i.focus(); }, 30);
+    };
+    const champMise = document.getElementById("wager-perso");
+    /* Le contrôle est PUR (`controleMisePerso`) ; c'est ICI que le geste se joue,
+       parce que `advance` n'existe que dans cette portée. Une mise valide avance
+       comme le ferait une mise proposée ; une mise invalide est annoncée sous le
+       champ, et l'assistant ne bouge pas. */
+    const soumettreMise = () => {
+      const r = controleMisePerso();
+      if (!r.ok) {
+        wagerErr = r.msg; wagerPerso = true; wagerSaisie = r.brut;
+        renderPlay();
+        setTimeout(() => { const i = document.getElementById("wager-perso"); if (i) i.focus(); }, 30);
+        return;
+      }
+      wagerErr = ""; wagerPerso = false; wagerSaisie = String(r.montant);
+      playCfg.wager = r.montant;
+      const f2 = document.getElementById("defi-friend");
+      if (f2) playCfg.friend = playCfg.friend || f2.value;
+      if (!playCfg.friend) { renderPlay(); return toast("Choisissez un adversaire.", "warn"); }
+      advance();
+    };
+    if (champMise) {
+      champMise.oninput = () => { wagerSaisie = champMise.value; };
+      champMise.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); soumettreMise(); } };
+    }
+    const okMise = document.getElementById("wager-perso-ok");
+    if (okMise) okMise.onclick = () => soumettreMise();
+    const nonMise = document.getElementById("wager-perso-non");
+    if (nonMise) nonMise.onclick = () => {
+      wagerPerso = false; wagerErr = ""; wagerSaisie = "";
+      if (![500, 1000, 2000].includes(playCfg.wager)) playCfg.wager = 1000;   // retour aux proposées
+      renderPlay();
+    };
+
     const fs = document.getElementById("defi-friend");
     if (fs) { playCfg.friend = playCfg.friend || fs.value; fs.onchange = () => { playCfg.friend = fs.value; renderPlay(); }; }
     const prev = document.getElementById("pg-prev");
@@ -8317,6 +8873,29 @@ const App = (() => {
     document.getElementById("hud-me-name").textContent = pseudo;
     document.getElementById("hud-me-elo").textContent = elo + " Elo";
     document.getElementById("hud-me-avatar").textContent = String(pseudo || "?").slice(0, 2).toUpperCase();
+  }
+
+  /* Contrôle de la mise PERSONNALISÉE (retour terrain n° 7) : entier positif,
+     minimum du projet, maximum du projet, puis solde du wallet — dans cet ordre,
+     pour que le message soit le plus précis possible. Fonction PURE : elle ne
+     touche ni au DOM ni à l'assistant (elle est appelée depuis un gestionnaire
+     défini DANS `renderPlay`, seul endroit qui connaît `advance`). Le serveur
+     applique les mêmes règles (500 Ar minimum) : ce contrôle n'est pas là pour le
+     remplacer mais pour répondre tout de suite, dans la langue du joueur, et
+     sans envoyer un défi voué au refus. */
+  function controleMisePerso() {
+    const champ = document.getElementById("wager-perso");
+    const brut = String((champ ? champ.value : wagerSaisie) || "").replace(/[\s\u00A0]/g, "");
+    const n = Number(brut);
+    if (!/^\d+$/.test(brut) || !Number.isFinite(n))
+      return { ok: false, brut, msg: "Saisissez un montant entier en Ariary (chiffres seulement)." };
+    if (n < MISE_MIN)
+      return { ok: false, brut, msg: `Mise minimale : ${fmtAr(MISE_MIN)} — les défis gratuits ne sont pas autorisés.` };
+    if (n > MISE_MAX)
+      return { ok: false, brut, msg: `Mise maximale : ${fmtAr(MISE_MAX)}.` };
+    if (n > S.balance)
+      return { ok: false, brut, msg: `Solde insuffisant : votre solde est de ${fmtAr(S.balance)} Ar.` };
+    return { ok: true, brut, montant: n };
   }
 
   async function launchGame() {
@@ -9505,8 +10084,6 @@ const App = (() => {
     await refreshLeaderboard();
     const meNational = S.leaderboard.find((p) => p.me);
     const meRank = meNational?.rank || "—";
-    const top3 = S.leaderboard.slice(0, 3);
-    const medalFor = (rank) => rank <= 3 ? ["🥇", "🥈", "🥉"][rank - 1] : "";
     const badgeChip = (b) => b
       ? `<span class="badge-chip" style="--b-ink:${b.color}; --b-ink-day:${b.ink}; border-color:${b.color}66; background:${b.color}14;" title="Badge ${escHtml(b.name)}"><span class="bi">${escHtml(b.icon)}</span>${escHtml(b.name)}</span>`
       : "";
@@ -9545,63 +10122,115 @@ const App = (() => {
     };
     const rankRowsHtml = (l) => l.length ? l.map((p) => `
             <div class="rank-row ${p.me ? "me" : ""}">
-              <span class="mono muted">${p.rank}</span>
+              <span class="rk-num">${String(p.rank).padStart(2, "0")}</span>
               <span class="rank-who">
                 <span class="who-line">
                   ${avatarHtml(p, 32)}
                   ${p.me ? `<span class="who-pseudo">${escHtml(p.pseudo)}</span>` : `<span class="who-pseudo link-pseudo" onclick="App.openProfileById(${p.id})" style="cursor:pointer;" title="Voir le profil">${escHtml(p.pseudo)}</span>`}
-                  ${rankScope === "national" ? badgeChip(p.badge) : ""}
+                  ${badgeChip(p.badge)}
                 </span>
                 <span class="who-province">📍 ${escHtml(p.province || "—")}</span>
               </span>
-              <span class="elo">${p.elo}</span>
-              <span class="medal">${medalFor(p.rank)}</span>
+              <span class="elo">${p.elo}<small>Elo</small></span>
             </div>`).join("") : `<p class="muted" style="padding:14px 4px;">${rankSearch ? `Aucun joueur ne correspond à « ${escAttr(rankSearch)} ».` : "Aucun joueur classé dans cette province pour le moment."}</p>`;
     /* OPTIMISATION — recherche live : seules les lignes sont re-rendues
-       (plus de redraw complet du panneau à chaque frappe → focus et curseur préservés) */
+       (plus de redraw complet du panneau à chaque frappe → focus et curseur préservés).
+       Le COMPTEUR suit, lui aussi : il décrit ce qui est affiché, pas le total. */
     rankListRender = () => {
       const el = document.getElementById("rank-list");
       if (el) el.innerHTML = rankRowsHtml(computeRankList().list);
+      const chip = document.getElementById("rank-count");
+      if (chip) {
+        const n = computeRankList().list.length;
+        chip.textContent = `${n} joueur${n > 1 ? "s" : ""}`;
+      }
+      /* « Voir tous les joueurs » n'a de sens QUE si l'écran ne les montre pas
+         déjà tous : sans recherche ni province, le bouton se désactive au lieu
+         de promettre une action sans effet. */
+      const rst = document.getElementById("rank-reset");
+      if (rst) {
+        const complet = !rankSearch && rankScope === "national";
+        rst.disabled = complet;
+        rst.title = complet ? "Tous les joueurs classés sont déjà affichés" : "Revenir au classement national complet";
+      }
     };
     const { list, headLabel } = computeRankList();
 
+    /* ---- Données de l'écran -------------------------------------------------
+       Le PODIUM suit la portée (national / province) mais PAS la recherche :
+       filtrer la liste ne doit pas faire disparaître un marchepied. Le rang
+       provincial est recalculé ici, indépendamment du rang national. */
+    const provList = S.leaderboard
+      .filter((p) => (p.province || "") === rankProvince)
+      .map((p, i) => ({ ...p, rank: i + 1 }));
+    const scopeList = rankScope === "province" ? provList : S.leaderboard;
+    const scopeTop = scopeList.slice(0, 3);
+    const meProv = provList.find((p) => p.me) || null;
+    const myRank = rankScope === "province" ? (meProv ? meProv.rank : null) : meNational ? meNational.rank : null;
+    const myProvince = (meNational && meNational.province) || S.province || "—";
+    const frNum = (v) => String(v).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202F");
+    /* Prochain PALIER d'Elo : le multiple de 50 suivant. Il n'existe plus de
+       « rangs » nommés (retirés le 20/09) — un palier est donc une borne ronde
+       réelle, calculée, jamais un nom de niveau inventé. */
+    const palier = Math.floor(S.elo / 50) * 50 + 50;
+    const reste = Math.max(0, palier - S.elo);
+    const pct = Math.min(100, Math.max(0, ((S.elo - (palier - 50)) / 50) * 100));
+    /* « 30 derniers jours » : delta d'Elo RÉEL, lu sur les instantanés de parties
+       (même source que la courbe du Profil) — affiché seulement si deux parties
+       suivies encadrent la fenêtre, sinon « — » (aucun chiffre inventé). */
+    const eloM = eloSeries("M");
+    const delta30 = eloM.length >= 2 ? eloM[eloM.length - 1].after - eloM[0].before : null;
+    const myGames = meNational ? meNational.games : (S.wins || 0) + (S.losses || 0);
+    const winPct = meNational && meNational.games > 0
+      ? Math.round((meNational.wins / meNational.games) * 100) : null;
+
     document.getElementById("ranks-root").innerHTML = `
-      <div class="rank-layout">
-        <div class="side-stack">
-          <div class="panel">
-            <div class="panel-title">Votre classement — Saison 2</div>
-            <div style="display:flex; align-items:center; gap:11px; margin-bottom:10px;">
-              <span class="avatar" style="width:44px;height:44px;font-size:15px;cursor:default;">${escHtml(S.pseudo.slice(0, 2).toUpperCase())}</span>
-              <div><b style="color:var(--text-strong); font-size:16px;">${S.elo} Elo</b><div class="small muted mono">#${meRank} national</div></div>
-            </div>
-            ${meNational?.badge ? `<div style="margin:4px 0 8px;">${badgeChip(meNational.badge)}</div>` : ""}
-            <hr class="divider">
-            <ul class="rules-list" style="font-size:12px;">
-              <li>Calibration : aucune perte d'Elo sur les 10 premières parties</li>
-              <li>Inactivité 30 j → −30 Elo / mois</li>
-              <li>Saison de 6 mois : classement recalculé le 1ᵉʳ jan. / 1ᵉʳ juil.</li>
-            </ul>
+      <section class="panel rank-hero" aria-labelledby="rank-hero-title">
+        <div class="rank-hero-head">
+          <div>
+            <div class="panel-title" style="margin-bottom:4px;">Le podium</div>
+            <h2 id="rank-hero-title">Les joueurs en tête <span>de la saison</span></h2>
           </div>
-          <div class="panel">
-            <div class="panel-title">Podium national</div>
-            <div class="podium">
-              ${[top3[1], top3[0], top3[2]].map((p, i) => `
-                <div class="pod ${i === 1 ? "p1" : i === 0 ? "p2" : "p3"}">
-                  <div class="crown">${i === 1 ? "🥇" : i === 0 ? "🥈" : "🥉"}</div>
-                  ${p ? `<span class="avatar ${avTint(p.pseudo)} pod-av" aria-hidden="true">${avInitials(p.pseudo)}</span>` : ""}
-                  <div class="pn">${p ? pseudoLink(p.id, p.pseudo, "pn link-pseudo") : "—"}</div>
-                  <div class="pe">${p ? p.elo : ""}</div>
-                </div>`).join("")}
-            </div>
+          <div class="chips" role="tablist" aria-label="Type de classement">
+            ${[["national", "🇲🇬 MG National"], ["province", "📍 Province"]].map(([id, l]) =>
+              `<button class="chip ${rankScope === id ? "on" : ""}" role="tab" aria-selected="${rankScope === id}" data-scope="${id}">${l}</button>`).join("")}
           </div>
         </div>
-        <div class="panel">
-          <div class="rank-toolbar">
-            <div class="chips">
-              ${[["national", "🇲🇬 National"], ["province", "📍 Province"]].map(([id, l]) =>
-                `<button class="chip ${rankScope === id ? "on" : ""}" data-scope="${id}">${l}</button>`).join("")}
+        <div class="podium-stage">
+          ${[2, 1, 3].map((r) => {
+            const i = r === 1 ? 1 : r === 2 ? 0 : 2;
+            const p = scopeTop[r - 1] || null;
+            return `
+            <article class="pod p${r}">
+              <div class="pod-info">
+                <div class="crown" aria-hidden="true">${["🥈", "🥇", "🥉"][i]}</div>
+                ${p ? avatarBox(p, r === 1 ? 44 : 36, "avatar pod-av") : ""}
+                <div class="pn">${p ? pseudoLink(p.id, p.pseudo, "link-pseudo") : "—"}</div>
+                <div class="pod-city">${p ? escHtml(p.province || "—") : ""}</div>
+                ${p ? badgeChip(p.badge) : ""}
+                <div class="pod-score">${p ? frNum(p.elo) : ""}<small>ELO</small></div>
+              </div>
+              <div class="pod-step">${["2e", "1er", "3e"][i]}</div>
+            </article>`;
+          }).join("")}
+        </div>
+        <div class="rank-hero-foot">
+          <span class="pod-live"><span class="live-dot" aria-hidden="true"></span>Classement actualisé après chaque match</span>
+          <span>${rankScope === "national" ? "Madagascar · toutes les provinces" : `Province d’${escHtml(rankProvince)}`}</span>
+        </div>
+      </section>
+      <div class="rank-layout">
+        <section class="panel" aria-labelledby="rank-list-title">
+          <div class="rank-head">
+            <div>
+              <div class="panel-title" style="margin-bottom:4px;">Le classement</div>
+              <h2 id="rank-list-title">${rankScope === "national" ? "Liste des joueurs" : `Classement — ${escHtml(rankProvince)}`}</h2>
             </div>
-            <!-- Recherche dépliable (search-toggle-ui) : pastille alignée sur la ligne des chips -->
+            <span class="count-chip" id="rank-count"></span>
+          </div>
+          <div class="rank-toolbar">
+            <!-- Recherche dépliable (search-toggle-ui) : elle porte le nom accessible
+                 de son champ ; le filtre de portée vit désormais dans le PODIUM. -->
             <div class="searchbar compact ${rankSearchOpen || rankSearch ? "open" : ""}" id="rank-searchbar" data-open-label="Ouvrir la recherche">
               <span class="icon-search" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7.2"/><line x1="16.4" y1="16.4" x2="21" y2="21"/></svg>
@@ -9615,13 +10244,62 @@ const App = (() => {
               <select class="province-select" id="province-select" title="Filtrer par province" aria-label="Filtrer par province">
                 ${PROVINCES.map((pv) => `<option value="${pv}" ${rankProvince === pv ? "selected" : ""}>${pv}</option>`).join("")}
               </select>` : ""}
-            <span class="small muted" style="margin-left:auto;">${headLabel}</span>
+            <span class="pill" id="rank-filter">${rankScope === "national" ? "🇲🇬 National" : `📍 ${escHtml(rankProvince)}`}</span>
+            <span class="small muted" id="rank-head-label" style="margin-left:auto;">${headLabel}</span>
           </div>
-          <div class="rank-row head"><span aria-label="Position">#</span><span>Joueur</span><span>Elo</span><span title="Médaille du podium (or, argent, bronze)" aria-label="Médaille du podium">🏅</span></div>
+          <div class="rank-row head"><span aria-label="Position">#</span><span>Joueur</span><span>Elo</span></div>
           <div id="rank-list">${rankRowsHtml(list)}</div>
-        </div>
+          <div class="rank-foot">
+            <span class="small muted" id="rank-footnote">Saison 2 · classement ${rankScope === "national" ? "national" : `provincial — ${escHtml(rankProvince)}`}</span>
+            <button class="btn ghost mini-btn" id="rank-reset" ${!rankSearch && rankScope === "national" ? "disabled" : ""}
+                    title="${!rankSearch && rankScope === "national" ? "Tous les joueurs classés sont déjà affichés" : "Revenir au classement national complet"}">Voir tous les joueurs →</button>
+          </div>
+        </section>
+
+        <aside class="panel" aria-labelledby="rank-card-title">
+          <div class="rank-head">
+            <div class="panel-title" id="rank-card-title" style="margin-bottom:0;">Votre classement</div>
+            <span class="small muted">Saison 2</span>
+          </div>
+          <div class="my-row">
+            ${avatarBox({ pseudo: S.pseudo, avatar: S.avatar }, 46)}
+            <div class="my-copy">
+              <b>${escHtml(S.pseudo)}</b>
+              <span>📍 ${escHtml(myProvince)}</span>
+              ${meNational && meNational.badge ? `<span style="margin-top:5px;">${badgeChip(meNational.badge)}</span>` : ""}
+            </div>
+          </div>
+          <div class="elo-highlight">
+            <div>
+              <div class="elo-label">ELO ACTUEL</div>
+              <div class="elo-number">${frNum(S.elo)}<span>pts</span></div>
+            </div>
+            <span class="rank-badge">${rankScope === "national"
+              ? `🏆 N°${meRank} national`
+              : `📍 N°${myRank === null ? "—" : myRank} · ${escHtml(rankProvince)}`}</span>
+          </div>
+          <div class="prog-wrap">
+            <div class="prog-label"><span>Progression vers le prochain palier</span><strong>${frNum(palier)} Elo</strong></div>
+            <div class="prog-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"
+                 aria-label="Progression vers le palier de ${frNum(palier)} Elo"><span style="width:${pct.toFixed(1)}%"></span></div>
+            <div class="prog-cap">Encore ${frNum(reste)} point${reste > 1 ? "s" : ""} pour atteindre le palier ${frNum(palier)} Elo</div>
+          </div>
+          <div class="stats-row">
+            <div class="stat"><strong>${frNum(myGames)}</strong><span>parties jouées</span></div>
+            <div class="stat"><strong>${winPct === null ? "—" : winPct + "<small>%</small>"}</strong><span>victoires</span></div>
+            <div class="stat"><strong>${delta30 === null ? "—" : (delta30 > 0 ? "+" : "") + frNum(delta30)}</strong><span>30 derniers jours</span></div>
+          </div>
+          <p class="calib-note"><span aria-hidden="true">ℹ️</span><span>Calibration : aucune perte d'Elo sur les 10 premières parties · inactivité 30 j → −30 Elo / mois · classement recalculé le 1ᵉʳ janv. et 1ᵉʳ juil.</span></p>
+          <div class="rank-actions">
+            <button class="btn primary" id="rank-profile">Voir mon profil →</button>
+            <button class="btn ghost icon-only" id="rank-share" aria-label="Copier mon classement" title="Copier mon classement">🔗</button>
+          </div>
+        </aside>
       </div>`;
     document.querySelectorAll("#ranks-root [data-scope]").forEach((c) => c.onclick = () => { rankScope = c.dataset.scope; renderRanks(); });
+    /* Le compteur décrit ce qui est AFFICHÉ : il se pose avec la première liste,
+       puis suit la recherche (voir rankListRender). */
+    rankListRender();
     const provSel = document.getElementById("province-select");
     if (provSel) provSel.onchange = () => { rankProvince = provSel.value; renderRanks(); };
     /* Barre de recherche dépliable : filtrage instantané sur les lignes seules */
@@ -9635,6 +10313,23 @@ const App = (() => {
         if (rankSearch) { rankSearch = ""; rankListRender(); }
       },
     });
+    /* « Voir tous les joueurs » : ramène au classement national complet (recherche
+       vidée ET portée nationale) — un seul geste pour revenir à la vue de départ. */
+    const rst = document.getElementById("rank-reset");
+    if (rst) rst.onclick = () => {
+      if (rst.disabled) return;
+      rankSearch = ""; rankScope = "national";
+      renderRanks();
+    };
+    /* Les deux actions de la carte personnelle : le profil est l'écran Profil
+       (aucune fenêtre dupliquée), et le partage copie un texte VRAI — jamais un
+       lien inventé, jamais un échec silencieux (copyLink gère le repli). */
+    const rp = document.getElementById("rank-profile");
+    if (rp) rp.onclick = () => go("profile");
+    const rsh = document.getElementById("rank-share");
+    if (rsh) rsh.onclick = () => copyLink(
+      `${myRank === null ? "Classé" : "#" + myRank} du classement D-aôna — ${S.pseudo}, ${S.elo} Elo (${myProvince}) · ${location.origin}`,
+      "Classement copié — partagez-le !");
   }
 
   /* ------------------ WALLET ------------------
@@ -10490,47 +11185,18 @@ const App = (() => {
      l'apparence « clairs » peut donc habiller n'importe lequel des deux joueurs. Un
      skin est rangé dans une catégorie par son `type`, et il ne peut être équipé QUE
      dans l'emplacement correspondant. */
-  const OTHER_SKINS = () => SKINS_CATALOG.filter((s) => s.kind !== "pions");
   const isOwned     = (id) => (S.skins.owned || []).includes(id);
   const isEquipped  = (sk) => !!(S.skins.equipped && S.skins.equipped[skinSlotOf(sk)] === sk.id);
   const typeLabel   = (t) => (t === "LIGHT" ? "pions clairs" : t === "DARK" ? "pions sombres" : "");
 
-  /* Carte « Plateau & effets » — style VITRINE du prototype validé : vignette
-     sombre à halo, reflet au survol, tag de type, prix et action. Achat et
-     équipement restent RÉELS (wallet + API). La teinte du halo est celle
-     relevée dans la feuille de l'application (comme le prototype) : indigo du
-     Plateau Nuit d'Anosy, émeraude de la Trace, orange de la Flamme. */
-  const SKIN_HALO = { "plateau-anosy": "#5E4CBE", "trace-emeraude": "#2BA37E", "anim-flamme": "#FF9D2E" };
-  function skinCardHtml(sk) {
-    const owned = isOwned(sk.id), equipped = isEquipped(sk);
-    const kindLabel = sk.kind === "plateau" ? "Plateau" : "Effet";
-    const halo = SKIN_HALO[sk.id] || "#2BA37E";
-    return `
-      <article class="skc ${owned ? "owned" : ""} ${equipped ? "equipped-card" : ""}" style="--k-c:${halo}" data-skin="${sk.id}">
-        <div class="skc-visual">
-          <div class="skc-shine"></div>
-          <div class="skc-top">
-            <span class="tag">${kindLabel}</span>
-            ${equipped ? '<span class="tag eq-tag">Équipé</span>' : owned ? '<span class="tag owned-tag">Possédé</span>' : ""}
-          </div>
-          <span class="k-ico" aria-hidden="true">${skinPreview(sk)}</span>
-        </div>
-        <div class="skc-body">
-          <div>
-            <div class="skc-name">${sk.name}</div>
-            <div class="skc-desc">${sk.desc}</div>
-          </div>
-          <div class="skc-foot">
-            ${sk.price ? `<span class="price">${fmtAr(sk.price)}</span>` : '<span class="small pos">Gratuit</span>'}
-            ${equipped
-              ? '<button class="equip on" disabled>Équipé</button>'
-              : owned
-                ? `<button class="equip" onclick="App.equipSkin('${sk.id}')">Équiper</button>`
-                : `<button class="buy" onclick="App.buySkin('${sk.id}')">Acheter</button>`}
-          </div>
-        </div>
-      </article>`;
-  }
+  /* NOTE — les familles « Plateau & effets » ne sont plus proposées depuis le
+     13/10/2026 : leur place dans la boutique est prise par les FORMES du pion
+     (ronde / carrée / triangulaire), qui se choisissent par camp comme la couleur
+     et le motif. Les entrées du catalogue (`SKINS_CATALOG`, `data.js`), l'achat
+     (`/api/skins/buy`) et l'équipement (`/api/skins/equip`) restent EN PLACE pour
+     la compatibilité : aucun achat passé n'est perdu ni invalidé, et les comptes
+     qui possèdent un plateau ou un effet le gardent en base. Seule leur VITRINE
+     a disparu (cartes `.skc` et aperçus associés). */
 
   /* ==========================================================================
      BOUTIQUE « VITRINE » — état et gestes de l'habillage premium (#/skins)
@@ -10690,10 +11356,14 @@ const App = (() => {
      pour le camp sombre, que `.piece.sombre`
      et `.pion-view--dark` rebindent sur les premières. Une seule recette de
      rendu, donc un aperçu qui ne peut pas mentir sur le rendu réel. */
-  const pionView = (cls, camp, color, pattern, preview) =>
+  /* L'aperçu d'un pion porte les TROIS axes de son camp sous ses propres attributs
+     (`aria-hidden` : c'est une image décorative, décrite par la pastille voisine).
+     `shape` est obligatoire : un aperçu sans forme ne montrerait pas la silhouette
+     choisie, donc mentirait sur le rendu réel. */
+  const pionView = (cls, camp, color, pattern, shape, preview) =>
     camp === "dark"
-      ? `<span class="pion-view ${cls} pion-view--dark"${preview ? " data-pion-preview" : ""} data-pion-color-dark="${color}" data-pion-motif-dark="${pattern}" aria-hidden="true"></span>`
-      : `<span class="pion-view ${cls}"${preview ? " data-pion-preview" : ""} data-pion-color="${color}" data-pion-motif="${pattern}" aria-hidden="true"></span>`;
+      ? `<span class="pion-view ${cls} pion-view--dark"${preview ? " data-pion-preview" : ""} data-pion-forme-dark="${shape}" data-pion-color-dark="${color}" data-pion-motif-dark="${pattern}" aria-hidden="true"></span>`
+      : `<span class="pion-view ${cls}"${preview ? " data-pion-preview" : ""} data-pion-forme="${shape}" data-pion-color="${color}" data-pion-motif="${pattern}" aria-hidden="true"></span>`;
 
   /* Carte de COULEUR : pastille PLEINE (aucun motif — une couleur et un motif ne
      doivent pas se confondre à l'écran) + le nom écrit, car la couleur seule ne
@@ -10739,10 +11409,28 @@ const App = (() => {
       </button>`;
   }
 
+  /* Carte de FORME : la vignette est un pion NU sur MONTURE BLANCHE — la même que
+     les vignettes de motif, et pour la même raison : ici on choisit la SILHOUETTE,
+     pas la couleur (elle se juge sur le pion d'aperçu). Changer de couleur ne
+     change donc pas ces trois vignettes, et les trois formes se comparent à
+     monture égale. La découpe et l'ombre portée viennent des mêmes variables
+     générées que le plateau (`mountPionStyles`). */
+  function pionShapeCardHtml(f) {
+    const on = pionDraft[pionCamp].shape === f.id;
+    return `
+      <button class="pion-motif pion-forme ${on ? "on" : ""}" data-pick-shape="${f.id}"
+              aria-pressed="${on}" title="${f.desc}">
+        <span class="pion-slot"><span class="pion-view pion-view--mini pion-view--motif" data-pion-forme="${f.id}" aria-hidden="true"></span></span>
+        <span class="pion-lbl">${f.name}</span>
+        <span class="pion-check" aria-hidden="true">✓</span>
+      </button>`;
+  }
+
   /* Aperçu, badges et résumé sont mis à jour SANS re-rendre la page : le choix
      doit être instantané (aucun aller-retour serveur) et la position de
-     défilement stable. Un seul point d'entrée pour les deux axes, donc aucun
-     risque qu'un changement de couleur laisse un motif périmé à l'écran.
+     défilement stable. Un seul point d'entrée pour les TROIS axes, donc aucun
+     risque qu'un changement de couleur laisse une forme ou un motif périmé à
+     l'écran.
      Les PIONS d'aperçu suivent en plus l'ESSAI au survol (pionHover) ; le
      résumé, les pastilles d'état et le bouton, eux, ne suivent QUE le
      brouillon — ce qu'on essaie n'est jamais confondu avec ce qu'on a choisi. */
@@ -10751,19 +11439,22 @@ const App = (() => {
     if (!root) return;
     const camp = pionCamp, dark = camp === "dark", k = pionCampOf(camp);
     const selCol = pionColorOf(camp, pionDraft[camp].color), selPat = pionPattern(pionDraft[camp].pattern);
+    const selFrm = pionShape(pionDraft[camp].shape);
     const col = pionColorOf(camp, (pionHover && pionHover.color) || pionDraft[camp].color);
     const pat = pionPattern((pionHover && pionHover.pattern) || pionDraft[camp].pattern);
+    const frm = pionShape((pionHover && pionHover.shape) || pionDraft[camp].shape);
     /* Chaque aperçu porte les attributs de SON camp (posés par `pionView`) : on ne
        met à jour que les VALEURS, jamais le nom de l'attribut — un aperçu du camp
        sombre ne peut donc pas recevoir le jeu de variables du camp clair. */
-    const apply = (el, colorId, motifId) => {
-      if (dark) { el.dataset.pionColorDark = colorId; el.dataset.pionMotifDark = motifId; }
-      else { el.dataset.pionColor = colorId; el.dataset.pionMotif = motifId; }
+    const apply = (el, formeId, colorId, motifId) => {
+      if (dark) { el.dataset.pionFormeDark = formeId; el.dataset.pionColorDark = colorId; el.dataset.pionMotifDark = motifId; }
+      else { el.dataset.pionForme = formeId; el.dataset.pionColor = colorId; el.dataset.pionMotif = motifId; }
     };
-    root.querySelectorAll("[data-pion-preview]").forEach((el) => apply(el, col.id, pat.id));
-    /* Les 9 vignettes de motif ne sont PAS retouchées ici : leur monture est
-       blanche et fixe — changer de couleur ne les change pas (elles montrent le
-       DESSIN ; la couleur, elle, se juge sur le pion d'aperçu). */
+    root.querySelectorAll("[data-pion-preview]").forEach((el) => apply(el, frm.id, col.id, pat.id));
+    /* Les 9 vignettes de motif et les 3 vignettes de FORME ne sont PAS retouchées
+       ici : leur monture est blanche et fixe — changer de couleur ne les change pas
+       (elles montrent le DESSIN et la SILHOUETTE ; la couleur, elle, se juge sur le
+       pion d'aperçu). */
     root.querySelectorAll("[data-pick-color]").forEach((b) => {
       const on = b.dataset.pickColor === selCol.id;
       b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on));
@@ -10772,14 +11463,20 @@ const App = (() => {
       const on = b.dataset.pickPattern === selPat.id;
       b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on));
     });
+    root.querySelectorAll("[data-pick-shape]").forEach((b) => {
+      const on = b.dataset.pickShape === selFrm.id;
+      b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on));
+    });
     /* Pastille d'essai : tant qu'un essai est en cours, elle le NOMME — l'aperçu
        peut alors montrer autre chose que le brouillon sans qu'on s'y trompe. */
     const essaiPill = document.getElementById("pill-hover");
     if (essaiPill) {
       if (pionHover) {
-        const nm = pionHover.color
-          ? pionColorOf(camp, pionHover.color).name
-          : pionPattern(pionHover.pattern).name;
+        const nm = pionHover.shape
+          ? pionShape(pionHover.shape).name
+          : pionHover.color
+            ? pionColorOf(camp, pionHover.color).name
+            : pionPattern(pionHover.pattern).name;
         essaiPill.textContent = `Essai · ${nm}`;
         essaiPill.classList.remove("hidden");
       } else {
@@ -10787,15 +11484,17 @@ const App = (() => {
       }
     }
     const valPill = document.getElementById("pill-value");
-    if (valPill) valPill.innerHTML = `${selCol.name} <span style="opacity:.5">·</span> ${selPat.name}`;
-    const sc = document.getElementById("pion-sum-color"), sp = document.getElementById("pion-sum-pattern");
+    if (valPill) valPill.innerHTML = `${selFrm.name} <span style="opacity:.5">·</span> ${selCol.name} <span style="opacity:.5">·</span> ${selPat.name}`;
+    const sc = document.getElementById("pion-sum-color"), sp = document.getElementById("pion-sum-pattern"), sf = document.getElementById("pion-sum-shape");
     if (sc) sc.textContent = selCol.name;
     if (sp) sp.textContent = selPat.name;
+    if (sf) sf.textContent = selFrm.name;
     /* Le bouton ne s'active que si le brouillon de CE CAMP diffère de ce qui est
        ENREGISTRÉ : « Appliquer » ne peut donc pas rejouer un enregistrement inutile,
-       ni proposer d'enregistrer le camp qui n'est pas affiché. */
+       ni proposer d'enregistrer le camp qui n'est pas affiché. Les TROIS axes
+       comptent, la forme comme la couleur et le motif. */
     const saved = S.pion.styles[camp];
-    const changed = selCol.id !== saved.color || selPat.id !== saved.pattern;
+    const changed = selFrm.id !== saved.shape || selCol.id !== saved.color || selPat.id !== saved.pattern;
     const btn = document.getElementById("pion-apply"), hint = document.getElementById("pion-apply-hint");
     if (btn) btn.disabled = !changed;
     if (hint) hint.textContent = changed
@@ -10842,9 +11541,17 @@ const App = (() => {
       const img = fichier ? motifImgUri(fichier) : "none";
       return `[data-pion-motif${s.suf}="${p.id}"] { --pion-mask${s.suf}: ${geo}; --pion-motif-ink${s.suf}: ${ink}; --pion-motif-img${s.suf}: ${img}; }`;
     })).join("\n");
+    /* La FORME du pion — quatrième bloc généré, mêmes suffixes que les couleurs et
+       les motifs. Six valeurs par forme, et rien à rebinder de plus : la silhouette
+       est un rayon (`ronde`, `carree`) ou une DÉCOUPE (`triangulaire`), l'anneau
+       sait où se poser et quelle courbure prendre, la zone du motif suit, et
+       l'ombre portée est reposée en `drop-shadow` quand la découpe l'emporte. */
+    const shapes = PION_VAR_SETS.flatMap((s) => PION_SHAPES.map((f) =>
+      `[data-pion-forme${s.suf}="${f.id}"] { --pion-radius${s.suf}: ${f.radius}; --pion-clip${s.suf}: ${f.clip}; --pion-filtre${s.suf}: ${f.filtre}; --pion-ring${s.suf}: ${f.ring}; --pion-ring-radius${s.suf}: ${f.ringRadius}; --pion-motif-radius${s.suf}: ${f.motifRadius}; }`
+    )).join("\n");
     const st = document.createElement("style");
     st.id = "pion-styles";
-    st.textContent = `/* Généré depuis PION_COLORS / PION_PATTERNS — ne pas éditer à la main. */\n${colors}\n${patterns}`;
+    st.textContent = `/* Généré depuis PION_COLORS / PION_PATTERNS / PION_SHAPES — ne pas éditer à la main. */\n${colors}\n${patterns}\n${shapes}`;
     document.head.appendChild(st);
   }
 
@@ -10865,17 +11572,18 @@ const App = (() => {
   async function applyPionStyle() {
     const camp = pionCamp, k = pionCampOf(camp);
     const col = pionColorOf(camp, pionDraft[camp].color), pat = pionPattern(pionDraft[camp].pattern);
+    const frm = pionShape(pionDraft[camp].shape);
     try {
-      const d = await API.request("/api/pion/style", "POST", { camp, color: col.id, pattern: pat.id });
+      const d = await API.request("/api/pion/style", "POST", { camp, shape: frm.id, color: col.id, pattern: pat.id });
       const styles = { ...(d.pionStyles || {}) };
       for (const c of PION_CAMPS) {
         const s = styles[c.id]
-          || (c.id === camp ? { color: col.id, pattern: pat.id } : S.pion.styles[c.id]);
-        S.pion.styles[c.id] = { color: s.color, pattern: s.pattern };
+          || (c.id === camp ? { shape: frm.id, color: col.id, pattern: pat.id } : S.pion.styles[c.id]);
+        S.pion.styles[c.id] = { shape: pionShape(s.shape).id, color: s.color, pattern: s.pattern };
       }
       pionDraft = { light: { ...S.pion.styles.light }, dark: { ...S.pion.styles.dark } };
       applyPionStyles();
-      toast(`${k.label} : ${col.name} · ${pat.name} ✓`);
+      toast(`${k.label} : ${frm.name} · ${col.name} · ${pat.name} ✓`);
       renderSkins();
       /* Étincelles + « bump » sur le pion RE-MONTÉ (l'application redessine la
          page : on fête le nouvel état, pas l'ancien nœud). */
@@ -10885,9 +11593,13 @@ const App = (() => {
   }
 
   /* ---------- Écran « Boutique de skins » (#/skins) ----------
-     Structure : onglets de CAMP → aperçu → couleur → motif → apparence actuelle →
-     appliquer. Une seule page, aucune combinaison intermédiaire affichée comme un
-     « skin » : on choisit un camp, puis un axe, puis l'autre.
+     Structure : onglets de CAMP → aperçu → FORME → couleur → motif → apparence
+     actuelle → appliquer. Une seule page, aucune combinaison intermédiaire
+     affichée comme un « skin » : on choisit un camp, puis un axe, puis l'autre.
+     Les trois axes sont INDÉPENDANTS et se conservent séparément ; l'onglet
+     « Forme » remplace les anciennes familles « Plateau & effets » dans la
+     boutique (demande de terrain du 13/10/2026) et propose ronde, carrée et
+     triangulaire, camp par camp.
      Chaque onglet ne propose QUE les couleurs de son groupe (8 claires pour les
      pions clairs, 8 sombres pour ceux de l'adversaire) : un skin clair ne peut donc
      pas être choisi pour des pions sombres, ni l'inverse — et le serveur applique
@@ -10897,15 +11609,15 @@ const App = (() => {
     if (!root) return;
     pionHover = null;   /* changer de camp efface l'essai en cours */
     const camp = pionCamp, k = pionCampOf(camp), d = pionDraft[camp];
-    const col = pionColorOf(camp, d.color), pat = pionPattern(d.pattern);
+    const col = pionColorOf(camp, d.color), pat = pionPattern(d.pattern), frm = pionShape(d.shape);
     const cols = pionColorsOfCamp(camp).map(pionColorCardHtml).join("");
+    const formes = PION_SHAPES.map(pionShapeCardHtml).join("");
     const groupLabel = (PION_GROUPS.find(([g]) => g === k.group) || [])[1] || k.label;
-    const others = OTHER_SKINS();
     const tabs = `
       <div class="pion-tabs" role="tablist" aria-label="Camp de pions à personnaliser">
         ${PION_CAMPS.map((c) => `
           <button class="pion-tab" id="pion-tab-${c.id}" role="tab" data-pion-camp="${c.id}"
-                  aria-selected="${c.id === camp}" aria-controls="pion-panel-color pion-panel-motif"
+                  aria-selected="${c.id === camp}" aria-controls="pion-panel-forme pion-panel-color pion-panel-motif"
                   title="${c.id === "light" ? "Le camp clair — celui qui commence" : "Le camp sombre"}">
             <span>${c.label}</span><small>${c.who}</small>
           </button>`).join("")}
@@ -10923,12 +11635,12 @@ const App = (() => {
                   <span class="pill" id="pill-camp">${k.label}</span>
                   <span class="pill gold hidden" id="pill-hover">Essai</span>
                 </div>
-                <span class="pill violet" id="pill-value">${col.name} <span style="opacity:.5">·</span> ${pat.name}</span>
+                <span class="pill violet" id="pill-value">${frm.name} <span style="opacity:.5">·</span> ${col.name} <span style="opacity:.5">·</span> ${pat.name}</span>
               </div>
               <div class="pion-hero"><span class="pion-3d" id="pion-3d" tabindex="0" role="img"
                     aria-label="Pion d'aperçu — glissez pour le tourner, molette pour zoomer, 0 pour revenir de face"
                     title="Glisser : tourner · Molette : zoomer · Double-clic : face avant">${
-                pionView("pion-view--lg", camp, col.id, pat.id, true)}</span></div>
+                pionView("pion-view--lg", camp, col.id, pat.id, frm.id, true)}</span></div>
               <div class="stage-tools" role="group" aria-label="Ambiance de la scène (décor uniquement)">
                 ${STAGE_ENVS.map((e) => `<button class="chip${e.id === stageEnv ? " active" : ""}" data-env="${e.id}">${e.label}</button>`).join("")}
               </div>
@@ -10938,7 +11650,7 @@ const App = (() => {
               </div>
             </div>
             <div class="stage-real">
-              <span id="real-pion-zone">${pionView("pion-view--real", camp, col.id, pat.id, true)}</span>
+              <span id="real-pion-zone">${pionView("pion-view--real", camp, col.id, pat.id, frm.id, true)}</span>
               <span class="small">Taille réelle sur le plateau</span>
               <span class="view-hint" id="view-hint">Glisser : tourner · molette : zoomer · double-clic : face avant</span>
             </div>
@@ -10954,8 +11666,9 @@ const App = (() => {
             <div class="panel-title"><span class="dot"></span>Personnalisation actuelle</div>
             <div class="panel-body">
               <p class="pion-note" id="sum-who" style="margin-top:0;"><b>${k.label}</b> — ${k.who}.</p>
-              <p class="pion-note" style="margin:6px 0 10px;">Couleur et motif sont indépendants — chacun se conserve.</p>
+              <p class="pion-note" style="margin:6px 0 10px;">Forme, couleur et motif sont indépendants — chacun se conserve.</p>
               <div class="pion-sum"><span>Camp</span><b id="sum-camp">${k.label}</b></div>
+              <div class="pion-sum"><span>Forme</span><b id="pion-sum-shape">${frm.name}</b></div>
               <div class="pion-sum"><span>Couleur</span><b id="pion-sum-color">${col.name}</b></div>
               <div class="pion-sum"><span>Motif</span><b id="pion-sum-pattern">${pat.name}</b></div>
               <button class="btn primary block" id="pion-apply" onclick="App.applyPionStyle()" disabled>Appliquer ce skin</button>
@@ -10964,6 +11677,13 @@ const App = (() => {
           </div>
         </div>
         <div class="side-stack">
+          <div class="panel" id="pion-panel-forme" role="tabpanel" aria-labelledby="pion-tab-${camp}">
+            <div class="panel-title"><span class="dot"></span>Forme — ${k.label}</div>
+            <div class="panel-body">
+              <p class="sub-title">La silhouette du pion : ronde, carrée ou triangulaire. Survol : essai en grand · clic : choisir.</p>
+              <div class="pion-grid pion-grid--formes">${formes}</div>
+            </div>
+          </div>
           <div class="panel" id="pion-panel-color" role="tabpanel" aria-labelledby="pion-tab-${camp}">
             <div class="panel-title"><span class="dot"></span>Couleur — ${k.label}</div>
             <div class="panel-body">
@@ -10979,14 +11699,6 @@ const App = (() => {
               <div class="pion-grid pion-grid--motifs">${PION_PATTERNS.map(pionPatternCardHtml).join("")}</div>
             </div>
           </div>
-          ${others.length ? `
-          <div class="panel">
-            <div class="panel-title"><span class="dot"></span>Plateau &amp; effets</div>
-            <div class="panel-body">
-              <p class="sub-title">Skins du plateau et des effets, payés avec le wallet.</p>
-              <div class="skins-grid">${others.map(skinCardHtml).join("")}</div>
-            </div>
-          </div>` : ""}
         </div>
       </div>`;
     /* Changement de CAMP : on redessine la page avec le brouillon de ce camp. Les
@@ -11019,6 +11731,18 @@ const App = (() => {
       b.onmouseenter = b.onfocus = () => setPionHover({ pattern: b.dataset.pickPattern });
       b.onmouseleave = b.onblur = () => setPionHover(null);
     });
+    /* La FORME se choisit comme les deux autres axes — même survol-essai, même
+       clic qui tranche — et c'est la silhouette de l'aperçu qui change, donc
+       celle du plateau dès « Appliquer ». */
+    root.querySelectorAll("[data-pick-shape]").forEach((b) => {
+      b.onclick = () => {
+        pionDraft[pionCamp].shape = b.dataset.pickShape;
+        setPionHover(null);
+        refreshPionPreview();
+      };
+      b.onmouseenter = b.onfocus = () => setPionHover({ shape: b.dataset.pickShape });
+      b.onmouseleave = b.onblur = () => setPionHover(null);
+    });
     /* Scène : ambiances (décor de session, jamais enregistré) et loupe
        d'inspection du pion (tourner, zoomer, face avant). */
     root.querySelectorAll(".stage-tools .chip").forEach((c) => c.onclick = () => {
@@ -11043,25 +11767,10 @@ const App = (() => {
     updateTopbar();
   }
 
-  /* Les DEUX camps de pions sont habillés par la MÊME mécanique : `pion_style`,
-     une apparence par camp (voir applyPionStyles). Aucune règle CSS de skin ne
-     vise donc plus `.piece.clair` ni `.piece.sombre` : les skins de pions du catalogue
-     restent vendus et équipés par l'API (historique, compatibilité), mais ils ne
-     pilotent plus l'apparence — la migration 010 a converti l'apparence en cours
-     en couleur du camp sombre, aucune apparence payée n'est donc perdue. */
-
-  function skinPreview(sk) {
-    if (sk.kind === "pions") {
-      /* UN seul pion dans l'aperçu : un skin n'habille qu'un type de pions, donc
-         une seule couleur. Le camp visé est déjà dit par la pastille de type
-         (« Clairs » / « Sombres ») et par la teinte de la pièce. */
-      return `<span class="demo-piece" style="background:${sk.grad}"></span>`;
-    }
-    if (sk.kind === "plateau") return '<span style="font-size:22px;">🌌</span>';
-    if (sk.id === "trace-emeraude") return '<span style="font-size:22px;">✨</span>';
-    if (sk.id === "anim-flamme") return '<span style="font-size:22px;">🔥</span>';
-    return "";
-  }
+  /* `buySkin` / `equipSkin` restent les points d'entrée de l'API d'achat et
+     d'équipement des skins de plateau et d'effet : la vitrine qui les appelait a
+     été remplacée par les formes du pion (voir la note plus haut), mais les
+     comptes qui possèdent déjà ces skins continuent d'en disposer en base. */
 
   async function buySkin(id) {
     const sk = SKINS_CATALOG.find((s) => s.id === id);
@@ -11260,8 +11969,7 @@ const App = (() => {
             <span class="avatar" data-pop-profile="${escHtml(pseudo)}" title="Voir le profil">${escHtml(pseudo.slice(0, 2).toUpperCase())}</span>
             <span class="cp-name" data-pop-profile="${escHtml(pseudo)}">${escHtml(pseudo)}</span>
             ${unread ? `<span class="cp-unread">${unread}</span>` : ""}
-            <button class="cp-btn" data-pop-min="${escHtml(pseudo)}" title="Réduire">—</button>
-            <button class="cp-btn" data-pop-close="${escHtml(pseudo)}" title="Fermer">✕</button>
+            <button class="cp-btn" data-pop-close="${escHtml(pseudo)}" title="Fermer" aria-label="Fermer la conversation avec ${escHtml(pseudo)}">✕</button>
           </div>
           <div class="cp-body">
             <div class="cp-msgs" data-pop-msgs="${escHtml(pseudo)}">
@@ -11298,7 +12006,7 @@ const App = (() => {
        curseur AVANT la reconstruction, puis on les restaure. La re-prise de
        focus ne se fait QUE si la frappe était DANS le dock — sinon on volerait
        le focus du champ de l'écran Chat. */
-    const draftsBefore = {};
+    const draftsBefore = chatDrafts;   // carte PERSISTANTE : survit à la fermeture (n° 8)
     let focusBefore = null;
     if (tray.contains(document.activeElement)) {
       focusBefore = { pseudo: document.activeElement.dataset.popField || null, caret: null };
@@ -11317,16 +12025,10 @@ const App = (() => {
       }
     });
 
-    // Bind fenêtres pop-up
-    tray.querySelectorAll("[data-pop-head]").forEach((el) => el.onclick = (e) => {
-      if (e.target.closest("[data-pop-min],[data-pop-close],[data-pop-profile]")) return;
-      el.closest(".chat-pop").classList.toggle("min");
-    });
-    tray.querySelectorAll("[data-pop-min]").forEach((el) => el.onclick = () => el.closest(".chat-pop").classList.toggle("min"));
-    tray.querySelectorAll("[data-pop-close]").forEach((el) => el.onclick = () => {
-      chatPopups = chatPopups.filter((p) => p !== el.dataset.popClose);
-      renderChatDock();
-    });
+    // Bind fenêtres pop-up (retour terrain n° 8 : le bouton « réduire » est retiré,
+    // il n'y a donc plus d'état replié — la fenêtre se ferme par la croix ou par un
+    // clic à l'extérieur, et rien d'autre ne la referme).
+    tray.querySelectorAll("[data-pop-close]").forEach((el) => el.onclick = () => closeChatPopup(el.dataset.popClose));
     tray.querySelectorAll("[data-pop-profile]").forEach((el) => el.onclick = () => openProfileByPseudo(el.dataset.popProfile));
     tray.querySelectorAll("[data-pop-send]").forEach((el) => el.onclick = () => {
       const pseudo = el.dataset.popSend;
@@ -11346,6 +12048,9 @@ const App = (() => {
       }
       updateChatPreviews(pseudo, txt);
       updateDockUnread(pseudo);
+      /* Le brouillon d'un message PARTI n'a plus lieu d'être : sans ce nettoyage,
+         le prochain re-rendu du dock le ressusciterait dans le champ vidé. */
+      delete chatDrafts[pseudo];
     });
     tray.querySelectorAll("[data-pop-field]").forEach((el) => el.onkeydown = (e) => {
       if (e.key !== "Enter") return;
@@ -11362,6 +12067,7 @@ const App = (() => {
       }
       updateChatPreviews(pseudo, txt);
       updateDockUnread(pseudo);
+      delete chatDrafts[pseudo];   // message parti : plus de brouillon (n° 8)
     });
     tray.querySelectorAll("[data-dock-chat]").forEach((el) => el.onclick = () => openChatPopup(el.dataset.dockChat));
 
@@ -11381,6 +12087,38 @@ const App = (() => {
   function toggleChatDock() {
     chatDockOpen = !chatDockOpen;
     if (chatDockOpen) refreshContacts();
+    renderChatDock();
+  }
+
+  /* Ferme une fenêtre de conversation — par la CROIX ou par un CLIC EXTÉRIEUR
+     (retour terrain n° 8). Le brouillon en cours est CONSERVÉ : il est relu dans
+     le champ avant la reconstruction du dock, puis remis à la réouverture. C'est
+     l'option « conserve le brouillon » de la demande, retenue plutôt qu'une
+     confirmation qui interromprait une lecture en cours. */
+  function closeChatPopup(pseudo) {
+    const tray = document.getElementById("chat-tray");
+    const f = tray && [...tray.querySelectorAll("[data-pop-field]")]
+      .find((x) => x.dataset.popField === pseudo);
+    if (f && f.value) chatDrafts[pseudo] = f.value;
+    chatPopups = chatPopups.filter((p) => p !== pseudo);
+    renderChatDock();
+  }
+
+  /* Le clic EN DEHORS d'une fenêtre de conversation la ferme ; un clic DEDANS ne
+     la ferme pas. `.chat-panel` (la liste du dock) et le bouton d'ouverture
+     comptent comme « dedans » : sinon le clic sur la cloche refermerait le panneau
+     qu'il vient d'ouvrir. `pointerdown` couvre souris ET tactile d'un seul
+     écouteur, pris en phase de CAPTURE pour que le geste soit jugé avant que la
+     cible ne l'intercepte. */
+  function closeChatPopupsOutside(e) {
+    if (!chatPopups.length) return;
+    if (e.target.closest(".chat-pop, .chat-panel, #chat-fab")) return;
+    chatPopups.slice().forEach((pseudo) => {
+      const f = [...document.querySelectorAll("#chat-tray [data-pop-field]")]
+        .find((x) => x.dataset.popField === pseudo);
+      if (f && f.value) chatDrafts[pseudo] = f.value;
+    });
+    chatPopups = [];
     renderChatDock();
   }
 
@@ -11752,7 +12490,9 @@ const App = (() => {
        l'animation et la rotation, et `display` montre le plan de la face tirée (cf. CSS).
        Le délai de repli couvre le cas où `animationend` ne viendrait pas (animation non
        démarrée, onglet en arrière-plan) : « l'événement » ou « le délai », jamais aucun. */
-    const atterrir = () => air.classList.add("landed");
+    /* `on` est retirée en même temps : l'alternance des deux faces doit cesser
+       net à l'arrêt, sinon `display` et l'opacité se disputeraient la face. */
+    const atterrir = () => { air.classList.remove("on"); air.classList.add("landed"); };
     air.addEventListener("animationend", atterrir, { once: true });
     clearTimeout(_tossLandTimer);
     _tossLandTimer = setTimeout(atterrir, 2150);
@@ -11824,12 +12564,12 @@ const App = (() => {
       <p class="m-sub">Jeu traditionnel malgache — plateau 9 × 5, 22 pions par joueur. Le tirage désigne qui commence : le gagnant prend les <b>pions clairs</b>.</p>
       <ul class="rules-list">
         <li><b>But du jeu :</b> capturer tous les pions de l'adversaire.</li>
-        <li><b>Déplacement :</b> un pion d'une intersection à une autre, le long des lignes, vers un point vide.</li>
+        <li><b>Déplacement :</b> un pion d'une intersection à une autre, le long des lignes, vers un point vide — un pion ne saute jamais : une case occupée bloque le pas.</li>
         <li><b>Capture par approche :</b> avancer vers un ou plusieurs pions adverses alignés capture tous les pions de l'alignement.</li>
         <li><b>Capture par éloignement (retrait) :</b> s'éloigner d'un ou plusieurs pions adverses alignés capture tous les pions de l'alignement.</li>
         <li>⚠️ <b>On ne capture que les pions d'un alignement interrompu.</b></li>
         <li><b>Prises en chaîne :</b> enchaîner les prises avec le même pion, en changeant de direction, sans repasser deux fois sur une intersection.</li>
-        <li><b>Capture obligatoire :</b> si une prise est possible, vous devez la jouer.</li>
+        <li><b>Déplacement libre :</b> jouez le pion de votre choix — une prise n'est jamais obligatoire.</li>
         <li><b>Tirage au sort :</b> chaque joueur choisit PILE ou FACE ; la pièce désigne celui qui commence — le gagnant prend les <b>pions clairs</b> et joue le premier. <b>PILE</b> = côté chiffres, <b>FACE</b> = côté baobabs.</li>
         <li><b>Victoire :</b> capturer les 22 pions adverses.</li>
         <li><b>Forfait :</b> quitter une partie en cours fait perdre la partie et les points Elo.</li>
@@ -11902,10 +12642,12 @@ const App = (() => {
       toast(`📨 ${msg.from} vous a envoyé une demande d'ami !`, "ok", 5000);
       await refreshFriends();
       if (currentRoute() === "friends") renderFriends();
+      panelEnCours();                          // demande reçue pendant la lecture (n° 1)
     });
     API.on("friend_update", async () => {
       await refreshFriends();
       if (currentRoute() === "friends") renderFriends();
+      panelEnCours();
     });
     API.on("match_status", (msg) => {
       const el = document.getElementById("mm-wait");
@@ -11968,6 +12710,7 @@ const App = (() => {
       toast(`Nouveau défi de ${c.from} (${c.wager ? fmtAr(c.wager) : "gratuit"}) !`, "warn");
       if (currentRoute() === "home") renderHome();
       if (currentRoute() === "match") { syncMatchTabs(); renderDefisRecus(); }
+      panelEnCours();                       // le panneau ancré suit en direct (n° 1)
     });
     API.on("challenge_sent", (msg) => {
       toast(`Défi envoyé à ${msg.to} 👍`);
@@ -12003,6 +12746,7 @@ const App = (() => {
       updateNotifBadge();
       await refreshNotifications();
       if (currentRoute() === "notifications") renderNotifications();
+      panelEnCours();                       // le panneau ancré suit en direct (n° 1)
       // Les types liés aux tournois rafraîchissent aussi l'accueil / la page tournoi
       if (["inscription", "tournoi_debut", "confirmation_requise", "prochain_match", "match_lance", "victoire", "defaite", "forfait", "forfait_adverse", "tournoi_gagne"].includes(msg.notifType)) {
         await refreshMyTournaments();
@@ -12035,6 +12779,7 @@ const App = (() => {
       }));
       if (currentRoute() === "home") renderHome();
       if (currentRoute() === "match") { syncMatchTabs(); renderDefisRecus(); }
+      panelEnCours();                          // liste des défis du panneau (n° 1)
     });
   }
 
@@ -12192,6 +12937,383 @@ const App = (() => {
         renderPublicProfile(id);
       } catch (e) { toast(e.message || "Erreur.", "error"); }
     };
+  }
+
+  /* ------------------ PANNEAUX ANCRÉS (cloche + amis, n° 1) ------------------
+     Un seul mécanisme pour les deux zones : ouverture sous l'icône, bascule par
+     un SECOND clic, fermeture par un clic à l'EXTÉRIEUR ou par Échap. Le panneau
+     est positionné en `fixed` et son repère `top` est calculé sur la hauteur
+     RÉELLE de la barre supérieure (elle varie : la barre s'enroule en mobile).
+     `apercuLus` fige, à l'ouverture, ce qui était non lu : le serveur est marqué
+     « lu » tout de suite (le compteur retombe à zéro, comme demandé) mais les
+     points bleus restent affichés jusqu'à la fermeture — sinon l'ouverture
+     effacerait l'information qu'elle vient de montrer. */
+  let openPanelName = null;          // "notif" | "friends" | null
+  let notifFilter = "all";           // "all" | "unread"
+  let notifSnapshot = null;          // ids non lus au moment de l'ouverture
+  let friendsSnapshot = null;        // idem pour les demandes d'ami
+
+  const panelEl = (n) => document.getElementById(n + "-panel");
+  const panelBtn = (n) => document.getElementById(n === "notif" ? "btn-notif" : "btn-friends");
+
+  /* Ancre le panneau SOUS la barre supérieure et à l'aplomb de son icône (à droite
+     en desktop ; pleine largeur en mobile, voir la feuille). */
+  function placePanel(name) {
+    const el = panelEl(name), bar = document.querySelector(".topbar");
+    if (!el || !bar) return;
+    const r = bar.getBoundingClientRect();
+    el.style.top = Math.round(r.bottom + 6) + "px";
+  }
+
+  function timeAgo(iso) {
+    if (!iso) return "";
+    const d = new Date(String(iso).includes("Z") || String(iso).includes("+") ? iso : iso + "Z");
+    if (isNaN(d.getTime())) return "";
+    const s = Math.max(0, Math.round((Date.now() - d.getTime()) / 1000));
+    if (s < 45) return "à l'instant";
+    const m = Math.round(s / 60);
+    if (m < 60) return m + " min";
+    const h = Math.round(m / 60);
+    if (h < 24) return h + " h";
+    const j = Math.round(h / 24);
+    return j < 7 ? j + " j" : d.toLocaleDateString("fr-FR");
+  }
+
+  function closePanel() {
+    Object.keys({ notif: 1, friends: 1 }).forEach((n) => { const el = panelEl(n); if (el) el.hidden = true; });
+    openPanelName = null;
+    notifSnapshot = null; friendsSnapshot = null;
+    const b = panelBtn("notif"), f = panelBtn("friends");
+    [b, f].forEach((x) => x && x.setAttribute("aria-expanded", "false"));
+  }
+
+  async function openPanel(name) {
+    if (openPanelName === name) { closePanel(); return; }   // second clic = fermeture
+    closePanel();
+    openPanelName = name;
+    const el = panelEl(name);
+    if (!el) return;
+    /* Instantané du non-lu AVANT de marquer côté serveur. */
+    if (name === "notif") {
+      notifSnapshot = new Set((S.notifications || []).filter((n) => !n.read).map((n) => n.id));
+      friendsSnapshot = new Set((S.friendRequests.incoming || []).map((r) => r.id));
+      el.hidden = false;
+      placePanel(name);
+      renderNotifPanel();
+      /* Marquer lu SANS re-rendre le panneau dans la foulée : le rendu garde
+         l'instantané (points bleus) et le compteur de la cloche tombe à zéro. */
+      try {
+        if (S.notifUnread > 0) await API.request("/api/notifications/read-all", "POST", {});
+        S.notifUnread = 0; S.notifications.forEach((n) => n.read = true);
+        updateNotifBadge();
+      } catch (e) { console.error("openPanel/read-all", e); }
+      /* Les demandes d'ami vues valent consultation : même filigrane serveur que
+         l'écran Amis, sinon le badge se rallumerait au rechargement. */
+      marquerDemandesVues();
+    } else {
+      friendsSnapshot = new Set((S.friendRequests.incoming || []).map((r) => r.id));
+      await refreshFriends();
+      el.hidden = false;
+      placePanel(name);
+      renderFriendsPanel();
+      marquerDemandesVues();
+    }
+    panelBtn(name).setAttribute("aria-expanded", "true");
+  }
+
+  /* Le filigrane serveur des demandes d'ami (même chemin que l'écran Amis). */
+  function marquerDemandesVues() {
+    const fr = S.friendRequests || {};
+    if (!(Number(fr.newSinceId || 0) > Number(fr.seenId || 0))) return;
+    fr.seenId = Number(fr.newSinceId);
+    fr.newIncoming = 0;
+    updateFriendsBadge();
+    API.request("/api/friends/seen", "POST", {})
+      .then((r) => { if (r && r.newSinceId != null) fr.seenId = Math.max(Number(fr.seenId || 0), r.newSinceId); })
+      .catch(() => {});
+  }
+
+  /* Un rafraîchissement redessine le panneau OUVERT (temps réel) : sans cela, une
+     notification reçue pendant la lecture n'apparaîtrait qu'à la réouverture. */
+  function panelEnCours() {
+    if (openPanelName === "notif") renderNotifPanel();
+    else if (openPanelName === "friends") renderFriendsPanel();
+  }
+
+  /* Fermeture au clic EXTÉRIEUR : `pointerdown` en CAPTURE couvre souris et
+     tactile d'un seul écouteur, et le geste est jugé avant que la cible ne
+     l'intercepte. Un clic sur la barre supérieure ne ferme pas (on veut pouvoir
+     passer d'une icône à l'autre). */
+  function closePanelsOutside(e) {
+    if (!openPanelName) return;
+    if (e.target.closest && e.target.closest(".pop-panel, .topbar")) return;
+    closePanel();
+  }
+
+  /* ---------- Contenu du panneau Notifications (retour terrain n° 1) ----------
+     TROIS sources, un seul flux : les notifications du serveur, les DEMANDES
+     D'AMI en attente et les DÉFIS reçus — c'est ce que la maquette montre sous
+     une même cloche (demande d'ami, défi, invitation de tournoi, résultat de
+     partie). Chaque demande porte ses deux boutons, et une décision prise laisse
+     une trace écrite (« Acceptée ✓ ») au lieu de disparaître sans explication. */
+  const PP_TYPE = {
+    friend: { ico: "👥", cls: "info" },
+    defi: { ico: "⚔️", cls: "" },
+    victoire: { ico: "🏆", cls: "" },
+    tournoi_gagne: { ico: "👑", cls: "" },
+    tournoi_debut: { ico: "🏆", cls: "" },
+    prochain_match: { ico: "⚔️", cls: "warn" },
+    confirmation_requise: { ico: "⏰", cls: "warn" },
+    match_lance: { ico: "🎮", cls: "" },
+    defaite: { ico: "💥", cls: "warn" },
+    forfait: { ico: "❌", cls: "warn" },
+    forfait_adverse: { ico: "✅", cls: "" },
+  };
+  const ppTraites = new Map();       // "f12"/"d3" -> trace laissée (« Acceptée ✓ »)
+
+  function notifEntries() {
+    const out = [];
+    (S.friendRequests.incoming || []).forEach((r) => out.push({
+      key: "f" + r.id, type: "friend", at: null,
+      unread: !friendsSnapshot || friendsSnapshot.has(r.id),
+      actor: { pseudo: r.pseudo, avatar: r.avatar || null }, playerId: r.from_id,
+      html: `<b>${escHtml(r.pseudo)}</b> vous a envoyé une demande d'ami.`,
+      sub: `${r.elo} Elo${r.province ? " · 📍 " + escHtml(r.province) : ""}`,
+      actions: "friend", reqId: r.id,
+    }));
+    (S.defis || []).forEach((d) => out.push({
+      key: "d" + d.id, type: "defi", at: null, unread: true,
+      actor: { pseudo: d.from, avatar: d.fromAvatar || null }, playerId: d.fromId,
+      html: `<b>${escHtml(d.from)}</b> vous défie en ${escHtml(String(d.format || "Blitz"))}.`,
+      sub: `Mise ${fmtAr(d.wager)} · gain ${fmtAr(d.wager * 2 * 0.9)}`,
+      actions: "defi", reqId: d.id,
+    }));
+    (S.notifications || []).forEach((n) => {
+      const p = n.payload || {};
+      out.push({
+        key: "n" + n.id, type: n.type, at: n.created_at,
+        unread: notifSnapshot ? notifSnapshot.has(n.id) : !n.read,
+        actor: null, playerId: p.fromId || null,
+        html: escHtml(p.text || n.type),
+        sub: p.pseudo ? escHtml(p.pseudo) : "",
+        tournamentId: p.tournamentId || null,
+        actions: n.type === "confirmation_requise" && p.tournamentId ? "confirm" : null,
+        confirmId: p.tournamentId || null,
+      });
+    });
+    /* Les décisions déjà prises restent listées, sans bouton (exigence n° 1). */
+    ppTraites.forEach((etat, key) => {
+      if (out.some((e) => e.key === key)) return;
+      out.push({ key, type: key.startsWith("f") ? "friend" : "defi", at: null, unread: false, actor: null, traite: etat, html: etat, sub: "" });
+    });
+    return out;
+  }
+
+  function ppAvatar(entry) {
+    const t = PP_TYPE[entry.type] || { ico: "🔔", cls: "" };
+    const inner = entry.actor
+      ? avatarBox(entry.actor, 40)
+      : `<span class="avatar" style="width:40px;height:40px;font-size:17px;">${t.ico}</span>`;
+    return `<span class="pp-av">${inner}<span class="pp-type ${t.cls}" aria-hidden="true">${t.ico}</span></span>`;
+  }
+
+  function ppActions(entry) {
+    if (entry.actions === "friend")
+      return `<div class="pp-actions">
+        <button class="btn primary mini-btn" data-pp-accept="${entry.reqId}">Accepter</button>
+        <button class="btn ghost mini-btn" data-pp-decline="${entry.reqId}">Refuser</button></div>`;
+    if (entry.actions === "defi")
+      return `<div class="pp-actions">
+        <button class="btn primary mini-btn" data-pp-daccepter="${entry.reqId}">Accepter</button>
+        <button class="btn ghost mini-btn" data-pp-drefuser="${entry.reqId}">Refuser</button></div>`;
+    if (entry.actions === "confirm")
+      return `<div class="pp-actions">
+        <button class="btn primary mini-btn" data-pp-confirm="${entry.confirmId}">Confirmer ma présence</button></div>`;
+    return "";
+  }
+
+  function ppItem(entry) {
+    const cible = entry.tournamentId ? `data-pp-tournoi="${entry.tournamentId}"`
+      : entry.playerId ? `data-pp-profil="${entry.playerId}"` : "";
+    return `<div class="pp-item${cible ? " click" : ""}" ${cible}>
+      ${ppAvatar(entry)}
+      <div class="pp-txt">${entry.html}
+        ${entry.sub ? `<div class="pp-when">${entry.sub}</div>` : ""}
+        <div class="pp-when">${entry.at ? timeAgo(entry.at) : (entry.traite ? "" : "en attente")}${entry.traite ? `<span class="pp-etat">${entry.traite}</span>` : ""}</div>
+        ${ppActions(entry)}</div>
+      ${entry.unread ? '<span class="pp-dot" aria-label="Non lue"></span>' : ""}
+    </div>`;
+  }
+
+  function renderNotifPanel() {
+    const el = panelEl("notif");
+    if (!el || openPanelName !== "notif") return;
+    const tous = notifEntries();
+    const nonLus = tous.filter((e) => e.unread);
+    const lus = tous.filter((e) => !e.unread);
+    const liste = notifFilter === "unread" ? nonLus : tous;
+    const groupes = [
+      { titre: "Nouvelles", items: nonLus, voir: true },
+      { titre: "Antérieures", items: notifFilter === "unread" ? [] : lus, voir: false },
+    ];
+    const bloc = (g) => (!g.items.length && !g.voir) ? ""
+      : `<div class="pp-group">${g.titre}${g.voir ? '<button class="pp-see" data-pp-voir="notifications">Voir tout</button>' : ""}</div>
+         ${g.items.map(ppItem).join("")}`;
+    el.innerHTML = `
+      <div class="pp-head">
+        <h3>Notifications</h3>
+        ${tous.length ? `<button class="pp-eye" data-pp-lu title="Tout marquer comme lu" aria-label="Tout marquer comme lu">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg>
+        </button>` : ""}
+      </div>
+      <div class="pp-filters">
+        <button class="pp-tab${notifFilter === "all" ? " on" : ""}" data-pp-filtre="all">Toutes</button>
+        <button class="pp-tab${notifFilter === "unread" ? " on" : ""}" data-pp-filtre="unread">Non lues</button>
+      </div>
+      <div class="pp-body">
+        ${liste.length ? groupes.map(bloc).join("")
+          : `<div class="pp-empty"><span class="pp-emoji">🔔</span>Rien à signaler pour l'instant.<br>Défis, tournois et résultats arriveront ici.</div>`}
+      </div>`;
+    /* --- Gestes du panneau (délégation par sélecteur, jamais par index) --- */
+    el.querySelectorAll("[data-pp-filtre]").forEach((b) => b.onclick = () => {
+      notifFilter = b.dataset.ppFiltre; renderNotifPanel();
+    });
+    const voir = el.querySelector("[data-pp-voir]");
+    if (voir) voir.onclick = () => { closePanel(); go("notifications"); };
+    const oeil = el.querySelector("[data-pp-lu]");
+    if (oeil) oeil.onclick = async () => {
+      try { await API.request("/api/notifications/read-all", "POST", {}); } catch (e) {}
+      S.notifUnread = 0; S.notifications.forEach((n) => n.read = true);
+      notifSnapshot = new Set(); updateNotifBadge(); renderNotifPanel();
+    };
+    el.querySelectorAll("[data-pp-accept]").forEach((b) => b.onclick = async (ev) => {
+      ev.stopPropagation();
+      const id = Number(b.dataset.ppAccept);
+      b.disabled = true;
+      await respondFriendRequest(id, "accept");
+      ppTraites.set("f" + id, "Demande acceptée ✓");
+      renderNotifPanel();
+    });
+    el.querySelectorAll("[data-pp-decline]").forEach((b) => b.onclick = async (ev) => {
+      ev.stopPropagation();
+      const id = Number(b.dataset.ppDecline);
+      b.disabled = true;
+      await respondFriendRequest(id, "decline");
+      ppTraites.set("f" + id, "Demande refusée");
+      renderNotifPanel();
+    });
+    el.querySelectorAll("[data-pp-daccepter]").forEach((b) => b.onclick = async (ev) => {
+      ev.stopPropagation();
+      const id = b.dataset.ppDaccepter;
+      b.disabled = true;
+      ppTraites.set("d" + id, "Défi accepté ✓");
+      await acceptDefi(id);
+      closePanel();
+    });
+    el.querySelectorAll("[data-pp-drefuser]").forEach((b) => b.onclick = async (ev) => {
+      ev.stopPropagation();
+      const id = b.dataset.ppDrefuser;
+      b.disabled = true;
+      await refuseDefi(id);
+      ppTraites.set("d" + id, "Défi refusé");
+      renderNotifPanel();
+    });
+    el.querySelectorAll("[data-pp-confirm]").forEach((b) => b.onclick = async (ev) => {
+      ev.stopPropagation();
+      b.disabled = true;
+      await confirmPresence(Number(b.dataset.ppConfirm));
+      renderNotifPanel();
+    });
+    el.querySelectorAll("[data-pp-tournoi]").forEach((r) => r.onclick = () => {
+      closePanel(); openTournament(Number(r.dataset.ppTournoi));
+    });
+    el.querySelectorAll("[data-pp-profil]").forEach((r) => r.onclick = (ev) => {
+      ev.stopPropagation();
+      closePanel(); openProfileById(Number(r.dataset.ppProfil));
+    });
+  }
+
+  /* ---------- Contenu du panneau Amis (même composant, n° 1) ----------
+     « Même cas pour l'onglet amis » : les demandes reçues s'y traitent sans
+     quitter la page, et la liste des amis donne accès au profil et à la
+     conversation. « Voir tout » ouvre l'écran complet (recherche, retrait). */
+  let friendsFilter = "demandes";
+
+  function renderFriendsPanel() {
+    const el = panelEl("friends");
+    if (!el || openPanelName !== "friends") return;
+    const incoming = S.friendRequests.incoming || [];
+    const outgoing = S.friendRequests.outgoing || [];
+    const amis = S.friends || [];
+    const demande = (r) => `
+      <div class="pp-item">
+        ${`<span class="pp-av">${avatarBox({ pseudo: r.pseudo, avatar: r.avatar || null }, 40)}<span class="pp-type info" aria-hidden="true">👥</span></span>`}
+        <div class="pp-txt"><b>${escHtml(r.pseudo)}</b> veut devenir votre ami.
+          <div class="pp-when">${r.elo} Elo${r.province ? " · 📍 " + escHtml(r.province) : ""}</div>
+          <div class="pp-actions">
+            <button class="btn primary mini-btn" data-pp-accept="${r.id}">Accepter</button>
+            <button class="btn ghost mini-btn" data-pp-decline="${r.id}">Refuser</button>
+          </div></div>
+        ${(friendsSnapshot && friendsSnapshot.has(r.id)) ? '<span class="pp-dot" aria-label="Nouvelle demande"></span>' : ""}
+      </div>`;
+    const envoye = (r) => `
+      <div class="pp-item">
+        <span class="pp-av"><span class="avatar" style="width:40px;height:40px;font-size:17px;">⏳</span></span>
+        <div class="pp-txt"><b>${escHtml(r.pseudo)}</b> — demande envoyée
+          <div class="pp-when">${r.elo || "—"} Elo · en attente de sa réponse</div></div>
+      </div>`;
+    const ligneAmi = (f) => `
+      <div class="pp-item click" data-pp-profil="${f.id}">
+        <span class="pp-av">${avatarBox({ pseudo: f.pseudo, avatar: f.avatar || null }, 40)}</span>
+        <div class="pp-txt"><b>${escHtml(f.pseudo)}</b>
+          <div class="pp-when">${f.elo} Elo · ${f.wins}V/${f.losses}D${f.online ? ' · <span class="pp-etat">en ligne</span>' : ""}</div></div>
+        <button class="btn mini-btn" data-pp-chat="${escHtml(f.pseudo)}" title="Écrire à ${escHtml(f.pseudo)}">💬</button>
+      </div>`;
+    const corps = friendsFilter === "demandes"
+      ? (incoming.length || outgoing.length)
+        ? `${incoming.length ? `<div class="pp-group">Demandes reçues</div>${incoming.map(demande).join("")}` : ""}
+           ${outgoing.length ? `<div class="pp-group">Demandes envoyées</div>${outgoing.map(envoye).join("")}` : ""}`
+        : `<div class="pp-empty"><span class="pp-emoji">📨</span>Aucune demande en attente.</div>`
+      : amis.length ? amis.map(ligneAmi).join("")
+        : `<div class="pp-empty"><span class="pp-emoji">👥</span>Aucun ami pour l'instant.<br><button class="btn primary mini-btn" data-pp-voir="friends" style="margin-top:8px;">Rechercher un joueur</button></div>`;
+    el.innerHTML = `
+      <div class="pp-head">
+        <h3>Amis</h3>
+        <button class="pp-see" data-pp-voir="friends">Voir tout</button>
+      </div>
+      <div class="pp-filters">
+        <button class="pp-tab${friendsFilter === "demandes" ? " on" : ""}" data-pp-ffiltre="demandes">Demandes (${incoming.length})</button>
+        <button class="pp-tab${friendsFilter === "amis" ? " on" : ""}" data-pp-ffiltre="amis">Amis (${amis.length})</button>
+      </div>
+      <div class="pp-body">${corps}</div>`;
+    el.querySelectorAll("[data-pp-ffiltre]").forEach((b) => b.onclick = () => {
+      friendsFilter = b.dataset.ppFfiltre; renderFriendsPanel();
+    });
+    el.querySelectorAll("[data-pp-voir]").forEach((b) => b.onclick = () => { closePanel(); go("friends"); });
+    el.querySelectorAll("[data-pp-accept]").forEach((b) => b.onclick = async (ev) => {
+      ev.stopPropagation();
+      const id = Number(b.dataset.ppAccept);
+      b.disabled = true;
+      await respondFriendRequest(id, "accept");
+      ppTraites.set("f" + id, "Demande acceptée ✓");
+      renderFriendsPanel();
+    });
+    el.querySelectorAll("[data-pp-decline]").forEach((b) => b.onclick = async (ev) => {
+      ev.stopPropagation();
+      const id = Number(b.dataset.ppDecline);
+      b.disabled = true;
+      await respondFriendRequest(id, "decline");
+      ppTraites.set("f" + id, "Demande refusée");
+      renderFriendsPanel();
+    });
+    el.querySelectorAll("[data-pp-profil]").forEach((r) => r.onclick = (ev) => {
+      if (ev.target.closest("[data-pp-chat]")) return;
+      closePanel(); openProfileById(Number(r.dataset.ppProfil));
+    });
+    el.querySelectorAll("[data-pp-chat]").forEach((b) => b.onclick = (ev) => {
+      ev.stopPropagation();
+      closePanel(); openChatPopup(b.dataset.ppChat);
+    });
   }
 
   /* ------------------ NOTIFICATIONS ------------------ */
@@ -12476,20 +13598,56 @@ const App = (() => {
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => mainTab.measure());
     document.getElementById("logo").onclick = () => go("home");
     document.getElementById("resume-bar").onclick = openResumeSplit;
-    document.getElementById("btn-notif").onclick = () => { go("notifications"); };
+    /* Cloche et Amis : ils ouvrent un PANNEAU ANCRÉ (retour terrain n° 1), plus un
+       onglet. Le second clic referme (voir `openPanel`), le clic à l'extérieur
+       aussi, et Échap également. `aria-expanded` suit l'état réel. */
+    const btnNotif = document.getElementById("btn-notif");
+    const btnFriends = document.getElementById("btn-friends");
+    btnNotif.onclick = () => openPanel("notif");
+    btnFriends.onclick = () => openPanel("friends");
+    [btnNotif, btnFriends].forEach((b) => {
+      b.setAttribute("aria-haspopup", "dialog");
+      b.setAttribute("aria-expanded", "false");
+    });
+    document.addEventListener("pointerdown", closePanelsOutside, true);
+    window.addEventListener("keydown", (e) => { if (e.key === "Escape") closePanel(); });
+    /* Le repère `top` du panneau suit la barre : au redimensionnement, elle change
+       de hauteur (enroulement des contrôles) et le panneau s'y raccroche. */
+    window.addEventListener("resize", () => { if (openPanelName) placePanel(openPanelName); });
     document.getElementById("tb-wallet").onclick = () => go("wallet");
     document.getElementById("tb-avatar").onclick = () => go("profile");
     document.getElementById("tb-kyc").onclick = () => { if (!S.kyc) kycRequired(() => {}); else toast("Identité vérifiée ✓"); };
-    document.getElementById("btn-friends").onclick = () => { refreshFriends(); go("friends"); };
     /* Recherche de joueurs du header : montée une seule fois, elle survit aux
        changements d'écran (le champ est dans la barre haute, pas dans une vue). */
     mountTopSearch();
+    /* Carrousel publicitaire (n° 4) : la configuration est lue UNE fois, puis
+       l'accueil se redessine pour l'afficher. Sans configuration (ou sans bannière
+       active), le bloc n'existe simplement pas. */
+    chargerPublis().then(() => { if (currentRoute() === "home") renderHome(); });
     /* Écran Match : onglets et actions principales (une seule fois, le contenu des
        onglets est reconstruit à chaque rendu). */
     document.querySelectorAll("#mt-tiles .mt-tile").forEach((b) => b.onclick = () => setMatchTab(b.dataset.mtab));
     document.getElementById("mt-find").onclick = () => findOpponent();
     document.getElementById("mt-invite").onclick = () => inviteFriend();
     document.getElementById("chat-fab").onclick = toggleChatDock;
+    /* Le clic EN DEHORS referme les fenêtres de conversation (retour terrain n° 8).
+       Pris en CAPTURE : le geste est jugé avant que la cible ne l'intercepte, donc
+       un clic sur une tuile referme les fenêtres ET fait son travail. */
+    document.addEventListener("pointerdown", closeChatPopupsOutside, true);
+    /* ANTI-ZOOM TACTILE (retour terrain n° 6) — les deux verrous du script.
+       `user-scalable=no` est ignoré par iOS Safari depuis iOS 10 : il faut donc
+       refuser les événements. `gesture*` est le pincement de Safari (iOS et
+       macOS), et les deux doigts sur `touchmove` couvrent Chromium/Android.
+       `(pointer: coarse)` réserve tout cela au TACTILE : au clavier/souris la
+       version desktop garde son zoom, et les champs de saisie ne sont jamais
+       concernés (aucun `preventDefault` sur un seul doigt). */
+    if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
+      ["gesturestart", "gesturechange", "gestureend"].forEach((type) =>
+        document.addEventListener(type, (e) => e.preventDefault(), { passive: false }));
+      document.addEventListener("touchmove", (e) => {
+        if (e.touches.length > 1) e.preventDefault();
+      }, { passive: false });
+    }
     document.getElementById("modal-overlay").addEventListener("click", (e) => {
       if (e.target.id === "modal-overlay" && !e.target.dataset.locked) closeModal();
     });
@@ -12699,6 +13857,9 @@ const App = (() => {
     readNotification, readAllNotifications, confirmPresence,
     openTournament, matchDetail, renderNotifications, renderTournamentScreen,
     backToTournaments,
+    /* Règle PURE des bannières (n° 4) : exposée pour être vérifiée telle quelle,
+       sur la configuration réellement servie. */
+    pubsActives,
     logout,
     state: () => S,
   };
