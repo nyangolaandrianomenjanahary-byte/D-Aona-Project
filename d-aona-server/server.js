@@ -21,11 +21,12 @@ const PORT = parseInt(process.env.D_AONA_PORT || process.env.PORT || "8080", 10)
 const TICK_MS = 1000;
 
 /* ---------- State serveur (in-memory) ---------- */
+const {
+  connections, userSockets, sessions, spectators,
+  disconnectTimers, pendingMatches, aiTimers,
+} = require("./live/state");
+const mm = require("./live/matchmaking");
 /* Sessions en base (table `sessions`, jeton haché) : aucune Map de jetons ici. */
-const connections = new Map();     // ws -> { userId, pseudo }
-const userSockets = new Map();     // userId -> ws
-const sessions = new Map();        // sessionId -> GameSession (engine)
-const spectators = new Map();      // sessionId -> Set<userId> (spectateurs du match)
 /* Délai de grâce avant abandon sur déconnexion : une coupure WebSocket
    (souvent un simple blip du tunnel) ne doit PAS compter comme un abandon immédiat. */
 const GRACE_MS = 20000;
@@ -33,10 +34,6 @@ const GRACE_MS = 20000;
    Match n'affiche pas plus de matchs à la fois, la liste reste lisible et la
    réponse bornée même si le serveur hébergeait des centaines de parties. */
 const LIVE_FEED_MAX = 60;
-const disconnectTimers = new Map(); // userId -> { timer, sessionId }
-const mmQueues = { blitz: [], rapide: [], pro: [] };
-const pendingMatches = new Map();  // key -> { p1, p2, p1Ready, p2Ready, format }
-const aiTimers = new Map();        // sessionId -> timer
 
 /* ---------- Utilitaires ---------- */
 function send(ws, msg) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); }
@@ -906,27 +903,28 @@ function handleWsMessage(ws, msg) {
   switch (msg.type) {
     case "find_match": {
       const fmt = msg.format;
+      const game = msg.game || mm.DEFAULT_GAME;
       const mode = msg.mode || "online";
-      if (mmQueues[fmt] === undefined) mmQueues[fmt] = [];
-      const opponent = mmQueues[fmt].find((e) => e.userId !== conn.userId && e.mode === "online");
-      if (opponent && mode === "online") {
-        mmQueues[fmt] = mmQueues[fmt].filter((e) => e.userId !== conn.userId && e.userId !== opponent.userId);
+      /* Le demandeur ne sort de la file qu une fois l adversaire trouve :
+         tant que personne ne se presente, il reste en attente. */
+      const opponent = mode === "online" ? mm.takeOpponent(game, fmt, conn.userId) : null;
+      if (opponent) {
         const key = "PM-" + crypto.randomBytes(4).toString("hex").toUpperCase();
         const p1 = User.getById(conn.userId);
         const p2 = User.getById(opponent.userId);
-        pendingMatches.set(key, { p1: conn.userId, p2: opponent.userId, p1Ready: false, p2Ready: false, format: fmt });
-        sendUser(conn.userId, { type: "match_found", matchKey: key, opponent: { pseudo: p2.pseudo, elo: p2.elo, id: p2.id }, format: fmt, playerNum: 1 });
-        sendUser(opponent.userId, { type: "match_found", matchKey: key, opponent: { pseudo: p1.pseudo, elo: p1.elo, id: p1.id }, format: fmt, playerNum: 2 });
+        pendingMatches.set(key, { p1: conn.userId, p2: opponent.userId, p1Ready: false, p2Ready: false, format: fmt, game });
+        sendUser(conn.userId, { type: "match_found", matchKey: key, opponent: { pseudo: p2.pseudo, elo: p2.elo, id: p2.id }, format: fmt, game, playerNum: 1 });
+        sendUser(opponent.userId, { type: "match_found", matchKey: key, opponent: { pseudo: p1.pseudo, elo: p1.elo, id: p1.id }, format: fmt, game, playerNum: 2 });
       } else if (mode === "ai") {
         createGameSession(conn.userId, null, "ai", fmt, 0);
       } else {
-        mmQueues[fmt].push({ userId: conn.userId, pseudo: conn.pseudo, mode });
+        mm.enqueue(game, fmt, { userId: conn.userId, pseudo: conn.pseudo, mode });
         send(ws, { type: "matchmaking", status: "searching" });
       }
       break;
     }
     case "cancel_match": {
-      for (const fmt of Object.keys(mmQueues)) mmQueues[fmt] = mmQueues[fmt].filter((e) => e.userId !== conn.userId);
+      mm.removeUser(conn.userId);
       // retirer des matchs en attente
       for (const [key, pm] of pendingMatches) {
         if (pm.p1 === conn.userId || pm.p2 === conn.userId) {
@@ -1571,15 +1569,9 @@ function gameLoop() {
       sendUser(c.from_id, walletPayload(c.from_id));
     }
   }
-  // Auto-matchmake
-  for (const [fmt, queue] of Object.entries(mmQueues)) {
-    if (queue.length >= 2) {
-      queue.sort((a, b) => (a.elo || 0) - (b.elo || 0));
-      const pairs = [];
-      for (let i = 0; i < queue.length - 1; i += 2) pairs.push([queue[i], queue[i + 1]]);
-      queue.length = 0;
-      for (const [a, b] of pairs) createGameSession(a.userId, b.userId, "online", fmt, 0);
-    }
+  // Auto-appariement : une file par couple jeu/format.
+  for (const { key, pair } of mm.drainPairs()) {
+    createGameSession(pair[0].userId, pair[1].userId, "online", mm.formatOf(key), 0);
   }
 }
 
@@ -1597,7 +1589,7 @@ function handleDisconnect(ws) {
     connections.delete(ws);
     return;
   }
-  for (const fmt of Object.keys(mmQueues)) mmQueues[fmt] = mmQueues[fmt].filter((e) => e.userId !== conn.userId);
+  mm.removeUser(conn.userId);
   // Déconnexion ≠ abandon immédiat : laisser un délai de grâce pour la reconnexion.
   if (!disconnectTimers.has(conn.userId)) {
     for (const [id, session] of sessions) {
