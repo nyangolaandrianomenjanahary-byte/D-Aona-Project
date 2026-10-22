@@ -55,8 +55,7 @@ graphify-out/
 # Le harnais livré reste test_ui_scenarios.js, régénérable par `node _build.js`
 # à partir des morceaux _p1.js ... _p12.js (ces deux-là sont versionnés).
 d-aona-server/_*.js
-!d-aona-server/_build.js
-!d-aona-server/_p[0-9]*.js
+d-aona-server/tools/
 d-aona-server/_*.err
 d-aona-server/_*.py
 d-aona-server/test_ui_scenarios.fixed.js
