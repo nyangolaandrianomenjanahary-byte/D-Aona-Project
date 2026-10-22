@@ -20,12 +20,15 @@
     const o = opts || {};
     const engine = o.engine || E;
     const board = o.board || B;
-    const side = o.mySide === 2 ? 2 : 1;
+    const side = o.mySide === 2 ? 2 : (o.mySide === 0 ? 0 : 1);
     const onMove = typeof o.onMove === "function" ? o.onMove : function () {};
     let state = o.state || engine.createState();
     let selected = null;
 
-    function canPlay() { return !!state && !state.over && state.turn === side; }
+    /* `side === 0` : les DEUX camps sont jouables (deux joueurs sur un meme
+       ecran). Le camp autorise est alors celui du trait — c'est la seule
+       difference, et elle evite un second controleur dans l interface. */
+    function canPlay() { return !!state && !state.over && (side === 0 || state.turn === side); }
 
     function commit(move) {
       if (!engine.isLegal(state, move)) return { moved: false, reason: "illegal", move };
@@ -43,12 +46,12 @@
       if (typeof i !== "number" || i < 0 || i >= engine.CELLS) return { moved: false, reason: "hors-plateau" };
       if (state.phase === engine.PHASE.PLACEMENT) return commit({ type: "place", to: i });
       if (selected === null) {
-        if (state.board[i] !== side) return { moved: false, reason: "pas-votre-pion" };
+        if (state.board[i] !== state.turn) return { moved: false, reason: "pas-votre-pion" };
         selected = i;
         return { moved: false, reason: "selection", selected: i };
       }
       if (i === selected) { selected = null; return { moved: false, reason: "deselection" }; }
-      if (state.board[i] === side) { selected = i; return { moved: false, reason: "selection", selected: i }; }
+      if (state.board[i] === state.turn) { selected = i; return { moved: false, reason: "selection", selected: i }; }
       return commit({ type: "move", from: selected, to: i });
     }
 

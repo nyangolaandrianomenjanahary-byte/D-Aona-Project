@@ -31,8 +31,9 @@ verification obligatoire apres chaque lot.
 | T4 | Coquille web + modules ES | A FAIRE | |
 | T5 | Plateau Tsivy extrait du index.html | A FAIRE | |
 | T6 | Dossier Telo autonome | VERT | 7 fichiers, node test.js : TOUS LES TESTS PASSENT |
-| T7 | Dossier Dimy | BLOQUE | geometrie non confirmee |
+| T7 | Dossier Dimy | VERT | 7 fichiers, node test.js : 85/85 ; dialogue des variantes + partie 5x5 verifies en navigateur (sonde) |
 | T8 | Docs + garde-fou structurel | VERT | ARCHITECTURE.md + test/structure.js : bloque un dossier de jeu non conforme, liste la dette de taille |
+| T9 | Entree par variante dans l assistant | VERT | clic Fanorona -> dialogue 3 plateaux ; modes filtres par variante ; Telo et Dimy jouables (IA + 2 joueurs) ; Tsivy inchange |
 
 ## Contrats geles
 
@@ -83,6 +84,17 @@ strict et rend un rapport Portee / Objectifs / Preuves / Ecarts / Non-verifie / 
   dans D-aona/d-aona-web/games/ est prevue au lot T5, avec un moteur UMD.
 - S6 (spectature) est ROUGE avant et apres refonte : defaut preexistant, mesure
   par stash sur le commit b1b0bf4. Il ne compte donc pas comme regression.
+- T7 : le plateau Dimy est ecrit en 5x5 — lecture retenue de « fanoron-dimy »
+  (dimy = cinq) — avec 12 pions par camp (deux rangees pleines, centre vide),
+  prises par approche/retrait et AUCUNE chaine de prise. Ces trois points sont
+  consignes dans games/fanoron-dimy/README.md : a confirmer par le referent jeu.
+- T9 : Telo et Dimy n ont pas encore de session serveur. Ils sont jouables
+  contre l IA et a deux sur un ecran (aucun Elo, aucun wallet) ; les modes
+  « En ligne » et « Defi » ne leur sont donc PAS proposes, et le choix de la
+  variante filtre l etape 2. Le matchmaking inter-variantes reste a cadrer.
+- T9 : les vignettes de plateau du dialogue n affichent pas les diagonales
+  (illisibles a 58 px). La geometrie complete reste dans board.js et sur le
+  plateau joue ; c est un choix d affichage, pas une simplification du jeu.
 
 ## Reste a faire, dans l ordre
 

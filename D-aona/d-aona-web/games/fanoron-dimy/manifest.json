@@ -1,0 +1,11 @@
+{
+  "id": "fanoron-dimy",
+  "family": "fanoron",
+  "name": "Fanoron-Dimy",
+  "board": { "rows": 5, "cols": 5, "topology": "strong-points" },
+  "players": { "pawns": 12 },
+  "phases": ["play"],
+  "captures": true,
+  "eloKey": "fanoron-dimy",
+  "formats": ["blitz", "rapide", "pro"]
+}

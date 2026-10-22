@@ -10,6 +10,7 @@ registre et parle aux contrats ci-dessous.
 
     D-aona/d-aona-web/
       index.html              coquille (< 200 lignes)
+      variant-match.js        hote leger des variantes locales (Telo, Dimy)
       styles/                 jetons, base, mise en page, ecrans
       app/                    core, net, ui, screens, boot.js
       games/<slug>/           manifest.json engine.js ai.js board.js ui.js README.md test.js
@@ -64,11 +65,35 @@ Le moteur ne connait ni horloge, ni compte, ni reseau, ni DOM.
 5. Ecrire board.js et ui.js (contrat 3).
 6. Ajouter UNE ligne au registre. Aucune autre modification du socle.
 
+## Choix d une variante (entree « Fanorona »)
+
+Le catalogue ne contient toujours qu un jeu, `fanorona`. L etape 1 de
+l assistant ouvre un DIALOGUE DE VARIANTES (Tsivy 9x5, Dimy 5x5, Telo 3x3) :
+
+- `FANORON_VARIANTS` (index.html) declare, pour chaque plateau, ses modes
+  disponibles. Le Tsivy garde `online`, `defi`, `ai` ; Dimy et Telo exposent
+  `ai` et `local2p` (deux joueurs sur un ecran).
+- Le choix filtre l etape 2 : aucun mode non tenu n est propose, donc
+  l assistant ne peut pas lancer une partie en ligne sur une variante qui
+  n a pas encore de session serveur.
+- `launchGame()` aiguille : Tsivy -> moteur historique ; Dimy/Telo ->
+  `VariantMatch.open({ game, mode })`.
+
+`variant-match.js` est de la GLUE : il monte l ecran (joueurs, plateau,
+statut, regles), branche `ui.createController` du dossier de jeu et fait
+jouer `ai.chooseMove`. Il n implemente aucune regle et ne connait ni App ni
+le reseau ; chaque coup passe par `engine.applyMove`.
+
 ## Etat reel (verifie par test/structure.js)
 
-- Fanoron-Telo : dossier complet, autonome, harnais vert.
+- Fanoron-Telo : dossier complet, autonome, harnais vert ; JOUABLE dans
+  l application (IA et deux joueurs).
+- Fanoron-Dimy : dossier complet (5x5, prises approche/retrait), harnais
+  vert ; JOUABLE dans l application (IA et deux joueurs).
 - Fanoron-Tsivy : moteur eclate cote serveur (engine, session, manifest)
   et facade game.js ; board.js et ui.js restent encore dans index.html (lot T5).
+- Variantes : pas encore de session serveur ni de matchmaking pour Dimy et
+  Telo (lot a cadrer). Les modes en ligne ne sont donc pas proposes.
 - Socle : server.js 1709 lignes (objectif 250), index.html mono-fichier
   (objectif : coquille). Voir PLAN-REFONTE.md pour l ordre des lots.
 

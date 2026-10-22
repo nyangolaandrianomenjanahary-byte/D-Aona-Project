@@ -3321,6 +3321,57 @@ auteur — l'organisation retenue est décrite ici et dans le `README`).
 
 
 
+## 2026-10-22 — Fanorona : les trois plateaux au choix, Telo et Dimy jouables (entrée MANUELLE)
+
+**Demande.** « Implémente le fanoron-telo qui marche et le fanoro 5 qui n'est
+encore disponible. Quand je clique sur le jeu Fanorona, cela ajoutera un
+dialogue pour choisir entre les 3 jeux. »
+
+**Décision — une seule entrée, trois plateaux.** Le catalogue garde un jeu
+(`fanorona`) : c'est l'étape 1 de l'assistant qui ouvre un **dialogue de
+variantes** (Tsivy 9×5, Dimy 5×5, Telo 3×3), avec vignette, description et
+disponibilités. Le choix **vaut validation** (même règle que le reste de
+l'assistant : un choix = suivant) et **filtre l'étape 2** : le Tsivy garde
+« En ligne », « Défi » et « IA » ; Dimy et Telo n'exposent que « IA » et
+« Deux joueurs, un écran ». L'assistant ne peut donc pas promettre une partie
+en ligne que le serveur ne sait pas encore tenir. Le récapitulatif (étape 4)
+nomme la variante et le plateau, et la vignette du plateau suit le choix.
+
+**Décision — Dimy 5×5.** Lecture retenue de « fanoron-dimy » (dimy = cinq) :
+douze pions par camp (deux rangées pleines, rangée centrale alternée, centre
+vide), prises par approche et par retrait, déplacement libre le long des lignes
+(orthogonal partout, diagonal depuis les points forts), **pas de chaîne de
+prise**. Les trois hypothèses sont écrites dans le README du jeu : elles
+restent à confirmer par le référent jeu.
+
+**Décision — écran de partie commun.** Nouveau `variant-match.js` (glue, hors
+de l'objet `App`) : il monte joueurs, plateau, statut, règles et boutons,
+branche `ui.createController` du dossier de jeu et fait jouer `ai.chooseMove`.
+Aucune règle n'y est écrite ; chaque coup passe par `engine.applyMove`. Le
+`ui.js` de Telo gagne `mySide: 0` (les deux camps jouables, le camp autorisé
+est celui du trait) pour tenir le mode deux joueurs sans second contrôleur.
+
+**Preuves.** `node games/fanoron-dimy/test.js` : 85/85. `npm test` (6 suites) :
+vert. Sonde navigateur (`tools/_variantes_verif.js`, base jetable) : dialogue
+3 cartes, modes filtrés, Telo 9 cases + pose + réponse de l'IA, Dimy 25
+intersections + 24 pions + prise appliquée (11 sombres), règles affichées,
+deux joueurs, **Tsivy inchangé** (3 modes d'origine, plateau 9×5 ouvert), aucune
+erreur JS. Captures : `%TEMP%\daona_shots\var-*.png`.
+
+**Fichiers.** *Ajoutés :* `D-aona/d-aona-web/games/fanoron-dimy/{manifest.json,
+engine.js, board.js, ui.js, ai.js, README.md, test.js}`,
+`D-aona/d-aona-web/variant-match.js`. *Modifiés :* `D-aona/d-aona-web/index.html`
+(balises `script` des modules, `FANORON_VARIANTS`, dialogue des variantes,
+modes filtrés, récapitulatif, aiguillage `launchGame`, CSS des plateaux),
+`D-aona/d-aona-web/games/fanoron-telo/ui.js` (`mySide: 0`),
+`d-aona-server/package.json` (`test:dimy` + harnais Dimy dans `npm test`),
+`ARCHITECTURE.md` (arborescence, section « Choix d'une variante », état réel),
+`PLAN-REFONTE.md` (T7 VERT, nouveau lot T9, écarts assumés), ce journal.
+
+**Non fait, consigné.** Pas de session serveur ni de matchmaking pour Dimy et
+Telo : les modes en ligne ne leur sont pas proposés. La spectature (S6) reste
+le défaut préexistant déjà connu.
+
 <!-- JOURNAL_AUTO_START -->
 ## 2026-10-18
 **Modifiés :** `.gitignore`, `plateau_clean.png`, `plateau_clean.webp`, `index.html`, `auth.js`, `check_wallet.js`, `data.js`, `core.js`, `schema.js`, `stores.js`, `demo_seed.js`, `game.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `http.js`, `server.js`, `test_scenarios.js`, `test_ui_scenarios.js`, `_check_html.js`, `_dbg_wallet.js`, `_inline.js`, `_layout_fill_report.txt`, `_p10.js`, `_p11.js`, `_p12.js`, `_p13.js`, `_p14.js`, `_p5.js`, `_probe_profil_v3.js`, `_shots_profil_v3.js`, `last_query_stamp`, `desktop-jour__chat.png`, `desktop-jour__friends.png`, `desktop-jour__home.png`, `desktop-jour__match.png`, `desktop-jour__notifications.png`, `desktop-jour__play.png`, `desktop-jour__profile.png`, `desktop-jour__ranks.png`, `desktop-jour__skins.png`, `desktop-jour__wallet.png`, `desktop-nuit__home.png`, `mobile-390__profile.png`, `desktop-1440x900-home.png`, `desktop-1440x900-match-tournois.png`, `desktop-1440x900-match.png`, `desktop-1440x900-ranks.png`, `desktop-1440x900-wallet.png`, `mobile-360x760-home.png`, `mobile-360x760-match.png`, `mobile-390x844-home.png`, `mobile-390x844-match.png`, `captures.md`, `desktop-jour__plateau-ia-coups.png`, `desktop-jour__plateau-ia.png`, `desktop-jour__plateau-tirage.png`, `desktop-jour__tournament.png`, `desktop-nuit__chat.png`, `desktop-nuit__friends.png`, `desktop-nuit__match.png`, `desktop-nuit__notifications.png`, `desktop-nuit__plateau-ia-coups.png`, `desktop-nuit__plateau-ia.png`, `desktop-nuit__plateau-tirage.png`, `desktop-nuit__play.png`, `desktop-nuit__profile.png`, `desktop-nuit__ranks.png`, `desktop-nuit__skins.png`, `desktop-nuit__tournament.png`, `desktop-nuit__wallet.png`, `etat__match-defis.png`, `etat__match-tournois.png`, `etat__profil-public.png`, `etat__ranks-province.png`, `etat__tournoi-detail.png`, `etat__wallet-depot.png`, `etat__wallet-retrait.png`, `mesures.json`, `mesures.txt`, `mobile-360__home.png`, `mobile-360__match.png`, `mobile-360__profile.png`, `mobile-360__tournament.png`, `mobile-390__chat.png`, `mobile-390__friends.png`, `mobile-390__home.png`, `mobile-390__match.png`, `mobile-390__notifications.png`, `mobile-390__plateau-ia-coups.png`, `mobile-390__plateau-ia.png`, `mobile-390__plateau-tirage.png`, `mobile-390__play.png`, `mobile-390__profile-pleine-page.png`, `mobile-390__ranks.png`, `mobile-390__skins.png`, `mobile-390__tournament.png`, `mobile-390__wallet.png`, `vide__chat.png`, `vide__friends.png`, `vide__home.png`, `vide__notifications.png`, `vide__tournament.png`, `vide__wallet.png`
