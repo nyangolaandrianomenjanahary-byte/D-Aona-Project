@@ -1,0 +1,11 @@
+{
+  "id": "fanoron-tsivy",
+  "family": "fanoron",
+  "name": "Fanoron-Tsivy",
+  "board": { "rows": 5, "cols": 9, "topology": "strong-points" },
+  "players": { "pawns": 22 },
+  "phases": ["play"],
+  "captures": true,
+  "eloKey": "fanoron-tsivy",
+  "formats": ["blitz", "rapide", "pro"]
+}
