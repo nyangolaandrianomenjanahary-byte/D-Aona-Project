@@ -7,7 +7,7 @@
     "start": "node server.js",
     "migrate": "node migrate.js",
     "backup": "node backup_db.js",
-    "test": "node test_scenarios.js && node test_auth.js && node test/matchmaking.js && node ../D-aona/d-aona-web/games/fanoron-telo/test.js",
+    "test": "node test_scenarios.js && node test_auth.js && node test/matchmaking.js && node test/structure.js && node ../D-aona/d-aona-web/games/fanoron-telo/test.js",
     "test:telo": "node ../D-aona/d-aona-web/games/fanoron-telo/test.js",
     "test:files": "node test/ui/build.js"
   },
