@@ -238,8 +238,8 @@ async function s2_nav(browser) {
       if (!c) return null;
       const s = window.App.state();
       return {
-        fil: (c.querySelector(".season-crumb") || {}).innerText || "",
-        boutons: c.querySelectorAll(".season-crumb button").length,
+        crumb: !!c.querySelector(".season-crumb"),
+        profil: !!c.querySelector(".dash-profile"),
         pseudo: (c.querySelector(".dash-info h2") || {}).innerText || "",
         elo: (c.querySelector(".dash-meta") || {}).innerText || "",
         tuiles: [...c.querySelectorAll(".dash-stat")].map((t) => t.innerText.replace(/\n/g, " ")),
@@ -249,10 +249,12 @@ async function s2_nav(browser) {
     });
     if (!d) return "aucune carte de saison sur l'Accueil";
     if (d.carteTournoi) return "l'ancienne carte de tournoi est encore affichée à la place";
-    for (const mot of ["wallet", "tournois", "jeux", "classement"]) {
-      if (!new RegExp(mot, "i").test(d.fil)) return "fil d'Ariane incomplet : « " + d.fil.replace(/\n/g, " ") + " »";
-    }
-    if (d.boutons !== 4) return "le fil d'Ariane ne porte pas ses 4 accès cliquables (" + d.boutons + ")";
+    /* Retour terrain n° 9 : le fil d'Ariane « Wallet · tournois · jeux ·
+       classement » a été RETIRÉ (doublon avec la barre d'onglets et la barre
+       haute). Le contrôle vérifie donc son ABSENCE, et que le bloc profil
+       occupe bien la tête de la carte. */
+    if (d.crumb) return "le fil d'Ariane « Wallet · tournois… » est encore affiché";
+    if (!d.profil) return "le bloc profil (avatar + pseudo) manque dans la carte de saison";
     if (d.pseudo !== d.etat.pseudo) return "le pseudo affiché n'est pas celui du joueur connecté : « " + d.pseudo + " »";
     if (!d.elo.includes(String(d.etat.elo))) return "l'Elo affiché ne suit pas les données réelles : « " + d.elo + " »";
     /* Mise en forme française : séparateur de milliers (espace fine) et unité « Ar ». */
@@ -265,25 +267,9 @@ async function s2_nav(browser) {
     return d.tuiles.some((t) => /victoires/i.test(t)) ? true : "l'indicateur « Victoires » manque";
   });
 
-  await step("chaque mot du fil d'Ariane mène à sa section (n° 5)", async () => {
-    for (const [mot, route] of [["wallet", "wallet"], ["classement", "ranks"], ["jeux", "play"]]) {
-      await goScreen(A.page, "home");
-      await sleep(800);
-      await A.page.click(`#season-card [data-crumb="${mot}"]`);
-      await sleep(1000);
-      const vu = await routeOf(A.page);
-      if (vu !== route) return `« ${mot} » ouvre « ${vu} » au lieu de « ${route} »`;
-    }
-    /* « tournois » ouvre l'écran Match sur son onglet Tournois. */
-    await goScreen(A.page, "home");
-    await sleep(800);
-    await A.page.click('#season-card [data-crumb="tournois"]');
-    await sleep(1400);
-    const m = await A.page.evaluate(() => {
-      const actif = [...document.querySelectorAll("#mt-tiles .mt-tile")].find((t) => t.getAttribute("aria-selected") === "true");
-      return { route: (location.hash || "").replace("#/", "").split("?")[0], onglet: actif ? actif.dataset.mtab : "" };
-    });
-    if (m.route !== "match") return "« tournois » n'ouvre pas l'écran Match (« " + m.route + " »)";
-    return m.onglet === "tournois" ? true : "« tournois » n'ouvre pas l'onglet Tournois (« " + m.onglet + " »)";
-  });
+  /* Le pas « chaque mot du fil d'Ariane mène à sa section (n° 5) » a été
+     SUPPRIMÉ avec la fonctionnalité (retour terrain n° 9) : sans fil d'Ariane,
+     il n'y a plus de cible [data-crumb] à cliquer. Les accès directs restent
+     assurés par la barre d'onglets et la barre haute — c'est justement le
+     doublon qu'on a retiré. */
 }
