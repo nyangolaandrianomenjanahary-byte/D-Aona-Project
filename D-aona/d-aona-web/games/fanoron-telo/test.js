@@ -17,8 +17,8 @@
    ========================================================= */
 "use strict";
 
-const E = require("../D-aona/d-aona-web/games/fanoron-telo/engine.js");
-const AI = require("../D-aona/d-aona-web/games/fanoron-telo/ai.js");
+const E = require("./engine.js");
+const AI = require("./ai.js");
 
 let failures = 0;
 function check(name, ok, detail) {
@@ -377,6 +377,41 @@ for (let g = 0; g < 5; g++) {
 check("5 parties contre le hasard : aucune défaite", losses === 0, "V" + wins + " N" + draws + " D" + losses);
 check("5 parties contre le hasard : au moins 3 victoires", wins >= 3, "V" + wins + " N" + draws + " D" + losses);
 
+/* ================= PLATEAU ET INTERACTION ================= */
+section("Plateau et interaction (board.js, ui.js)");
+const Board = require("./board.js");
+const UI = require("./ui.js");
+
+check("8 lignes gagnantes de 3 cases", Board.LINES.length === 8 && Board.LINES.every((l) => l.length === 3));
+check("geometrie : case 0 en haut a gauche, case 4 au centre",
+  Board.hitTest(12, 12, 300, 300, 10) === 0 && Board.cellRect(4, 300, 300, 10).x > 100);
+check("un clic dans la gouttiere ne touche aucune case", Board.hitTest(0, 0, 300, 300, 10) === null);
+
+{
+  const stub = { render: () => null };
+  let seen = null;
+  const ctl = UI.createController({ engine: E, board: stub, mySide: 1, onMove: (m) => { seen = m; } });
+  const r1 = ctl.click(4);
+  check("phase de pose : un clic pose un pion", r1.moved && r1.move.type === "place" && r1.move.to === 4);
+  check("la pose est transmise a onMove", seen && seen.type === "place" && seen.to === 4);
+  check("la main passe a l adversaire", ctl.getState().turn === 2);
+  const r2 = ctl.click(0);
+  check("sans la main, le clic est refuse", !r2.moved && r2.reason === "not-your-turn");
+
+  let st = E.createState();
+  let g = 0;
+  while (st.phase === E.PHASE.PLACEMENT && g++ < 20) st = E.applyMove(st, E.legalMoves(st)[0]).state;
+  check("six poses font entrer en phase de mouvement", st.phase === E.PHASE.MOVEMENT);
+
+  const me = st.turn;
+  const mv = E.legalMoves(st).find((m) => m.type === "move" && st.board[m.from] === me);
+  const ctl2 = UI.createController({ state: st, mySide: me, board: stub });
+  const s1 = ctl2.click(mv.from);
+  check("un clic sur son pion le selectionne", !s1.moved && s1.reason === "selection" && ctl2.getSelected() === mv.from);
+  const s2 = ctl2.click(mv.to);
+  check("un second clic joue la glisse", s2.moved && s2.move.type === "move" && s2.move.from === mv.from);
+  check("la selection est videe apres le coup", ctl2.getSelected() === null);
+}
 console.log(failures === 0
   ? "\nRESULTAT : TOUS LES TESTS PASSENT"
   : "\nRESULTAT : " + failures + " ECHEC(S)");
