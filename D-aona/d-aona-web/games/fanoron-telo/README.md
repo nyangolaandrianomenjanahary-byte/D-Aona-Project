@@ -31,7 +31,8 @@ Cases numerotees 0..8, index = ligne * 3 + colonne.
 
 - engine.js  : createState, legalMoves, isLegal, applyMove, status, key, clone
 - ai.js      : chooseMove(state, { level, budgetMs, rng })
-- board.js   : geometrie + rendu DOM, aucune regle
+- board.js   : geometrie (3 x 3, orthogonales + les deux grandes diagonales)
+               et rendu par `games/fanorona-board.js`, aucune regle
 - ui.js      : interaction (selection, validation, onMove), aucune regle
 - test.js    : harnais autonome (node test.js)
 - manifest.json : identite et capacites du jeu

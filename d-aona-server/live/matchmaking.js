@@ -4,9 +4,9 @@
    un joueur de Katro, meme s ils ont choisi "blitz" tous les deux. */
 const { mmQueues } = require("./state");
 
-/* Jeu par defaut : le client historique n envoie que `format`. Tant qu un
-   seul jeu est ouvert, ce defaut garde le comportement d avant. */
-const DEFAULT_GAME = "fanorona";
+/* Jeu par defaut : le client historique n envoie que `format`. Ce doit etre
+   l identifiant du REGISTRE, sinon la file fantome isole les anciens clients. */
+const DEFAULT_GAME = require("../games/registry").DEFAULT;
 
 const key = (game, format) => String(game) + "/" + String(format);
 const formatOf = (k) => String(k).slice(String(k).indexOf("/") + 1);

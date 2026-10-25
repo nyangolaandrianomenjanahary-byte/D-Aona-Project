@@ -81,10 +81,14 @@ function applyInactivityDecay() {
 
 /* ---------- Parties (historique) ---------- */
 const GameRecord = {
-  create(p1Id, p2Id, mode, format, wager) {
+  /* `game` = identifiant du plateau (dossier de jeu). Sans lui, l historique
+     d un joueur melangeait Tsivy, Dimy et Telo sous la meme etiquette. Le
+     defaut garde les appels historiques (et les lignes anterieurs a la
+     migration 015) sur le Fanoron-Tsivy. */
+  create(p1Id, p2Id, mode, format, wager, game) {
     const r = db.prepare(
-      "INSERT INTO games (player1_id, player2_id, mode, format, wager, reason) VALUES (?, ?, ?, ?, ?, 'en_cours')"
-    ).run(p1Id, p2Id, mode, format, wager);
+      "INSERT INTO games (player1_id, player2_id, mode, format, wager, reason, game) VALUES (?, ?, ?, ?, ?, 'en_cours', ?)"
+    ).run(p1Id, p2Id, mode, format, wager, game || "fanoron-tsivy");
     return r.lastInsertRowid;
   },
   finish(id, winnerId, delta1, delta2, moves, reason, elo = null) {
@@ -506,12 +510,14 @@ const PionStyle = {
 
 /* ---------- Challenge (defis) ---------- */
 const Challenge = {
-  create(fromId, toId, wager, format) {
+  /* `game` : le defi porte le PLATEAU choisi par l envoyeur. Le destinataire
+     accepte donc un Dimy ou un Telo, pas un Tsivy par defaut. */
+  create(fromId, toId, wager, format, game) {
     const id = "DF-" + Math.random().toString(36).slice(2, 7).toUpperCase();
     const expires = Date.now() + 15 * 60 * 1000;
     db.prepare(
-      "INSERT INTO challenges (id, from_id, to_id, wager, format, status, expires_at) VALUES (?,?,?,?,?,'pending',datetime(?,'unixepoch'))"
-    ).run(id, fromId, toId, wager, format, Math.floor(expires / 1000));
+      "INSERT INTO challenges (id, from_id, to_id, wager, format, game, status, expires_at) VALUES (?,?,?,?,?,?,'pending',datetime(?,'unixepoch'))"
+    ).run(id, fromId, toId, wager, format, game || "fanoron-tsivy", Math.floor(expires / 1000));
     return { id, expires_at: expires };
   },
   getByUser(userId) {

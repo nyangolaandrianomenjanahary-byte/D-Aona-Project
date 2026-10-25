@@ -3372,6 +3372,47 @@ modes filtrés, récapitulatif, aiguillage `launchGame`, CSS des plateaux),
 Telo : les modes en ligne ne leur sont pas proposés. La spectature (S6) reste
 le défaut préexistant déjà connu.
 
+## 2026-10-22 — La partie de variante reste DANS l'assistant (retour terrain)
+
+**Demande.** « Il faut que le jeu reste dans ce dialogue » — capture de
+l'étape 04 : la partie s'ouvrait par-dessus, dans un écran plein cadre.
+
+**Décision — l'étape 4 devient la scène de jeu.** `variant-match.js` accepte
+désormais `host` : monté dans un élément fourni, il perd son overlay, sa barre
+de titre et ses actions (`.vm-shell--inline`) et laisse la carte de l'assistant
+fournir cadre, compteur 04/04, bouton « Règles » et bandeau bas (« Nouvelle
+partie » + flèche de sortie). Nouvelle `renderLive()` : l'étape 4 rend la même
+carte, le plateau prenant la place du récapitulatif. La flèche ramène au
+récapitulatif (partie démontée, minuteur de l'IA compris), le CTA remonte un
+plateau neuf (état recréé par le moteur), les pastilles ferment la partie avant
+de changer d'étape. Quitter l'onglet « Jeux » referme aussi la partie (`go()`),
+et tout re-rendu de l'assistant la referme par sécurité. Sans `host`, `open()`
+garde son comportement d'origine.
+
+**Décision — la carte est sombre, les jetons suivent le thème.** `.pg-shell`
+est sombre dans les deux thèmes ; `--panel`, `--panel-2`, `--line`, `--text`,
+`--text-strong` et `--muted` sont donc redéfinis sur `.vm-shell--inline`. Les
+modules de jeu (`board.js`, `ui.js`) n'ont rien à savoir de leur hôte : ils
+continuent d'écrire avec les jetons du projet.
+
+**Preuves.** `node d-aona-server/tools/_check_html.js D-aona/d-aona-web/index.html` :
+balises équilibrées, script en ligne compilé. Sonde
+`d-aona-server/tools/_variantes_verif.js` réécrite sur le nouveau parcours :
+26/26 — aucun overlay, en-tête 04/04 et bouton « Règles » conservés, Telo
+9 cases + réponse de l'IA, sortie vers le récapitulatif avec plateau démonté,
+Dimy 25 intersections / 24 pions / prise appliquée, règles en modale sans
+quitter la partie, deux joueurs, « Nouvelle partie » à zéro dans la même carte,
+Tsivy inchangé, aucune erreur JS. Captures : `%TEMP%\daona_shots\var-*.png`.
+Sonde mobile jetable `d-aona-server/tools/_mobile_live.js` (390 × 844) : 5/5 —
+carte 362 px, plateau 332 px, aucun débordement horizontal, sortie vers le
+récapitulatif, aucune erreur JS. Captures : `var-7-mobile-*.png`.
+
+**Fichiers.** `D-aona/d-aona-web/variant-match.js` (option `host`, coquille
+embarquée, `close()` par référence d'élément), `D-aona/d-aona-web/index.html`
+(`playLive`, `renderLive()`, `quitterLive()`, `launchGame`, `go()`, CSS
+d'embarquement), `d-aona-server/tools/_variantes_verif.js` (parcours),
+`ARCHITECTURE.md`, `PLAN-REFONTE.md` (T9), ce journal.
+
 <!-- JOURNAL_AUTO_START -->
 ## 2026-10-18
 **Modifiés :** `.gitignore`, `plateau_clean.png`, `plateau_clean.webp`, `index.html`, `auth.js`, `check_wallet.js`, `data.js`, `core.js`, `schema.js`, `stores.js`, `demo_seed.js`, `game.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `http.js`, `server.js`, `test_scenarios.js`, `test_ui_scenarios.js`, `_check_html.js`, `_dbg_wallet.js`, `_inline.js`, `_layout_fill_report.txt`, `_p10.js`, `_p11.js`, `_p12.js`, `_p13.js`, `_p14.js`, `_p5.js`, `_probe_profil_v3.js`, `_shots_profil_v3.js`, `last_query_stamp`, `desktop-jour__chat.png`, `desktop-jour__friends.png`, `desktop-jour__home.png`, `desktop-jour__match.png`, `desktop-jour__notifications.png`, `desktop-jour__play.png`, `desktop-jour__profile.png`, `desktop-jour__ranks.png`, `desktop-jour__skins.png`, `desktop-jour__wallet.png`, `desktop-nuit__home.png`, `mobile-390__profile.png`, `desktop-1440x900-home.png`, `desktop-1440x900-match-tournois.png`, `desktop-1440x900-match.png`, `desktop-1440x900-ranks.png`, `desktop-1440x900-wallet.png`, `mobile-360x760-home.png`, `mobile-360x760-match.png`, `mobile-390x844-home.png`, `mobile-390x844-match.png`, `captures.md`, `desktop-jour__plateau-ia-coups.png`, `desktop-jour__plateau-ia.png`, `desktop-jour__plateau-tirage.png`, `desktop-jour__tournament.png`, `desktop-nuit__chat.png`, `desktop-nuit__friends.png`, `desktop-nuit__match.png`, `desktop-nuit__notifications.png`, `desktop-nuit__plateau-ia-coups.png`, `desktop-nuit__plateau-ia.png`, `desktop-nuit__plateau-tirage.png`, `desktop-nuit__play.png`, `desktop-nuit__profile.png`, `desktop-nuit__ranks.png`, `desktop-nuit__skins.png`, `desktop-nuit__tournament.png`, `desktop-nuit__wallet.png`, `etat__match-defis.png`, `etat__match-tournois.png`, `etat__profil-public.png`, `etat__ranks-province.png`, `etat__tournoi-detail.png`, `etat__wallet-depot.png`, `etat__wallet-retrait.png`, `mesures.json`, `mesures.txt`, `mobile-360__home.png`, `mobile-360__match.png`, `mobile-360__profile.png`, `mobile-360__tournament.png`, `mobile-390__chat.png`, `mobile-390__friends.png`, `mobile-390__home.png`, `mobile-390__match.png`, `mobile-390__notifications.png`, `mobile-390__plateau-ia-coups.png`, `mobile-390__plateau-ia.png`, `mobile-390__plateau-tirage.png`, `mobile-390__play.png`, `mobile-390__profile-pleine-page.png`, `mobile-390__ranks.png`, `mobile-390__skins.png`, `mobile-390__tournament.png`, `mobile-390__wallet.png`, `vide__chat.png`, `vide__friends.png`, `vide__home.png`, `vide__notifications.png`, `vide__tournament.png`, `vide__wallet.png`

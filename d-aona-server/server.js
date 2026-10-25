@@ -14,6 +14,10 @@ const WebSocket = require("ws");
 
 const { db, User, GameRecord, Tournament, Wallet, Chat, Skins, PionStyle, Challenge, GameSessionStore, Friend, FriendRequest, Notification, TournamentMatch, applyInactivityDecay } = require("./db");
 const { GameSession, computeEloDelta, legalMoves, checkWin, countPieces, initialGrid } = require("./game");
+/* Registre des plateaux heberges par le serveur : le socle ne nomme aucun jeu,
+   il demande « <game> » au registre et recoit le module qui expose le contrat
+   « moteur + session » (Tsivy, Dimy, Telo). */
+const Registry = require("./games/registry");
 const DATA = require("./data");
 const Auth = require("./auth");
 
@@ -28,8 +32,10 @@ const {
 const mm = require("./live/matchmaking");
 /* Sessions en base (table `sessions`, jeton haché) : aucune Map de jetons ici. */
 /* Délai de grâce avant abandon sur déconnexion : une coupure WebSocket
-   (souvent un simple blip du tunnel) ne doit PAS compter comme un abandon immédiat. */
-const GRACE_MS = 20000;
+   (souvent un simple blip du tunnel) ne doit PAS compter comme un abandon immédiat.
+   Surchargeable par l'environnement pour les SONDES uniquement (elles ne peuvent
+   pas attendre vingt secondes par scénario) ; la valeur par défaut ne bouge pas. */
+const GRACE_MS = parseInt(process.env.D_AONA_GRACE_MS || "20000", 10);
 /* Plafond du fil « parties en direct » (vue publique, scope=all) : la page
    Match n'affiche pas plus de matchs à la fois, la liste reste lisible et la
    réponse bornée même si le serveur hébergeait des centaines de parties. */
@@ -654,14 +660,14 @@ function handleRest(req, res, url, userId) {
         if (!s.player1.id || !s.player2 || !s.player2.id) continue;
         if (scope === "contacts" && !known.has(s.player1.id) && !known.has(s.player2.id)) continue;
         live.push({
-          sessionId: s.sessionId, mode: s.mode, format: s.format.id, wager: s.wager,
+          sessionId: s.sessionId, game: s.game, mode: s.mode, format: s.format.id, wager: s.wager,
           player1: { id: s.player1.id, pseudo: s.player1.pseudo, elo: s.player1.elo },
           player2: { id: s.player2.id, pseudo: s.player2.pseudo, elo: s.player2.elo },
           moves: (s.moves || []).length, phase: s.phase,
           /* Pions restants : la seule mesure de « score » que le serveur puisse
              prouver (GameSession n'a pas de compteur de manches). Le fil ne
              montre donc jamais un score inventé. */
-          pieces1: countPieces(s.grid, 1), pieces2: countPieces(s.grid, 2),
+          pieces1: piecesLeftOf(s, 1), pieces2: piecesLeftOf(s, 2),
         });
         if (live.length >= LIVE_FEED_MAX) break;
       }
@@ -678,7 +684,7 @@ function handleRest(req, res, url, userId) {
          date SQLite brute n'est PAS exposée : « 2026-09-17 20:39:46 » se lirait
          comme une heure locale côté navigateur. */
       const strip = (c) => ({
-        id: c.id, wager: c.wager, format: c.format, status: c.status,
+        id: c.id, wager: c.wager, format: c.format, game: c.game, status: c.status,
         createdAt: toIsoUtc(c.created_at), expiresAt: toIsoUtc(c.expires_at),
         /* Identifiants des DEUX camps : sans eux, l'interface ne peut pas ouvrir
            le profil d'un joueur par son id (elle n'a que des pseudos, qui peuvent
@@ -885,9 +891,15 @@ function handleWsMessage(ws, msg) {
     if (!user) { send(ws, { type: "error", message: "Utilisateur introuvable" }); return; }
     connections.set(ws, { userId: user.id, pseudo: user.pseudo });
     userSockets.set(user.id, ws);
-    // Reconnexion : annule le délai de grâce d'abandon en cours, puis re-synchronise l'état.
-    const pend = disconnectTimers.get(user.id);
-    if (pend) { clearTimeout(pend.timer); disconnectTimers.delete(user.id); }
+    // Reconnexion : annule les délais de grâce d'abandon en cours, puis re-synchronise l'état.
+    /* UN délai par partie en cours (voir handleDisconnect) : on les annule TOUS,
+       sinon une partie restait programmée pour l'abandon alors que le joueur
+       venait de revenir. */
+    for (const [key, e] of disconnectTimers) {
+      if (e.userId !== user.id) continue;
+      clearTimeout(e.timer);
+      disconnectTimers.delete(key);
+    }
     const curSession = findUserSession(user.id);
     if (curSession) dispatchGameState(curSession);
     const challenges = challengeFeed(user.id);
@@ -916,7 +928,7 @@ function handleWsMessage(ws, msg) {
         sendUser(conn.userId, { type: "match_found", matchKey: key, opponent: { pseudo: p2.pseudo, elo: p2.elo, id: p2.id }, format: fmt, game, playerNum: 1 });
         sendUser(opponent.userId, { type: "match_found", matchKey: key, opponent: { pseudo: p1.pseudo, elo: p1.elo, id: p1.id }, format: fmt, game, playerNum: 2 });
       } else if (mode === "ai") {
-        createGameSession(conn.userId, null, "ai", fmt, 0);
+        createGameSession(conn.userId, null, "ai", fmt, 0, game);
       } else {
         mm.enqueue(game, fmt, { userId: conn.userId, pseudo: conn.pseudo, mode });
         send(ws, { type: "matchmaking", status: "searching" });
@@ -946,7 +958,7 @@ function handleWsMessage(ws, msg) {
       sendUser(pm.p2, { type: "match_status", matchKey: key, p1Ready: pm.p1Ready, p2Ready: pm.p2Ready });
       if (pm.p1Ready && pm.p2Ready) {
         pendingMatches.delete(key);
-        createGameSession(pm.p1, pm.p2, "online", pm.format, 0);
+        createGameSession(pm.p1, pm.p2, "online", pm.format, 0, pm.game);
       }
       break;
     }
@@ -960,7 +972,7 @@ function handleWsMessage(ws, msg) {
       }
       const result = session.applyMove(msg.move);
       if (!result.ok) { send(ws, { type: "error", message: result.error, sessionId: msg.sessionId }); return; }
-      GameSessionStore.updateState(msg.sessionId, session.getState());
+      persistSession(session);
       dispatchGameState(session);
       if (result.gameOver) handleGameEnd(session, result.winner, result.reason);
       else if (session.turn === 2 && session.mode === "ai") scheduleAiMove(session.sessionId);
@@ -980,7 +992,7 @@ function handleWsMessage(ws, msg) {
         const remaining = session.choices[1] === "pile" ? "face" : "pile";
         session.pickSide(2, remaining);
       }
-      GameSessionStore.updateState(msg.sessionId, session.getState());
+      persistSession(session);
       dispatchGameState(session);
       if (session.phase === "play" && session.turn === 2 && session.mode === "ai") scheduleAiMove(session.sessionId);
       break;
@@ -1004,7 +1016,7 @@ function handleWsMessage(ws, msg) {
         return;
       }
       const result = session.endChain();
-      GameSessionStore.updateState(msg.sessionId, session.getState());
+      persistSession(session);
       dispatchGameState(session);
       if (result.gameOver) handleGameEnd(session, result.winner, result.reason);
       else if (session.turn === 2 && session.mode === "ai") scheduleAiMove(session.sessionId);
@@ -1013,7 +1025,10 @@ function handleWsMessage(ws, msg) {
     case "sync_game": {
       // Resynchronisation à la (re)connexion : renvoie l'état autoritaire courant.
       const session = (msg.sessionId && sessions.get(msg.sessionId)) || findUserSession(conn.userId);
-      if (!session || session.over) break;
+      /* RIEN À REPRENDRE : on le DIT. Sans cette réponse, un client qui a perdu
+         sa session (redémarrage du serveur) gardait un bandeau « Reprendre »
+         qui ne menait nulle part. Le contrat est le même pour tous les jeux. */
+      if (!session || session.over) { send(ws, { type: "no_active_game" }); break; }
       dispatchGameState(session);
       break;
     }
@@ -1026,7 +1041,7 @@ function handleWsMessage(ws, msg) {
       }
       if (!spectators.has(session.sessionId)) spectators.set(session.sessionId, new Set());
       spectators.get(session.sessionId).add(conn.userId);
-      send(ws, { type: "spectate_state", sessionId: session.sessionId, state: session.getState() });
+      send(ws, { type: "spectate_state", sessionId: session.sessionId, game: session.game, state: session.getState() });
       break;
     }
     case "unspectate": {
@@ -1058,19 +1073,22 @@ function handleWsMessage(ws, msg) {
       const targetUser = User.getByPseudo(msg.toPseudo);
       if (!targetUser) { send(ws, { type: "error", message: "Joueur introuvable" }); return; }
       const wager = parseInt(msg.wager) || 0;
+      /* Le defi porte le PLATEAU : l envoyeur choisit un Tsivy, un Dimy ou un
+         Telo dans l assistant, et le destinataire accepte CE plateau-la. */
+      const game = Registry.has(msg.game) ? msg.game : Registry.DEFAULT;
       if (wager < 500) { send(ws, { type: "error", message: "Mise minimale de 500 Ar requise — les défis gratuits ne sont pas autorisés" }); return; }
       if (!user.kyc) { send(ws, { type: "error", message: "KYC requis" }); return; }
       if (user.balance < wager) { send(ws, { type: "error", message: "Solde insuffisant" }); return; }
       Wallet.spend(user.id, wager, `Mise défi vs ${targetUser.pseudo}`);
-      const ch = Challenge.create(user.id, targetUser.id, wager, msg.format);
+      const ch = Challenge.create(user.id, targetUser.id, wager, msg.format, game);
       /* Le solde affiché doit suivre le débit : sans cette poussée, la barre du
          haut continuait d'annoncer l'ancien solde après un défi avec mise. */
       send(ws, walletPayload(user.id));
       sendUser(targetUser.id, { type: "challenge_received", challenge: {
-        id: ch.id, from: user.pseudo, fromId: user.id, fromAvatar: user.avatar || null, fromElo: user.elo, wager, format: msg.format,
+        id: ch.id, from: user.pseudo, fromId: user.id, fromAvatar: user.avatar || null, fromElo: user.elo, wager, format: msg.format, game,
         createdAt: toIsoUtc(Date.now()), expiresAt: toIsoUtc(ch.expires_at)
       }});
-      send(ws, { type: "challenge_sent", challengeId: ch.id, to: targetUser.pseudo });
+      send(ws, { type: "challenge_sent", challengeId: ch.id, to: targetUser.pseudo, game });
       break;
     }
     case "accept_challenge": {
@@ -1086,7 +1104,7 @@ function handleWsMessage(ws, msg) {
         send(ws, walletPayload(user.id));
       }
       Challenge.update(msg.challengeId, "accepted");
-      createGameSession(fromUser.id, user.id, "defi", ch.format, ch.wager);
+      createGameSession(fromUser.id, user.id, "defi", ch.format, ch.wager, ch.game);
       sendUser(fromUser.id, { type: "challenge_accepted", challengeId: msg.challengeId });
       break;
     }
@@ -1130,28 +1148,104 @@ function dispatchGameState(session) {
   const p1ws = userSockets.get(session.player1.id);
   const p2ws = session.player2 && session.player2.id !== 0 ? userSockets.get(session.player2.id) : null;
   const st = session.getState();
-  if (p1ws) send(p1ws, { type: "game_state", sessionId: session.sessionId, state: st });
-  if (p2ws) send(p2ws, { type: "game_state", sessionId: session.sessionId, state: st });
+  /* `game` et `playerNum` voyagent avec l etat : le client sait QUEL plateau
+     peindre et QUEL camp il tient, sans dependre de ce qu il croyait lancer
+     (reprise apres rechargement, defi recu, matchmaking). Deux champs, une
+     seule regle pour tous les plateaux — un jeu futur n a rien a ajouter. */
+  const game = session.game;
+  if (p1ws) send(p1ws, { type: "game_state", sessionId: session.sessionId, game, playerNum: 1, state: st });
+  if (p2ws) send(p2ws, { type: "game_state", sessionId: session.sessionId, game, playerNum: 2, state: st });
   // Diffusion aux spectateurs du match (lecture seule)
   const spec = spectators.get(session.sessionId);
   if (spec) for (const uid of spec) {
     const sws = userSockets.get(uid);
-    if (sws) send(sws, { type: "spectate_state", sessionId: session.sessionId, state: st });
+    if (sws) send(sws, { type: "spectate_state", sessionId: session.sessionId, game, state: st });
   }
 }
 
+/* Session EN COURS d un joueur. La plus RÉCENTE l emporte : `sessions` garde
+   l ordre d insertion, et une vieille partie restée ouverte (adversaire
+   parti) ne doit pas masquer celle qui vient de commencer. */
 function findUserSession(userId) {
+  let found = null;
   for (const s of sessions.values()) {
     if (s.over) continue;
-    if (s.player1.id === userId) return s;
-    if (s.player2 && s.player2.id === userId) return s;
+    if (s.player1.id === userId || (s.player2 && s.player2.id === userId)) found = s;
   }
-  return null;
+  return found;
 }
 
-function createGameSession(p1Id, p2Id, mode, formatId, wager) {
+/* ---------- PERSISTANCE DES PARTIES (reprise après redémarrage) ----------
+   `state_json` ne retenait que l'état PUBLIÉ (`getState()`), qui ne suffit pas
+   à reconstruire une session : il manque les champs INTERNES du jeu (choix du
+   tirage, chaîne de prises, horloge restante réelle…). On y range donc désormais
+   un INSTANTANÉ de la session : toutes ses propriétés propres, telles quelles.
+
+   Le socle ne connaît aucun de ces champs — il photographie l'objet et le
+   reconstruit à l'identique. C'est ce qui rend la reprise disponible pour tout
+   plateau présent ou futur sans une ligne de plus (`test/variantes.js` verrouille
+   l'aller-retour état de session ⇄ instantané sur les trois plateaux). */
+const SNAPSHOT_V = 1;
+
+function persistSession(session) {
+  if (!session || !session.sessionId) return;
+  let snap;
+  try { snap = JSON.parse(JSON.stringify(session)); } catch (e) { return; }
+  GameSessionStore.updateState(session.sessionId, { v: SNAPSHOT_V, session: snap });
+}
+
+/* Recharge les parties que le processus n'a pas eu le temps de clore (arrêt,
+   plantage, redéploiement). Une ligne dont l'instantané est illisible — ancien
+   format, plateau retiré du registre — est close en `abandoned` : on ne devine
+   jamais une partie à moitié, et le client reçoit `no_active_game` plutôt qu'un
+   plateau fantôme.
+
+   Les horloges ne repartent pas toutes seules : `gameLoop` ne fait tic-tac que
+   si le joueur au trait a une socket ouverte. Une partie rechargée sans personne
+   en ligne reste donc figée jusqu'au retour d'un joueur. */
+function rehydrateSessions() {
+  let rows = [];
+  try {
+    rows = db.prepare("SELECT * FROM game_sessions WHERE status = 'playing'").all();
+  } catch (e) {
+    console.error("reprise : lecture des sessions impossible", e);
+    return;
+  }
+  let n = 0;
+  for (const row of rows) {
+    let snap = null;
+    try {
+      const data = JSON.parse(row.state_json || "");
+      if (data && data.v === SNAPSHOT_V && data.session) snap = data.session;
+    } catch (e) { snap = null; }
+    const mod = snap && Registry.has(snap.game) ? Registry.get(snap.game) : null;
+    const valide = !!(mod && mod.GameSession && snap.sessionId === row.id
+      && snap.player1 && snap.player1.id === row.player1_id
+      && snap.clock && snap.mode && !snap.over);
+    if (!valide) { GameSessionStore.setStatus(row.id, "abandoned", null, null); continue; }
+    /* Même classe de session que la partie d'origine : les méthodes viennent du
+       prototype du jeu, les données de l'instantané. */
+    const session = Object.create(mod.GameSession.prototype);
+    Object.assign(session, snap);
+    sessions.set(row.id, session);
+    n++;
+    /* Le minuteur de l'IA vit dans un `setTimeout` : il est mort avec le
+       processus. Si la partie reprend sur son tour, on le réarme. */
+    if (session.mode === "ai" && session.turn === 2) {
+      setTimeout(() => scheduleAiMove(session.sessionId), 1500);
+    }
+  }
+  if (n) console.log(`[reprise] ${n} partie(s) rechargée(s) depuis la base`);
+}
+
+function createGameSession(p1Id, p2Id, mode, formatId, wager, gameId) {
   const sessionId = "GS-" + crypto.randomBytes(4).toString("hex").toUpperCase();
   const format = DATA.FORMATS.find((f) => f.id === formatId) || DATA.FORMATS[0];
+  /* Le PLATEAU vient du registre. Un identifiant inconnu (vieux client qui
+     n envoie pas `game`) retombe sur le jeu par defaut — celui qui existait
+     avant l ouverture des autres plateaux, donc jamais une surprise. */
+  const game = Registry.has(gameId) ? gameId : Registry.DEFAULT;
+  const Session = Registry.get(game).GameSession;
   const p1 = p1Id ? User.getById(p1Id) : null;
   let p2;
   if (mode === "ai" || !p2Id) {
@@ -1169,19 +1263,24 @@ function createGameSession(p1Id, p2Id, mode, formatId, wager) {
      `PION_DEFAULTS` (le pion Vato), jamais celles du joueur. */
   p1Obj.pionStyles = PionStyle.get(p1Obj.id);
   p2.pionStyles = p2.id ? PionStyle.get(p2.id) : { light: { ...DATA.PION_DEFAULTS.light }, dark: { ...DATA.PION_DEFAULTS.dark } };
-  const gs = new GameSession(sessionId, p1Obj, p2, mode, format, wager);
-  gs.gameRecordId = GameRecord.create(p1Obj.id, p2.id, mode, formatId, wager);
+  const gs = new Session(sessionId, p1Obj, p2, mode, format, wager);
+  gs.game = game;
+  gs.gameRecordId = GameRecord.create(p1Obj.id, p2.id, mode, formatId, wager, game);
   sessions.set(sessionId, gs);
   GameSessionStore.create(sessionId, p1Obj.id, p2.id, mode, formatId, wager);
+  /* Persistée DES LA CREATION : une partie ouverte puis laissée sans le moindre
+     coup (tirage en cours, adversaire qui n'a pas encore joue) doit survivre a
+     un redemarrage comme les autres. */
+  persistSession(gs);
 
   if (mode === "ai") {
-    sendUser(p1Obj.id, { type: "game_start", sessionId, playerNum: 1,
+    sendUser(p1Obj.id, { type: "game_start", sessionId, playerNum: 1, game,
       state: gs.getState(), opponent: p2, mode, format, wager });
     setTimeout(() => scheduleAiMove(sessionId), 1000);
   } else {
-    sendUser(p1Obj.id, { type: "game_start", sessionId, playerNum: 1,
+    sendUser(p1Obj.id, { type: "game_start", sessionId, playerNum: 1, game,
       state: gs.getState(), opponent: p2, mode, format, wager });
-    sendUser(p2.id, { type: "game_start", sessionId, playerNum: 2,
+    sendUser(p2.id, { type: "game_start", sessionId, playerNum: 2, game,
       state: gs.getState(), opponent: p1Obj, mode, format, wager });
   }
   broadcast({ type: "live_update" });
@@ -1201,7 +1300,7 @@ function aiMove(sessionId) {
   aiTimers.delete(sessionId);
   const moves = session.getLegalMoves();
   if (!moves.length) { handleGameEnd(session, 1, "blocage"); return; }
-  const caps = moves.filter((m) => m.cap.length);
+  const caps = moves.filter((m) => Array.isArray(m.cap) && m.cap.length);
   let chosen;
   if (caps.length) {
     const best = Math.max(...caps.map((x) => x.cap.length));
@@ -1211,11 +1310,18 @@ function aiMove(sessionId) {
     chosen = moves[Math.floor(Math.random() * moves.length)];
   }
   const result = session.applyMove(chosen);
-  GameSessionStore.updateState(sessionId, session.getState());
+  persistSession(session);
   const p1ws = userSockets.get(session.player1.id);
   if (p1ws) send(p1ws, { type: result.gameOver ? "game_end" : "game_state", sessionId, state: result.state });
   if (result.gameOver) handleGameEnd(session, result.winner, result.reason);
   else if (session.turn === 2 && session.mode === "ai") scheduleAiMove(sessionId);
+}
+
+/* Pions restants d un camp, quel que soit le plateau : la session du Tsivy
+   expose `grid` (5x9), celles des variantes exposent `piecesLeft(side)`. */
+function piecesLeftOf(session, side) {
+  if (typeof session.piecesLeft === "function") return session.piecesLeft(side);
+  return countPieces(session.grid, side);
 }
 
 function handleGameEnd(session, winner, reason) {
@@ -1227,11 +1333,16 @@ function handleGameEnd(session, winner, reason) {
 
   const isRealGame = session.mode !== "ai" && session.player2.id !== 0;
   const deltas = session.finish(winner);
-  const p1Left = countPieces(session.grid, 1);
-  const p2Left = countPieces(session.grid, 2);
+  const p1Left = piecesLeftOf(session, 1);
+  const p2Left = piecesLeftOf(session, 2);
 
+  /* NULLE : le Telo (triple repetition) et le Dimy (60 demi-coups sans prise)
+     peuvent finir sans vainqueur — `winner` vaut alors 0 ou null. Ce n est ni
+     une victoire ni une defaite : `session.finish` rend un demi-point aux deux
+     camps, et les compteurs `wins` / `losses` ne bougent pas. */
+  const draw = winner !== 1 && winner !== 2;
   // Update user ELO
-  const winnerId = winner === 1 ? session.player1.id : (isRealGame ? session.player2.id : null);
+  const winnerId = draw ? null : winner === 1 ? session.player1.id : (isRealGame ? session.player2.id : null);
   /* Instantané AVANT/APRÈS (migration 006) : on lit l'Elo RÉELLEMENT en base juste
      avant de l'écrire, et non celui mémorisé à l'ouverture de la session — un
      joueur peut avoir enchaîné une autre partie entre-temps, et la décroissance
@@ -1248,14 +1359,18 @@ function handleGameEnd(session, winner, reason) {
   const elo1Before = readElo(session.player1.id);
   const elo2Before = isRealGame ? readElo(session.player2.id) : null;
   if (ranked) {
-    if (winner === 1) {
+    if (draw) {
+      db.prepare("UPDATE users SET elo = elo + ? WHERE id = ?").run(d1, session.player1.id);
+    } else if (winner === 1) {
       db.prepare("UPDATE users SET elo = elo + ?, wins = wins + 1 WHERE id = ?").run(d1, session.player1.id);
     } else {
       db.prepare("UPDATE users SET elo = elo + ?, losses = losses + 1 WHERE id = ?").run(d1, session.player1.id);
     }
   }
   if (isRealGame) {   // une partie réelle est toujours classée
-    if (winner === 2) {
+    if (draw) {
+      db.prepare("UPDATE users SET elo = elo + ? WHERE id = ?").run(d2, session.player2.id);
+    } else if (winner === 2) {
       db.prepare("UPDATE users SET elo = elo + ?, wins = wins + 1 WHERE id = ?").run(d2, session.player2.id);
     } else {
       db.prepare("UPDATE users SET elo = elo + ?, losses = losses + 1 WHERE id = ?").run(d2, session.player2.id);
@@ -1267,7 +1382,12 @@ function handleGameEnd(session, winner, reason) {
   // Wager payout (defi mode)
   let gain = 0;
   if (session.mode === "defi" && session.wager > 0) {
-    if (winner === 1) {
+    if (draw) {
+      /* Nulle sur un defi avec mise : la mise engagee par CHAQUE camp revient
+         a son proprietaire — l argent ne reste pas au serveur. */
+      Wallet.credit(session.player1.id, session.wager, "Défi nul - mise rendue");
+      if (isRealGame) Wallet.credit(session.player2.id, session.wager, "Défi nul - mise rendue");
+    } else if (winner === 1) {
       gain = Math.round(session.wager * 2 * 0.9);
       Wallet.credit(session.player1.id, gain, `Gain défi vs ${session.player2.pseudo}`);
     } else if (isRealGame && winner === 2) {
@@ -1308,7 +1428,8 @@ function handleGameEnd(session, winner, reason) {
   /* Le delta ANNONCÉ est celui réellement enregistré (0 en entraînement) : le
      joueur ne peut pas lire un gain d'Elo que la base n'a pas appliqué. */
   const result1 = {
-    winner, reason, mode: session.mode, format: session.format, moves: session.moves.length,
+    winner, reason, draw, game: session.game,
+    mode: session.mode, format: session.format, moves: session.moves.length,
     opponent: session.player2.pseudo, meLeft: p1Left, oppLeft: p2Left,
     delta: d1, gain: winner === 1 ? gain : 0,
   };
@@ -1330,8 +1451,8 @@ function handleGameEnd(session, winner, reason) {
   // Notifier les spectateurs de la fin du match
   const spec = spectators.get(session.sessionId);
   if (spec) {
-    const winnerPseudo = winner === 1 ? session.player1.pseudo : session.player2.pseudo;
-    for (const uid of spec) sendUser(uid, { type: "spectate_end", sessionId: session.sessionId, winner, winnerPseudo, reason });
+    const winnerPseudo = draw ? null : (winner === 1 ? session.player1.pseudo : session.player2.pseudo);
+    for (const uid of spec) sendUser(uid, { type: "spectate_end", sessionId: session.sessionId, game: session.game, winner, winnerPseudo, reason });
     spectators.delete(session.sessionId);
   }
 
@@ -1550,8 +1671,12 @@ function gameLoop() {
     const timeout = session.tickClock();
     if (timeout) {
       handleGameEnd(session, timeout.winner, timeout.reason);
-    } else if (session.clock[session.turn] % 5 === 0) {
-      dispatchGameState(session);
+    } else {
+      /* L'horloge ne vivait qu'en mémoire : un redémarrage rendait au joueur le
+         temps qu'il avait déjà dépensé. On recopie donc l'instantané de temps en
+         temps — une écriture toutes les 20 s par partie, pas une par seconde. */
+      if (session.clock[session.turn] % 20 === 0) persistSession(session);
+      if (session.clock[session.turn] % 5 === 0) dispatchGameState(session);
     }
   }
   // Traitement des matchs de tournoi (confirmations + forfaits automatiques)
@@ -1571,7 +1696,9 @@ function gameLoop() {
   }
   // Auto-appariement : une file par couple jeu/format.
   for (const { key, pair } of mm.drainPairs()) {
-    createGameSession(pair[0].userId, pair[1].userId, "online", mm.formatOf(key), 0);
+    /* Le JEU vient de la cle de file (`<jeu>/<format>`) : sans lui, deux
+       joueurs en file pour Dimy recevaient une session Tsivy. */
+    createGameSession(pair[0].userId, pair[1].userId, "online", mm.formatOf(key), 0, mm.gameOf(key));
   }
 }
 
@@ -1591,23 +1718,26 @@ function handleDisconnect(ws) {
   }
   mm.removeUser(conn.userId);
   // Déconnexion ≠ abandon immédiat : laisser un délai de grâce pour la reconnexion.
-  if (!disconnectTimers.has(conn.userId)) {
-    for (const [id, session] of sessions) {
-      const inThis = session.player1.id === conn.userId || (session.player2 && session.player2.id === conn.userId);
-      if (inThis && !session.over) {
-        const timer = setTimeout(() => {
-          disconnectTimers.delete(conn.userId);
-          const s = sessions.get(id);
-          if (s && !s.over) {
-            handleGameEnd(s, s.player1.id === conn.userId ? 2 : 1, "abandon");
-            sessions.delete(id);
-            GameSessionStore.delete(id);
-          }
-        }, GRACE_MS);
-        disconnectTimers.set(conn.userId, { timer, sessionId: id });
-        break;
+  /* UN délai par PARTIE EN COURS, pas un par joueur. Un joueur peut avoir deux
+     sessions vivantes (une partie laissée ouverte, puis une nouvelle) : l'ancienne
+     boucle n'armait qu'un seul délai, sur la première trouvée, et abandonnait
+     l'autre partie jamais — elle restait figée pour toujours, adversaire compris. */
+  for (const [id, session] of sessions) {
+    if (session.over) continue;
+    const inThis = session.player1.id === conn.userId || (session.player2 && session.player2.id === conn.userId);
+    if (!inThis) continue;
+    const key = conn.userId + "|" + id;
+    if (disconnectTimers.has(key)) continue;
+    const timer = setTimeout(() => {
+      disconnectTimers.delete(key);
+      const s = sessions.get(id);
+      if (s && !s.over) {
+        handleGameEnd(s, s.player1.id === conn.userId ? 2 : 1, "abandon");
+        sessions.delete(id);
+        GameSessionStore.delete(id);
       }
-    }
+    }, GRACE_MS);
+    disconnectTimers.set(key, { timer, sessionId: id, userId: conn.userId });
   }
   /* On ne retire l'entrée QUE si elle désigne ENCORE cette socket.
      Un rechargement de page (ou une reconnexion) ouvre la NOUVELLE socket avant
@@ -1626,6 +1756,9 @@ function handleDisconnect(ws) {
 /* ---------- Démarrage ---------- */
 function start() {
   seedDatabase();
+  /* Reprise : les parties encore ouvertes au dernier arrêt reviennent AVANT que
+     la boucle de jeu et le serveur HTTP ne démarrent (aucune course possible). */
+  rehydrateSessions();
 
   const server = http.createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");

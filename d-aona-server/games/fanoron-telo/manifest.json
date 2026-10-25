@@ -1,0 +1,11 @@
+{
+  "id": "fanoron-telo",
+  "family": "fanoron",
+  "name": "Fanoron-Telo",
+  "board": { "rows": 3, "cols": 3, "topology": "grid" },
+  "players": { "pawns": 3 },
+  "phases": ["placement", "movement"],
+  "captures": false,
+  "eloKey": "fanoron-telo",
+  "formats": ["blitz", "rapide", "pro"]
+}

@@ -882,6 +882,10 @@ html:not([data-theme="night"]) .pg-shell {
 
 /* --- Options : tuiles en verre --- */
 .pg-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: var(--sp-4); }
+/* Étape 2 : les QUATRE modes tiennent sur deux colonnes. Même grille pour les
+   trois plateaux — en auto-fit, la quatrième tuile resterait orpheline et la
+   grille changerait de forme d'un jeu à l'autre. */
+.pg-opts.pg-opts-modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pg-opt {
   text-align: left; display: flex; flex-direction: column; gap: var(--sp-2);
   background: linear-gradient(160deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .03));
@@ -910,6 +914,11 @@ html:not([data-theme="night"]) .pg-shell {
   background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .08); color: #31e0a0;
 }
 .pg-opt .po-ic svg { width: 21px; height: 21px; }
+/* Plateau (choix de la variante) : la vignette du plateau remplace l'icône
+   carrée. Même tuile, même verre, mêmes tons que la tuile du catalogue —
+   aucune surface ni couleur nouvelle : c'est la tuile de l'étape 1. */
+.pg-opt .po-ic.po-board { width: 58px; height: 44px; }
+.pg-opt .po-ic.po-board svg { width: 100%; height: 100%; }
 .pg-opt b { font-size: var(--fs-5); color: #fff; }
 .pg-opt small { color: #8b96a8; font-size: var(--fs-3); line-height: 1.5; }
 .pg-opt .po-tag {
@@ -1089,6 +1098,7 @@ html[data-theme="night"] #modal .rp-btn-ghost:hover { background: rgba(43, 163, 
   .pg-opts { margin-top: var(--sp-3); }
   .pg-opt { padding: var(--sp-3); gap: 7px; }
   .pg-opt .po-ic { width: 34px; height: 34px; border-radius: var(--r-sm); }
+  .pg-opt .po-ic.po-board { width: 52px; height: 38px; }
   .pg-opt small { font-size: var(--fs-2); line-height: 1.35; }
   .pg-defi { margin-top: 10px; padding-top: 10px; gap: var(--sp-2) 20px; }
   .pg-defi label { font-size: var(--fs-1); }
@@ -1121,12 +1131,14 @@ html[data-theme="night"] #modal .rp-btn-ghost:hover { background: rgba(43, 163, 
   .pg-sub { margin-left: auto; margin-right: auto; }
   /* Tuiles en ligne (icône | texte | tag) : beaucoup moins hautes */
   .pg-opts { grid-template-columns: 1fr; gap: 6px; margin-top: 10px; }
+  .pg-opts.pg-opts-modes { grid-template-columns: 1fr; }   /* une tuile par ligne, comme les jeux */
   .pg-opt {
-    display: grid; grid-template-columns: 32px 1fr auto; align-items: center;
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center;
     column-gap: 12px; row-gap: 1px; padding: 9px var(--sp-3); border-radius: var(--r-md); text-align: left;
   }
   .pg-opt .po-ic { width: 32px; height: 32px; border-radius: var(--r-sm); grid-row: 1 / 3; }
   .pg-opt .po-ic svg { width: 16px; height: 16px; }
+  .pg-opt .po-ic.po-board { width: 46px; height: 34px; }
   .pg-opt b { grid-column: 2; }
   .pg-opt small { grid-column: 2; font-size: var(--fs-2); line-height: 1.35; }
   .pg-opt .po-tag { grid-column: 3; grid-row: 1 / 3; align-self: center; }
@@ -5007,31 +5019,11 @@ body.is-fill .season-card .dash-stats { padding-top: var(--sp-4); }
 /* =========================================================================
    VARIANTES DE FANORONA
    -------------------------------------------------------------------------
-   Trois plateaux, une seule entree dans l'assistant : le dialogue des
-   variantes (dans la modale) et l'ecran de partie local (Telo / Dimy).
-   Tous les tons viennent des jetons : rien de nouveau a mesurer.
+   Trois plateaux, une seule entree dans l'assistant. Le choix du plateau se
+   fait DANS la scene de l'etape 1, avec les memes tuiles .pg-opt que le
+   catalogue (aucune modale, aucune surface propre) : il ne reste donc ici
+   que l'ecran de partie local (Telo / Dimy).
    ========================================================================= */
-.pg-variants { display: grid; gap: 8px; margin-top: var(--sp-4); }
-.pg-var {
-  display: grid; grid-template-columns: 58px 1fr 16px; align-items: center; gap: 12px;
-  text-align: left; width: 100%; padding: 11px 13px; cursor: pointer;
-  background: var(--panel-2); border: .5px solid var(--line); border-radius: var(--r-md);
-  color: var(--text); font-family: inherit;
-  transition: border-color var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out);
-}
-.pg-var:hover, .pg-var:focus-visible { border-color: var(--brand-2); outline: none; }
-.pg-var.on { border-color: var(--brand-2); background: var(--green-soft); }
-.pg-var .pv-board { width: 58px; height: 44px; display: grid; place-items: center; }
-.pg-var .pv-board svg { width: 100%; height: 100%; }
-.pg-var .pv-txt { display: grid; gap: 3px; min-width: 0; }
-.pg-var .pv-txt b { font-size: var(--fs-4); color: var(--text-strong); }
-.pg-var .pv-txt small { color: var(--muted); font-size: var(--fs-3); line-height: 1.35; }
-.pg-var .pv-txt em { font-style: normal; font-family: var(--mono); font-size: var(--fs-2); color: var(--brand-ink); }
-.pg-var .pv-go { color: var(--muted); font-size: var(--fs-4); }
-@media (max-width: 420px) {
-  .pg-var { grid-template-columns: 46px 1fr; }
-  .pg-var .pv-go { display: none; }
-}
 
 /* ---------- Ecran de partie local (Telo, Dimy) ---------- */
 body.vm-open { overflow: hidden; }
@@ -5068,9 +5060,11 @@ body.vm-open { overflow: hidden; }
 .vm-player.flip b { text-align: right; }
 .vm-player.flip small { margin-left: 0; margin-right: auto; }
 .vm-vs { color: var(--muted); font-size: var(--fs-2); font-family: var(--mono); }
-.vm-pawn { width: 14px; height: 14px; border-radius: 50%; flex: none; }
-.vm-pawn.clair { background: #F4E7CB; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35); }
-.vm-pawn.sombre { background: #2A2438; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .30); }
+/* La pastille de camp porte l'APPARENCE du joueur — mêmes variables `--pion-*`
+   que le plateau (dégradé + motif + forme) : elle annonce ce qu'on verra en
+   jeu. Sans apparence connue (adversaire d'avant la mise à jour), le dégradé
+   de repli est celui du pion Vato ; les deux camps restent donc lisibles. */
+.vm-pawn { width: 16px; height: 16px; flex: none; }
 .vm-board {
   padding: 10px; border-radius: var(--r-md); border: .5px solid var(--line);
   background: radial-gradient(120% 100% at 50% 0%, rgba(229, 158, 39, .10), transparent 62%), var(--panel-2);
@@ -5085,38 +5079,82 @@ body.vm-open { overflow: hidden; }
 }
 .vm-rules ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
 
-/* Telo : 9 cases en boutons */
-.telo-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: min(100%, 340px); margin: 0 auto; }
-.telo-cell {
-  position: relative; aspect-ratio: 1; padding: 0; cursor: pointer;
-  border: .5px solid var(--line); border-radius: var(--r-sm);
-  background: var(--panel);
+/* ---------- Partie EMBARQUÉE dans l'assistant (étape 4) ----------
+   L'écran de partie ne prend plus la page : il s'installe dans la carte de
+   l'assistant, sous le même en-tête 04/04. Les jetons de couleur sont
+   REDÉFINIS localement : cette carte est sombre dans les deux thèmes, alors
+   que `--panel` / `--text` suivent, eux, le thème clair de l'application.
+   Les modules de jeu (board.js / ui.js) n'ont donc rien à savoir de cet hôte. */
+.pg-shell-live .pg-body { padding-top: 4px; }
+.pg-body-live { align-items: stretch; }
+.pg-live { margin: auto; width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 12px; }
+.pg-live-head { display: flex; align-items: baseline; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.pg-live-head b { font-size: var(--fs-5); color: #e8eef7; letter-spacing: -.01em; }
+.pg-live-head small { font-family: var(--mono); font-size: var(--fs-2); color: #8b96a8; }
+.pg-live-slot { display: flex; justify-content: center; }
+.vm-embed { width: 100%; display: flex; justify-content: center; }
+.vm-shell--inline {
+  --panel: rgba(255, 255, 255, .05);
+  --panel-2: rgba(255, 255, 255, .07);
+  --line: rgba(255, 255, 255, .12);
+  --text: #c9d2df;
+  --text-strong: #eef3fa;
+  --muted: #8b96a8;
+  width: 100%; max-width: 560px; padding: 0; gap: 10px;
+  background: none; border: 0; box-shadow: none; overflow: visible;
 }
-.telo-cell::after {
-  content: ""; position: absolute; inset: 17%; border-radius: 50%; opacity: 0;
-  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
-}
-.telo-cell[data-pawn="1"]::after { opacity: 1; background: #F4E7CB; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35); }
-.telo-cell[data-pawn="2"]::after { opacity: 1; background: #2A2438; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .30); }
-.telo-cell-sel { box-shadow: inset 0 0 0 2px var(--brand-2); }
-.telo-cell-win { background: var(--green-soft); }
-.telo-cell:disabled { cursor: default; }
-.telo-cell:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
+/* Coquille embarquée : ni barre de titre ni actions (la carte les fournit). */
+.vm-shell--inline .vm-top[hidden],
+.vm-shell--inline .vm-actions[hidden],
+.vm-shell--inline .vm-rules[hidden] { display: none; }
+/* Plateaux à taille de carte : un carré de 540 px obligerait à faire défiler.
+   MÊME largeur pour les deux variantes : c'est le même plateau. */
+.vm-shell--inline .dimy-board { max-width: 380px; margin: 0 auto; }
+.vm-shell--inline .telo-board { max-width: 380px; margin: 0 auto; }
 
-/* Dimy : plateau grave en SVG */
-.dimy-board { width: 100%; }
-.dimy-svg { display: block; width: 100%; height: auto; touch-action: manipulation; }
-.dimy-lines line { stroke: var(--muted); stroke-width: .7; opacity: .55; stroke-linecap: round; }
-.dimy-point { cursor: pointer; outline: none; }
-.dimy-hit { fill: transparent; }
-.dimy-pawn.clair { fill: #F4E7CB; stroke: rgba(0, 0, 0, .35); stroke-width: .8; }
-.dimy-pawn.sombre { fill: #2A2438; stroke: rgba(255, 255, 255, .30); stroke-width: .8; }
-.dimy-sel .dimy-hit { fill: rgba(43, 163, 126, .18); }
-.dimy-sel .dimy-pawn { stroke: var(--brand-2); stroke-width: 1.8; }
-.dimy-last .dimy-hit { fill: none; stroke: var(--brand-2); stroke-width: .8; }
-.dimy-cap .dimy-hit { fill: rgba(220, 38, 38, .16); }
-.dimy-point:focus-visible .dimy-hit { fill: none; stroke: var(--brand-2); stroke-width: 1.2; }
-.dimy-point[aria-disabled="true"] { cursor: default; }
+/* ---------- PLATEAU COMMUN DES FANORONA (Dimy, Telo, tout plateau futur) ----------
+   Un seul système, le même que le plateau Tsivy : un plateau gravé, un
+   treillis d'intersections, des pions POSÉS sur ces intersections. Le rendu
+   vient de `games/fanorona-board.js` : il n'y a donc ici qu'un habillage, et
+   les variantes ne peuvent pas diverger.
+   Le fond reprend la palette du plateau Tsivy (bois clair sur les bords, plus
+   sombre au centre) : une variante ressemble à un plateau, pas à une grille
+   de formulaire. */
+.fp-board {
+  position: relative; inset: auto;
+  width: 100%; aspect-ratio: 1; border-radius: 0; overflow: hidden;
+  background: radial-gradient(120% 120% at 50% 42%, #6b4d32 0%, #86633f 38%, #b1895f 70%, #e7c8a3 100%);
+  box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .45), inset 0 10px 26px rgba(0, 0, 0, .22), 0 8px 20px rgba(0, 0, 0, .28);
+}
+.fp-svg { display: block; width: 100%; height: auto; position: relative; z-index: 1; touch-action: manipulation; }
+/* Traits gravés : les orthogonales portent le plateau, les diagonales sont
+   plus discrètes — c'est la hiérarchie du plateau Tsivy. Le liseré clair
+   sous chaque trait donne le relief de la gravure. */
+.fp-lines, .fp-diagonals { filter: drop-shadow(0 .5px 0 rgba(255, 240, 214, .20)); }
+.fp-line { stroke: rgba(38, 22, 8, .60); stroke-width: 1; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.fp-diag { stroke: rgba(38, 22, 8, .34); stroke-width: .8; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.fp-node { fill: rgba(38, 22, 8, .48); }
+/* Dernier coup, prises, alignement gagnant */
+.fp-mark-last { fill: none; stroke: rgba(29, 158, 117, .95); stroke-width: .9; }
+.fp-mark-cap { fill: rgba(229, 72, 77, .22); stroke: rgba(229, 72, 77, .85); stroke-width: .7; }
+.fp-win-line { stroke: rgba(229, 158, 39, .95); stroke-width: 1.7; stroke-linecap: round; }
+/* Pions : MÊMES `.piece` que le plateau Tsivy (dégradé, motif, forme, anneau
+   de sélection). Seule la TAILLE change : elle suit le pas du plateau, calculé
+   par le module (`--fp-pawn`). */
+.fp-board .piece { width: var(--fp-pawn, 12%); }
+/* Cibles : transparentes, elles remplissent la maille. `overflow: hidden` les
+   rogne au bord du plateau ; on vise le milieu d'une maille, on atteint
+   l'intersection la plus proche. */
+.fp-board .cells { inset: 0; overflow: hidden; }
+.fp-board .cell {
+  width: var(--fp-cell, 20%); height: var(--fp-cell, 20%);
+  border: 0; padding: 0; background: transparent; appearance: none;
+}
+.fp-board .cell:disabled { cursor: default; }
+.fp-board .cell:focus-visible { outline: 2px solid var(--brand-2); outline-offset: -2px; }
+/* Alignement gagnant (Telo) : l'intersection s'éclaire sous le pion, et le
+   trait doré du treillis relie les trois. */
+.fp-board .cell.fp-win { background: radial-gradient(circle, rgba(229, 158, 39, .34), rgba(229, 158, 39, 0) 70%); }
 </style>
 <script>
 /* Applique le thème sauvegardé AVANT le premier rendu (évite le flash) */
@@ -6104,6 +6142,7 @@ window.SearchToggle = SearchToggle;
 <!-- Variantes autonomes : chaque dossier de jeu publie son moteur, son
      plateau, son interaction et son IA sur `window` (pied UMD). L'ordre
      compte : engine -> board -> ui -> ai. -->
+<script src="games/fanorona-board.js"></script>
 <script src="games/fanoron-telo/engine.js"></script>
 <script src="games/fanoron-telo/board.js"></script>
 <script src="games/fanoron-telo/ui.js"></script>
@@ -6566,19 +6605,26 @@ window.API = API;
 
 /* ===== VARIANTES DE FANORONA =====
    Trois plateaux, un seul jeu dans le catalogue : l'entree « Fanorona »
-   ouvre un dialogue de variantes. `modes` dit ce que chaque plateau sait
-   faire AUJOURD'HUI — le Tsivy garde le matchmaking, les deux autres se
-   jouent en local (IA ou deux joueurs sur le meme ecran). */
+   ouvre une SOUS-VUE de l'etape 1 (les plateaux, dans la meme scene).
+   `modes` dit ce que chaque plateau sait tenir AUJOURD'HUI. Les trois tiennent
+   desormais LES TROIS MODES (classee, defi, entrainement) : le serveur heberge
+   une session autoritaire par plateau, avec le meme matchmaking et le meme Elo.
+   La grille de l'etape 2 est donc IDENTIQUE partout, et entierement active. */
 const FANORON_VARIANTS = [
-  { id: "fanoron-tsivy", name: "Fanoron-Tsivy", board: "9 × 5", tag: "En ligne",
-    desc: "Le grand plateau, prises par approche ou retrait. Partie classe, defi et IA.",
+  /* `screen` : l'écran où une partie de ce plateau se JOUE. C'est la SEULE
+     chose que la reprise doit demander au jeu — le socle n'a pas le droit de
+     supposer que tout se joue sur le plateau historique. « board » = le
+     plateau Tsivy (route #/board), « play » = la carte de jeu de l'assistant
+     (étape 4, route #/play, tenue par VariantMatch). */
+  { id: "fanoron-tsivy", name: "Fanoron-Tsivy", board: "9 × 5", tag: "En ligne", screen: "board",
+    desc: "Le grand plateau, prises par approche ou retrait. Classee, defi et entrainement.",
     modes: ["online", "defi", "ai"] },
-  { id: "fanoron-dimy", name: "Fanoron-Dimy", board: "5 × 5", tag: "Nouveau",
-    desc: "Douze pions, memes prises, parties plus courtes. IA et deux joueurs.",
-    modes: ["ai", "local2p"] },
-  { id: "fanoron-telo", name: "Fanoron-Telo", board: "3 × 3", tag: "Nouveau",
-    desc: "Trois pions, alignement, aucune prise. IA et deux joueurs.",
-    modes: ["ai", "local2p"] },
+  { id: "fanoron-dimy", name: "Fanoron-Dimy", board: "5 × 5", tag: "Nouveau", screen: "play",
+    desc: "Douze pions, memes prises, parties plus courtes. Classee, defi et entrainement.",
+    modes: ["online", "defi", "ai"] },
+  { id: "fanoron-telo", name: "Fanoron-Telo", board: "3 × 3", tag: "Nouveau", screen: "play",
+    desc: "Trois pions, alignement, aucune prise. Classee, defi et entrainement.",
+    modes: ["online", "defi", "ai"] },
 ];
 const variantById = (id) => FANORON_VARIANTS.find((v) => v.id === id) || FANORON_VARIANTS[0];
 
@@ -6751,15 +6797,11 @@ const Fanorona = (() => {
   function paintPionStyles() {
     const board = document.getElementById("fanorona-board");
     if (!board) return;
-    const poser = (suf, st) => {
-      board.setAttribute("data-pion-forme" + suf, st.shape);
-      board.setAttribute("data-pion-color" + suf, st.color);
-      board.setAttribute("data-pion-motif" + suf, st.pattern);
-    };
-    poser("", myStyles.light);
-    poser("-dark", myStyles.dark);
-    poser("-opp", oppStyles.light);
-    poser("-opp-dark", oppStyles.dark);
+    /* Une seule implémentation pour TOUS les plateaux (`games/fanorona-board.js`) :
+       celui du Tsivy et ceux des variantes posent donc exactement les mêmes douze
+       attributs. Une couleur ou un motif ajouté au catalogue vaut partout, et
+       aucune variante ne peut peindre autre chose que ce que la boutique promet. */
+    FanoronaBoard.paintPionStyles(board, { me: myStyles, opp: oppStyles });
   }
 
   /* Point d'entrée de la boutique : elle ne connaît que MON apparence (l'appelant
@@ -7574,7 +7616,10 @@ const App = (() => {
     contacts: [], onlineUsers: [], chatThreads: {}, defis: [], friends: [],
     friendRequests: { incoming: [], outgoing: [], newIncoming: 0, newSinceId: null, seenId: 0 },
     notifications: [], notifUnread: 0, myTournaments: [],
-    currentSession: null, playerNum: 1, matchmaking: false, formats: FORMATS,
+    /* `currentSession` = la session serveur en cours ; `currentGame` = SON
+       plateau. Les deux voyagent ensemble : la reprise ne devine jamais le
+       jeu, elle lit l'identifiant que le serveur a publié. */
+    currentSession: null, currentGame: null, playerNum: 1, matchmaking: false, formats: FORMATS,
   });
 
   let S = DEFAULT_STATE();
@@ -7587,8 +7632,14 @@ const App = (() => {
   const MISE_MAX = 100000;           // plafond du projet : au-delà, la mise est refusée
   let wagerPerso = false, wagerSaisie = "", wagerErr = "";
   let playStep = 1;   // Écran Jeux : 1=jeu, 2=mode, 3=format, 4=lancer
+  /* Sous-vue de l'étape 1 : le choix du PLATEAU (variante) se rend dans la MÊME
+     scène que la liste des jeux, avec les mêmes tuiles — plus aucune modale. */
+  let playPlateau = false;
   let _pgLastCta = "";  // libellé CTA précédent (crossfade 200 ms)
+  let playLive = null;   /* partie de variante EN COURS, jouée dans l'assistant */
   let _pgLastStep = 0;  // étape rendue au tour précédent (évite de rejouer l'entrée sur un simple clic)
+  let _pgLastPlateau = null;  // sous-vue « plateaux » rendue au tour précédent : la
+                              // changer EST un changement d'écran, l'entrée se rejoue
   let chatWith = "";
   let rankScope = "national", rankProvince = "Antananarivo", rankSearch = "", rankSearchOpen = false;
   let rankListRender = null;   // re-rendu partiel des lignes (recherche live, voir renderRanks)
@@ -8206,7 +8257,12 @@ const App = (() => {
   }
 
   const currentRoute = () => (location.hash.replace("#/", "") || "home").split("?")[0];
-  function go(r) { if (r !== "play") _pgLastStep = 0; arreterPub(); location.hash = "#/" + r; }
+  /* Changer d'ÉCRAN n'est pas quitter sa partie. Le contrôleur embarqué est
+     démonté (minuteur de l'IA compris) mais `playLive` survit comme référence
+     de reprise : c'est ce qui permet à « Reprendre » de retrouver une partie
+     de Dimy/Telo exactement comme une partie de Tsivy. `quitterLive` reste
+     réservé aux sorties EXPLICITES (flèche de sortie, abandon, pastilles). */
+  function go(r) { if (r !== "play") { _pgLastStep = 0; _pgLastPlateau = null; playPlateau = false; detacherLive(); } arreterPub(); location.hash = "#/" + r; }
 
   /* ------------------ THÈME (nuit / jour) ------------------ */
   const THEMES = ["night", "light"];
@@ -8373,6 +8429,17 @@ const App = (() => {
       S.bonusUsed = !!u.bonus_used; S.withdrawnToday = u.withdrawn_today || 0;
       S.avatar = u.avatar || null;
       updateTopbar();
+      /* Connecté : le bandeau « Reprendre » peut enfin se prononcer — y compris
+         pour une partie d'entraînement restaurée depuis l'appareil, qui
+         n'attend aucun message du serveur. */
+      updateResumeBanner();
+      /* La copie locale appartient à UN compte : sur un appareil partagé, la
+         partie d'entraînement d'un autre joueur est oubliée plutôt que montrée. */
+      if (playLive && !playLive.remote && playLive.who && S.id && playLive.who !== S.id) {
+        playLive = null;
+        effacerPartieLocale();
+        if (currentRoute() === "play") renderPlay();
+      }
     } catch (e) { console.error("refreshUser", e); }
   }
 
@@ -8521,7 +8588,32 @@ const App = (() => {
   function hasActiveGame() {
     // Ne compte pas les matchs simplement regardés (mode spectateur).
     if (Fanorona && Fanorona.state && Fanorona.state() && Fanorona.state().spectator) return !!S.currentSession;
-    return !!S.currentSession || !!(Fanorona && Fanorona.isActive());
+    /* Une partie de VARIANTE en entraînement n'a aucune session serveur :
+       c'est `playLive` qui la garde en mémoire une fois son écran refermé.
+       Une partie LOCALE terminée n'est plus « en cours » — sinon « Reprendre »
+       proposerait éternellement un plateau déjà fini. */
+    return !!S.currentSession || !!(playLive && !(playLive.state && playLive.state.over))
+      || !!(Fanorona && Fanorona.isActive());
+  }
+  /* Écran d'un plateau : LA SEULE chose que la reprise demande au jeu. Le socle
+     ne code aucun identifiant de plateau en dur (aucun `if (game === "...")`). */
+  function ecranDeJeu(game) {
+    const v = FANORON_VARIANTS.find((x) => x.id === game);
+    return (v && v.screen) || "board";
+  }
+  /* La partie EN COURS est-elle déjà sous les yeux ? Oui si l'écran déclaré par
+     son plateau est affiché ET que la partie y est réellement montée (pour une
+     variante, le récapitulatif de l'assistant ne compte pas). */
+  function estSurLEcranDeJeu() {
+    if (!hasActiveGame()) return false;
+    const game = S.currentGame || (playLive && playLive.game) || "fanoron-tsivy";
+    if (currentRoute() !== ecranDeJeu(game)) return false;
+    /* Une variante ne compte que si son plateau est RÉELLEMENT monté : le
+       récapitulatif de l'assistant (étape 01) n'est pas la partie. Sans cette
+       nuance, une partie restaurée après un rechargement — le routeur retombe
+       sur l'étape 01 — cachait le bandeau « Reprendre » pendant que le joueur
+       cherchait sa partie des yeux. */
+    return game === "fanoron-tsivy" ? true : !!(playLive && playLive.ecran);
   }
   /* Un match REGARDÉ en direct est un retour possible au même titre qu'une partie
      jouée : c'est le sujet du bouton « Reprendre ». Sans cela, le bandeau
@@ -8531,17 +8623,109 @@ const App = (() => {
   function updateResumeBanner() {
     const bar = document.getElementById("resume-bar");
     if (!bar) return;
-    const show = (hasActiveGame() || watchingMatch()) && currentRoute() !== "board";
-    bar.classList.toggle("show", show);
+    /* Rien à reprendre pour un visiteur non connecté : la copie locale d'une
+       partie d'entraînement ne doit pas faire apparaître le bandeau avant
+       l'authentification (elle n'a de sens qu'une fois identifié). */
+    if (!S.id) { bar.classList.remove("show"); return; }
+    /* Le visionnage vit sur le plateau Tsivy ; une partie vit sur l'écran que
+       SON plateau déclare. Le bandeau ne s'affiche que si elle n'est pas déjà
+       visible — sinon « Reprendre » apparaissait par-dessus la partie en cours
+       de Dimy/Telo, qui se joue sur #/play et non sur #/board. */
+    const visible = estSurLEcranDeJeu() || (watchingMatch() && currentRoute() === "board");
+    bar.classList.toggle("show", (hasActiveGame() || watchingMatch()) && !visible);
   }
+  /* Reprise : UN SEUL chemin pour tous les plateaux. L'écran est celui que le
+     jeu déclare ; l'état vient toujours du serveur (`sync_game`), donc une
+     partie reprise se peint exactement comme une partie neuve. */
   function resumeGame() {
-    // Reprendre ramène DIRECTEMENT au plateau du match en cours (pas la liste des jeux).
     closeModal();
+    const game = S.currentGame || (playLive && playLive.game) || "fanoron-tsivy";
+    if (ecranDeJeu(game) === "play") {
+      playCfg.variant = game;
+      playStep = 4;
+      playPlateau = false;
+      const dejaSurPlace = currentRoute() === "play";
+      go("play");
+      /* Même hash : le routeur ne rejoue pas, on rend ici. Une partie encore en
+         mémoire se remonte telle quelle ; sinon l'état autoritaire arrive par
+         `game_state` (session retrouvée côté serveur). */
+      if (playLive) { if (dejaSurPlace) renderLive(); }
+      else if (S.currentSession && API.isConnected()) API.send({ type: "sync_game", sessionId: S.currentSession });
+      return;
+    }
     go("board");
   }
 
-  /* Renderer du plateau : resynchronise l'état autoritaire à chaque affichage,
-     pour que « Reprendre » ré-affiche le match en cours sans action manuelle. */
+  /* ------------------ PARTIE LOCALE : SURVIVRE AU RECHARGEMENT ------------------
+     Une partie d'entraînement (Dimy, Telo) n'a AUCUNE session serveur : sans
+     copie locale, un F5 l'effaçait purement et simplement. On en garde donc un
+     instantané dans `localStorage` — le MÊME geste que le serveur pour ses
+     parties classées (`state_json`) : on photographie l'état, on le remet tel
+     quel. Rien n'est reconstruit à la main.
+
+     Une partie TERMINÉE n'est pas conservée : « Reprendre » ne doit pas proposer
+     un plateau déjà fini. La clé est propre à l'appareil, comme le thème. */
+  const LIVE_KEY = "daona_partie_locale";
+
+  function retenirPartieLocale() {
+    const live = playLive;
+    if (!live || live.remote) return;
+    try {
+      if (!live.state || live.state.over) { localStorage.removeItem(LIVE_KEY); return; }
+      localStorage.setItem(LIVE_KEY, JSON.stringify({
+        v: 1, game: live.game, mode: live.mode === "local2p" ? "local2p" : "ai",
+        me: live.me || { pseudo: S.pseudo, elo: S.elo },
+        /* Propriétaire de la copie : sur un appareil partagé, la partie
+           d'entraînement d'un autre compte ne doit pas apparaître. */
+        who: S.id || 0,
+        state: live.state, at: Date.now(),
+      }));
+    } catch (e) { /* quota atteint ou mode privé : la partie reste jouable, elle ne survivra pas */ }
+  }
+
+  function effacerPartieLocale() {
+    try { localStorage.removeItem(LIVE_KEY); } catch (e) {}
+  }
+
+  /* Relecture au démarrage : on ne restaure QUE ce que l'application sait
+     reprendre. Plateau retiré du catalogue, état illisible, version inconnue :
+     la copie est jetée plutôt que devinée. */
+  function relirePartieLocale() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(LIVE_KEY) || "null"); } catch (e) { d = null; }
+    if (!d || d.v !== 1 || !d.game || !d.state || d.state.over
+      || !FANORON_VARIANTS.some((v) => v.id === d.game)) { effacerPartieLocale(); return; }
+    playLive = {
+      game: d.game, mode: d.mode === "local2p" ? "local2p" : "ai", remote: false, mySide: 1,
+      me: d.me || { pseudo: S.pseudo, elo: S.elo }, opponent: null,
+      state: d.state, ecran: null, who: d.who || 0,
+    };
+  }
+
+  /* Démonte le plateau embarqué SANS perdre la partie : `playLive` garde son
+     état (et son `sessionId`), c'est la référence de reprise. */
+  function detacherLive() {
+    if (!playLive) return;
+    if (typeof VariantMatch !== "undefined") VariantMatch.close();
+    playLive.ecran = null;
+  }
+
+  /* Adopte une session publiée par le serveur SANS changer d'écran : c'est ce
+     qui rend la reprise possible après un rechargement de page, où le client a
+     tout oublié et où seul le serveur sait qu'une partie nous attend. */
+  function retenirSession(msg) {
+    const st = msg.state || {};
+    S.currentSession = msg.sessionId;
+    S.currentGame = msg.game || st.game || "fanoron-tsivy";
+    S.playerNum = msg.playerNum === 2 ? 2 : msg.playerNum === 1 ? 1
+      : (st.player2 && st.player2.id === S.id ? 2 : 1);
+    updateResumeBanner();
+  }
+
+  /* Renderer de la route #/board (plateau Tsivy) : resynchronise l'état
+     autoritaire à chaque affichage, pour que « Reprendre » ré-affiche le match
+     en cours sans action manuelle. Une variante ne passe jamais par ici : elle
+     vit sur #/play, son écran déclaré. */
   function renderBoard() {
     if (S.currentSession && API.isConnected()) {
       API.send({ type: "sync_game", sessionId: S.currentSession });
@@ -9253,68 +9437,44 @@ const App = (() => {
   }
 
   /* Choix d'une variante : on ne touche pas au mode tant qu'il reste
-     valable, sinon on retombe sur ce que le plateau sait tenir. */
+     valable, sinon on retombe sur ce que le plateau sait tenir. Les trois
+     plateaux tenant les trois modes, ce repli ne sert plus qu'aux etats
+     enregistres avant l'ouverture du en-ligne. */
   function choisirVariante(id) {
     const v = variantById(id);
     playCfg.variant = v.id;
     if (v.modes.indexOf(playCfg.mode) < 0) playCfg.mode = v.modes.indexOf("online") >= 0 ? "online" : "ai";
-    if (v.modes.indexOf("local2p") >= 0 && playCfg.format === "pro") playCfg.format = "blitz";
-  }
-
-  /* Dialogue des variantes — ouvert par la tuile « Fanorona » de l'étape 1.
-     `onDone` est l'avancee de l'assistant : elle n'existe que dans
-     `renderPlay`, d'ou l'appel `openVariantChooser(advance)`. */
-  function openVariantChooser(onDone) {
-    showModal(`
-      <h2>Quelle variante de Fanorona ?</h2>
-      <p class="m-sub">Trois plateaux, trois rythmes. Le choix vaut validation.</p>
-      <div class="pg-variants">
-        ${FANORON_VARIANTS.map((v) => `
-          <div class="pg-var ${playCfg.variant === v.id ? "on" : ""}" data-variant="${v.id}"
-               role="button" tabindex="0" aria-label="${v.name} — plateau ${v.board}">
-            <span class="pv-board">${pgBoardSvg(v.id)}</span>
-            <span class="pv-txt">
-              <b>${v.name}</b>
-              <small>${v.desc}</small>
-              <em>${v.board} · ${v.tag}</em>
-            </span>
-            <span class="pv-go" aria-hidden="true">→</span>
-          </div>`).join("")}
-      </div>
-      <div class="m-foot"><button class="btn ghost" onclick="App.closeModal()">Annuler</button></div>
-    `, "lg");
-    document.querySelectorAll("#modal .pg-var").forEach((c) => {
-      const pick = () => {
-        choisirVariante(c.dataset.variant);
-        closeModal();
-        if (typeof onDone === "function") onDone();
-      };
-      c.onclick = pick;
-      c.onkeydown = (e) => {
-        if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
-        e.preventDefault();
-        pick();
-      };
-    });
   }
 
   function renderPlay() {
-    /* Modes proposes : seulement ceux que la variante choisie sait tenir.
-       Le Tsivy garde le matchmaking et le defi ; Telo et Dimy se jouent en
-       local, donc « Deux joueurs, un ecran » n'apparait que pour eux. */
+    /* Re-rendre l'assistant DÉTACHE la partie embarquée au lieu de la détruire :
+       le minuteur de l'IA s'arrête (le contrôleur est démonté) mais la partie
+       reste dans `playLive`. Le récapitulatif de l'étape 04 reste donc
+       ATTEIGNABLE même quand une partie est conservée — c'est « Reprendre »
+       (`resumeGame`) et le routeur `#/play` qui remontent le plateau, jamais ce
+       rendu. Seuls « Nouvelle partie », un abandon (en ligne) ou la fin de la
+       partie effacent la partie. */
+    if (playLive) detacherLive();
+    /* Modes proposes : LA MEME LISTE pour les trois plateaux, et TOUS actifs.
+       Le socle heberge une session autoritaire par plateau : classe, defi et
+       entrainement partagent le meme matchmaking, le meme barème Elo et le
+       meme classement. Une tuile grisee resterait un mensonge, elle a disparu. */
     const ALL_MODES = [
       { id: "online", title: "Partie classée 1v1", desc: "Matchmaking automatique ±200 points Elo contre un vrai joueur connecté.", ic: PG_ICO.swords },
       { id: "defi", title: "Défi entre amis", desc: "Avec ou sans mise. Défi en ligne vers un joueur connecté.", ic: PG_ICO.users },
       { id: "ai", title: "Entraînement contre l'IA", desc: "Accessible sans KYC. Difficulté plafonnée — aucun impact Elo ni wallet.", ic: PG_ICO.cpu },
-      { id: "local2p", title: "Deux joueurs, un écran", desc: "À tour de rôle sur le même appareil. Aucune inscription, aucun Elo.", ic: PG_ICO.users },
     ];
     const variante = variantById(playCfg.variant);
-    const modes = ALL_MODES.filter((m) => variante.modes.indexOf(m.id) >= 0);
+    const modes = ALL_MODES.map((m) => ({ ...m, dispo: variante.modes.indexOf(m.id) >= 0 }));
+    /* Message d'une tuile desactivee : jamais de clic perdu sans explication. */
+    const modeIndispo = (m) => m.title + " — pas encore disponible sur " + variante.name + " (" + variante.board + ").";
     const fmtAllowed = (f) => playCfg.mode !== "online" || f.id !== "pro";
     const friends = S.onlineUsers.length ? S.onlineUsers : [{ id: 0, pseudo: "MamyLeo", online: true }, { id: 0, pseudo: "NirinaZ", online: true }];
     /* Titre avec dernier mot accentué (effet des maquettes desktop) */
     const accLast = (t) => { const p = t.split(" "); const l = p.pop(); return p.join(" ") + ' <span class="pg-acc">' + l + "</span>"; };
-    const curMode = modes.find((m) => m.id === playCfg.mode) || modes[0];
+    /* Le mode courant est toujours un mode TENU : une tuile desactivee ne peut
+       pas devenir l'etat de l'assistant (le recapitulatif et le CTA en dependent). */
+    const curMode = modes.find((m) => m.id === playCfg.mode && m.dispo) || modes.find((m) => m.dispo) || modes[0];
 
     /* --- Métadonnées des 4 étapes (eyebrow / titre / sous-titre / icône) --- */
     const META = [
@@ -9327,10 +9487,22 @@ const App = (() => {
 
     /* --- Contenu de l'étape courante --- */
     let opts = "";
-    if (playStep === 1) {
-      /* Le jeu disponible est CLIQUABLE : taper la tuile vaut « suivant ». Elle
-         était inerte (curseur par défaut, aucun binding) : l'écran semblait ne
-         pas répondre. Les tuiles « Bientôt » restent inertes (aria-disabled). */
+    if (playStep === 1 && playPlateau) {
+      /* Choix du PLATEAU — MÊME SCÈNE, MÊMES TUILES que la liste des jeux :
+         en-tête, icône, compteur, pastilles et bouton Règles sont inchangés,
+         seules les tuiles changent. La vignette du plateau tient la place de
+         l'icône (.po-ic.po-board), la pastille porte les dimensions. Le choix
+         vaut validation, comme partout dans l'assistant. */
+      opts = `<div class="pg-opts">${FANORON_VARIANTS.map((v) => `
+        <div class="pg-opt ${playCfg.variant === v.id ? "on" : ""}" data-variant="${v.id}" role="button" tabindex="0"
+             aria-label="${v.name} — plateau ${v.board}${playCfg.variant === v.id ? " (sélectionné)" : ""}">
+          <span class="po-ic po-board" aria-hidden="true">${pgBoardSvg(v.id)}</span>
+          <b>${v.name}</b><small>${v.desc}</small>
+          <span class="po-tag">${v.board}</span>
+        </div>`).join("")}</div>`;
+    } else if (playStep === 1) {
+      /* Le jeu disponible est CLIQUABLE : taper la tuile ouvre les plateaux
+         (sous-vue ci-dessus). Les tuiles « Bientôt » restent inertes. */
       opts = `<div class="pg-opts">${GAMES_CATALOG.map((g) => g.status === "mvp" ? `
         <div class="pg-opt on" data-game="${g.id}" role="button" tabindex="0"
              aria-label="${g.name} — choisir une variante">
@@ -9344,11 +9516,13 @@ const App = (() => {
           <span class="po-tag muted">Bientôt</span>
         </div>`).join("")}</div>`;
     } else if (playStep === 2) {
-      opts = `<div class="pg-opts">${modes.map((m) => `
-        <div class="pg-opt ${playCfg.mode === m.id ? "on" : ""}" data-mode="${m.id}" role="button" tabindex="0">
+      opts = `<div class="pg-opts pg-opts-modes">${modes.map((m) => `
+        <div class="pg-opt ${playCfg.mode === m.id ? "on" : ""} ${m.dispo ? "" : "off"}" data-mode="${m.id}" role="button" tabindex="0"
+             aria-disabled="${m.dispo ? "false" : "true"}"${m.dispo ? "" : ` title="${modeIndispo(m)}"`}>
           <span class="po-ic">${m.ic}</span>
           <b>${m.title}</b><small>${m.desc}</small>
-          ${playCfg.mode === m.id ? '<span class="po-tag">Sélectionné</span>' : ""}
+          ${playCfg.mode === m.id ? '<span class="po-tag">Sélectionné</span>'
+            : m.dispo ? "" : '<span class="po-tag muted">Bientôt</span>'}
         </div>`).join("")}</div>
         <div class="pg-defi ${playCfg.mode === "defi" ? "" : "hidden"}" id="defi-config">
           <div class="pd-field">
@@ -9410,13 +9584,15 @@ const App = (() => {
        Le CTA n'est donc rendu qu'à l'étape 4 et porte l'ACTION, pas « Suivant ». */
     const ctaLabel = playCfg.mode === "online" ? "Lancer le matchmaking"
       : playCfg.mode === "defi" ? "Envoyer le défi"
-      : playCfg.mode === "local2p" ? "Lancer la partie à deux"
       : playCfg.variant === "fanoron-tsivy" ? "Lancer l'entraînement"
       : "Lancer la partie";
 
-    /* --- Re-rendu simple (clic option) vs changement d'étape : mémo préalable --- */
+    /* --- Re-rendu simple (clic option) vs changement d'écran : mémo préalable ---
+       Changer de SOUS-VUE (liste des jeux ↔ plateaux) est un changement d'écran
+       même à étape constante : l'entrée de la scène se rejoue. Seul un re-rendu du
+       même contenu (mise, adversaire, format déjà choisi…) la saute. */
     const prevBody = document.querySelector("#play-root .pg-body");
-    const sameStep = _pgLastStep === playStep;
+    const sameStep = _pgLastStep === playStep && _pgLastPlateau === playPlateau;
     const keepScroll = prevBody ? prevBody.scrollTop : 0;
 
     /* --- Assemblage de la scène (structure des maquettes onboarding) --- */
@@ -9444,7 +9620,7 @@ const App = (() => {
             ${[1, 2, 3, 4].map((i) => `<button class="pg-dot ${playStep === i ? "active" : ""}" data-goto="${i}" ${i <= playStep ? "" : "disabled"} aria-label="Étape ${i}"></button>`).join("")}
           </div>
           <div class="pg-nav">
-            <button class="pg-arrow" id="pg-prev" ${playStep > 1 ? "" : "disabled"} aria-label="Retour">
+            <button class="pg-arrow" id="pg-prev" ${playStep > 1 || playPlateau ? "" : "disabled"} aria-label="${playPlateau ? "Revenir au choix du jeu" : "Retour"}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
             </button>
             ${playStep === 4 ? `<button class="pg-cta" id="pg-cta">${ctaLabel}</button>` : ""}
@@ -9459,12 +9635,13 @@ const App = (() => {
     }
     _pgLastCta = ctaLabel;
 
-    /* Même étape → pas d'entrée rejouée, scroll du centre conservé */
+    /* Même étape ET même sous-vue → pas d'entrée rejouée, scroll du centre conservé */
     const slideEl = document.querySelector("#play-root .pg-slide");
     if (slideEl && sameStep) slideEl.classList.add("pg-noanim");
     const bodyEl = document.querySelector("#play-root .pg-body");
     if (bodyEl && sameStep && keepScroll) bodyEl.scrollTop = keepScroll;
     _pgLastStep = playStep;
+    _pgLastPlateau = playPlateau;
 
     /* --- Bindings --- */
     /* Navigation : UN CHOIX VAUT « SUIVANT ». `advance()` est le seul chemin vers
@@ -9492,19 +9669,30 @@ const App = (() => {
       App.rulesModal();
     };
 
-    /* Étape 1 — taper la tuile du jeu ouvre le DIALOGUE DES VARIANTES : le
-       Fanorona se decline en trois plateaux, le joueur choisit avant de
+    /* Étape 1 — taper la tuile du jeu ouvre les PLATEAUX dans la même scène :
+       le Fanorona se décline en trois plateaux, le joueur choisit avant de
        poursuivre. Un jeu « Bientôt » reste inerte. */
     document.querySelectorAll("#play-root .pg-opt[data-game]").forEach((c) => bindTile(c, () => {
-      if (c.dataset.game === "fanorona") return openVariantChooser(advance);
+      if (c.dataset.game === "fanorona") { playPlateau = true; return renderPlay(); }
+      advance();
+    }));
+
+    /* Étape 1 (sous-vue) — taper un plateau vaut validation : on retient la
+       variante (le mode reste s'il tient sur ce plateau), puis on avance. */
+    document.querySelectorAll("#play-root .pg-opt[data-variant]").forEach((c) => bindTile(c, () => {
+      choisirVariante(c.dataset.variant);
+      playPlateau = false;
       advance();
     }));
 
     /* Étape 2 — mode. « En ligne » et « IA » avancent d'emblée ; « Défi » réclame un
        adversaire ET une mise, il affiche donc le formulaire et RESTE (la mise vaut
-       validation, voir plus bas). */
+       validation, voir plus bas). Une tuile que le plateau ne tient pas encore
+       n'avance pas : elle s'explique (même règle que le format Pro, étape 3). */
     document.querySelectorAll("#play-root .pg-opt[data-mode]").forEach((c) => bindTile(c, () => {
-      playCfg.mode = c.dataset.mode;
+      const m = modes.find((x) => x.id === c.dataset.mode);
+      if (!m || !m.dispo) return toast(modeIndispo(m || { title: c.dataset.mode }), "warn");
+      playCfg.mode = m.id;
       if (playCfg.mode === "online" && playCfg.format === "pro") playCfg.format = "blitz";
       if (playCfg.mode === "defi") return renderPlay();
       advance();
@@ -9578,12 +9766,250 @@ const App = (() => {
     const fs = document.getElementById("defi-friend");
     if (fs) { playCfg.friend = playCfg.friend || fs.value; fs.onchange = () => { playCfg.friend = fs.value; renderPlay(); }; }
     const prev = document.getElementById("pg-prev");
-    if (prev) prev.onclick = () => { playStep = Math.max(1, playStep - 1); renderPlay(); };
+    if (prev) prev.onclick = () => {
+      /* En sous-vue « plateaux », la flèche remonte d'abord à la liste des jeux. */
+      if (playStep === 1 && playPlateau) { playPlateau = false; return renderPlay(); }
+      playStep = Math.max(1, playStep - 1);
+      renderPlay();
+    };
     if (cta) cta.onclick = () => launchGame();
     document.querySelectorAll("#play-root .pg-dot[data-goto]").forEach((d) => d.onclick = () => {
       const target = parseInt(d.dataset.goto);
+      if (target === 1) playPlateau = false;   // la pastille 01 ramène à la liste des jeux
       if (target <= playStep) { playStep = target; renderPlay(); }
     });
+    /* L'écran vient de changer d'état : le bandeau « Reprendre » doit suivre
+       (une partie détachée le réclame, un récapitulatif sans partie l'efface). */
+    updateResumeBanner();
+  }
+
+  /* ---------- ÉTAPE 4 « EN JEU » : LA PARTIE RESTE DANS L'ASSISTANT ----------
+     Une variante locale (Dimy, Telo) ou une partie à deux ne quitte plus
+     l'écran : le plateau prend la place du récapitulatif, dans la MÊME carte
+     (en-tête 04/04, bouton Règles, bandeau bas). C'est `host` qui le décide :
+     VariantMatch monte son écran dans `#pg-live-slot` au lieu d'un overlay. */
+  function renderLive() {
+    const live = playLive;
+    if (!live) return renderPlay();
+    const v = variantById(live.game);
+    const modeTxt = live.mode === "online" ? "Partie classée"
+      : live.mode === "defi" ? "Défi entre amis"
+      : "Entraînement contre l'IA";
+    /* Partie finie : le bandeau de titre porte le RÉSULTAT (une partie locale ne
+       passe par aucune modale de fin — sans cette ligne, l'entraînement se
+       terminait sans que l'écran ne dise jamais qui avait gagné). */
+    const fini = !!(live.state && live.state.over);
+
+    document.getElementById("play-root").innerHTML = `
+      <div class="pg-shell pg-shell-live" data-step="4">
+        <div class="pg-top">
+          <span class="pg-count"><b>04</b> / 04</span>
+          <button class="pg-skip" id="pg-rules">Règles du Fanorona</button>
+        </div>
+        <div class="pg-body pg-body-live">
+          <div class="pg-live">
+            <div class="pg-live-head">
+              <b>${escHtml(v.name)}</b>
+              <small>${escHtml(fini ? resultatPartie(live) : v.board + " · " + modeTxt)}</small>
+            </div>
+            <div class="pg-live-slot" id="pg-live-slot"></div>
+          </div>
+        </div>
+        <div class="pg-bottom">
+          <div class="pg-dots">
+            ${[1, 2, 3, 4].map((i) => `<button class="pg-dot ${i === 4 ? "active" : ""}" data-goto="${i}" aria-label="Étape ${i}"></button>`).join("")}
+          </div>
+          <div class="pg-nav">
+            <button class="pg-arrow" id="pg-live-exit" aria-label="Quitter la partie">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+            <button class="pg-cta" id="pg-live-new">${live.remote ? "Abandonner" : "Nouvelle partie"}</button>
+          </div>
+        </div>
+      </div>`;
+
+    const slot = document.getElementById("pg-live-slot");
+    const ok = slot && VariantMatch.open({
+      game: live.game, mode: live.mode, me: live.me, host: slot,
+      /* Partie EN LIGNE : l'etat vient du serveur (autoritaire), le camp du
+         joueur aussi, et chaque coup repart par le canal WebSocket. */
+      remote: !!live.remote, mySide: live.mySide, state: live.state,
+      opponent: live.opponent,
+      /* L'apparence des pions du COMPTE : les variantes portent la même que le
+         plateau Tsivy. Celle de l'adversaire, en ligne, ne vient que de l'état
+         du serveur (voir `VariantMatch`) — jamais de ce client. */
+      pionStyles: S.pion.styles,
+      onMove: live.remote ? (m) => API.send({ type: "move", sessionId: live.sessionId, move: m }) : null,
+      /* L'état courant reste dans `playLive` — c'est lui qui permet de remonter
+         le plateau À L'IDENTIQUE après un changement d'écran, sans rejouer la
+         partie. Pour une partie LOCALE il part aussi sur l'appareil : c'est ce
+         qui la fait survivre à un rechargement (une partie finie efface la copie). */
+      onState: (st) => {
+        if (playLive !== live) return;
+        live.state = st;
+        if (!live.remote) retenirPartieLocale();
+      },
+    });
+    if (!ok) {
+      toast("Cette variante n'a pas pu être chargée.", "warn");
+      return quitterLive();
+    }
+    /* L'état de départ vit DANS l'écran : on l'adopte pour que la partie soit
+       reprenable dès le premier coup — et même avant, une partie ouverte et
+       laissée telle quelle doit revenir au rechargement. */
+    if (!live.state) live.state = VariantMatch.state();
+    /* Le plateau est monté POUR DE VRAI (cf. `estSurLEcranDeJeu`) : c'est ce
+       drapeau, et non la simple présence de `playLive`, qui dit au bandeau
+       « Reprendre » de s'effacer. `detacherLive()` le remet à null. */
+    live.ecran = "play";
+    if (!live.remote) retenirPartieLocale();
+
+    /* Les règles restent accessibles sans quitter la partie : même modale que
+       l'assistant, alimentée par le dossier du jeu. */
+    const rulesBtn = document.getElementById("pg-rules");
+    if (rulesBtn) rulesBtn.onclick = () => showModal(VariantMatch.rulesHtml(live.game), "lg");
+    const exit = document.getElementById("pg-live-exit");
+    /* En ligne, sortir EST un abandon : la session vit chez le serveur et
+       l'adversaire attend. On demande confirmation avant d'envoyer `resign`.
+       En local, sortir CONSERVE la partie (bandeau « Reprendre ») : rien ne
+       justifie de jeter un entraînement pour avoir ouvert l'assistant. */
+    if (exit) exit.onclick = () => (live.remote ? confirmerAbandon(live) : quitterPartieLocale());
+    /* « Nouvelle partie » remonte un plateau neuf : l'état est recréé par le
+       moteur, rien n'est remis à zéro à la main côté écran. Sans objet en
+       ligne (la partie appartient aux deux joueurs). */
+    const again = document.getElementById("pg-live-new");
+    if (again) again.onclick = live.remote
+      ? () => confirmerAbandon(live)
+      : () => { VariantMatch.close(); live.state = null; renderLive(); };
+    /* Les pastilles ramènent aux étapes précédentes : elles DÉTACHENT la partie
+       (elle reste dans `playLive`, donc reprenable) au lieu de la détruire. */
+    document.querySelectorAll("#play-root .pg-dot[data-goto]").forEach((d) => d.onclick = () => {
+      const target = parseInt(d.dataset.goto);
+      detacherLive();
+      playPlateau = false;
+      playStep = target;
+      renderPlay();
+    });
+
+    /* Recalage : un défilement hérité du parcours amputerait l'en-tête de la
+       carte (le plateau doit apparaître entier, compteur et Règles compris). */
+    window.scrollTo({ top: 0 });
+    /* Le plateau est sous les yeux : le bandeau « Reprendre » s'efface. */
+    updateResumeBanner();
+  }
+
+  /* Résultat d'une partie LOCALE, en clair. Le serveur n'a rien à en dire : elle
+     s'est jouée sur cet appareil. Camp 1 = le joueur, sauf en « deux joueurs »
+     où les camps sont nommés par leur couleur. */
+  function resultatPartie(live) {
+    const st = live && live.state;
+    if (!st || !st.over) return "";
+    const w = st.winner;
+    if (!w) return "Partie nulle.";
+    if (w === 1) return live.mode === "local2p" ? "Les Clairs gagnent." : "Vous gagnez.";
+    return live.mode === "local2p" ? "Les Sombres gagnent." : "L'IA gagne.";
+  }
+
+  /* Sortie d'une partie LOCALE : elle est CONSERVÉE, pas effacée. La flèche
+     ramène au RÉCAPITULATIF de l'étape 04 (« Lancer la partie » = une neuve), et
+     c'est le bandeau « Reprendre » qui ramène à celle-ci. Abandonner reste
+     possible — « Nouvelle partie » remet le plateau à zéro — et une partie
+     terminée n'est jamais retenue. */
+  function quitterPartieLocale() {
+    if (!playLive) return quitterLive();
+    detacherLive();
+    retenirPartieLocale();
+    playPlateau = false;
+    playStep = 4;
+    renderPlay();
+    toast("Partie conservée — « Reprendre » vous y ramène.", "ok");
+  }
+
+  /* Sortie de la partie embarquée : le contrôleur est démonté (minuteur de
+     l'IA compris), la partie est OUBLIÉE et la copie locale effacée. `redraw
+     === false` sert aux appelants qui vont rendre l'écran eux-mêmes. */
+  function quitterLive(redraw) {
+    if (typeof VariantMatch !== "undefined") VariantMatch.close();
+    playLive = null;
+    effacerPartieLocale();
+    _pgLastStep = 0;          /* la carte change de nature : on rejoue l'entrée */
+    _pgLastPlateau = null;
+    if (redraw !== false) renderPlay();
+  }
+
+  /* ---------- PARTIE DE VARIANTE EN LIGNE (serveur autoritaire) ----------
+     Dimy et Telo arrivent par le MÊME canal que le Tsivy : `game_start`,
+     `game_state`, `game_end`. Une REPRISE emprunte exactement ce chemin —
+     seul `naviguer` distingue « je démarre » (l'écran suit) de « je retiens
+     l'état trouvé à la reconnexion » (l'écran ne bouge pas). Le plateau, lui,
+     voyage dans `game` : le socle ne devine jamais le jeu. */
+  function startVariantServerGame(msg, naviguer) {
+    const state = msg.state || {};
+    const game = msg.game || state.game || playCfg.variant;
+    if (naviguer !== false && spectatingId) stopSpectating();
+    /* Le camp est PUBLIÉ par le serveur (`playerNum`) ; à défaut l'ÉTAT
+       tranche (player2.id) — après un rechargement, c'est la seule source. */
+    const mySide = msg.playerNum === 2 ? 2 : msg.playerNum === 1 ? 1
+      : (state.player2 && state.player2.id === S.id ? 2 : 1);
+    S.currentSession = msg.sessionId;
+    S.currentGame = game;
+    S.playerNum = mySide;
+    S.matchmaking = false;
+    S.pendingMatch = null;
+    playCfg.variant = game;
+    playLive = {
+      game, mode: msg.mode || state.mode || "online",
+      remote: true, sessionId: msg.sessionId, mySide,
+      me: { pseudo: S.pseudo, elo: S.elo },
+      opponent: msg.opponent || state.opponent || null,
+      state,
+    };
+    updateResumeBanner();
+    /* Adoption SILENCIEUSE : la partie est retenue (bandeau « Reprendre »),
+       l'écran du joueur ne change pas. */
+    if (naviguer === false) return;
+    playStep = 4;
+    playPlateau = false;
+    /* Si la carte est déjà à l'écran, le routeur ne rejouera pas : on rend ici.
+       Sinon `go("play")` déclenche le rendu de route, qui voit `playLive`. */
+    const dejaSurPlace = (location.hash.replace("#/", "") || "home").split("?")[0] === "play";
+    go("play");
+    if (dejaSurPlace) renderLive();
+  }
+
+  function onVariantServerState(msg, naviguer) {
+    const live = playLive;
+    const state = msg.state;
+    if (!state) return;
+    /* Session DÉJÀ suivie : l'état remplace le nôtre SANS naviguer. Une partie
+       qu'on a quittée de l'œil continue d'avancer (et « Reprendre » reste
+       proposé) au lieu de ramener le joueur de force sur le plateau. */
+    if (live && live.remote && live.sessionId === msg.sessionId) {
+      live.state = state;
+      if (typeof VariantMatch !== "undefined") VariantMatch.sync(state);
+      updateResumeBanner();
+      return;
+    }
+    startVariantServerGame({
+      sessionId: msg.sessionId, state,
+      game: msg.game || state.game, mode: state.mode,
+      opponent: state.opponent, playerNum: msg.playerNum,
+    }, naviguer);
+  }
+
+  /* Quitter une partie EN LIGNE n'est pas un geste anodin : l'adversaire attend
+     et le serveur tient la session. On confirme, puis c'est `resign` qui ferme
+     la partie — le résultat arrive par `game_end`. */
+  function confirmerAbandon(live) {
+    showModal(`
+      <h2>Abandonner la partie ?</h2>
+      <p class="m-sub">Votre adversaire gagne${live.mode === "defi" ? " et la mise engagée est perdue" : ""}.</p>
+      <div class="m-foot">
+        <button class="btn ghost" onclick="App.closeModal()">Continuer à jouer</button>
+        <button class="btn danger" id="live-resign">Abandonner</button>
+      </div>`, "", true);
+    const b = document.getElementById("live-resign");
+    if (b) b.onclick = () => { closeModal(); API.send({ type: "resign", sessionId: live.sessionId }); };
   }
 
   /* Le HUD « moi » du plateau est rempli en UN SEUL endroit : les trois flux qui
@@ -9619,24 +10045,24 @@ const App = (() => {
   }
 
   async function launchGame() {
-    /* Variantes locales (Telo, Dimy) et partie a deux sur un ecran : l'ecran
-       de variante prend la main. Aucune session serveur, aucun Elo, aucun
-       wallet — exactement ce que ces modes annoncent. */
-    if (playCfg.variant !== "fanoron-tsivy" || playCfg.mode === "local2p") {
-      if (spectatingId) stopSpectating();
-      const ok = VariantMatch.open({
-        game: playCfg.variant,
-        mode: playCfg.mode === "local2p" ? "local2p" : "ai",
-        me: { pseudo: S.pseudo, elo: S.elo },
-      });
-      if (!ok) toast("Cette variante n'a pas pu être chargée.", "warn");
-      return;
-    }
+    const variant = playCfg.variant;
+    const vdef = variantById(variant);
+
+    /* ENTRAINEMENT : la partie se joue EN LOCAL, contre l'IA du dossier de jeu.
+       Tsivy garde son plateau historique ; Dimy et Telo passent par l'ecran de
+       variante embarque (etape 4). Aucun Elo, aucun wallet — c'est annonce. */
     if (playCfg.mode === "ai") {
-      /* On ne peut pas jouer ET regarder : une partie d'entraînement met fin au
-         visionnage en cours (même règle que les parties classées, appliquée
-         dans startServerGame). */
+      /* On ne peut pas jouer ET regarder : une partie met fin au visionnage en
+         cours (même règle que les parties classées, appliquée dans startServerGame). */
       if (spectatingId) stopSpectating();
+      if (variant !== "fanoron-tsivy") {
+        /* La partie s'installe DANS l'assistant (étape 4), pas dans un écran à
+           part : le joueur garde son cadre, son compteur et son bouton Règles. */
+        playLive = { game: variant, mode: "ai", me: { pseudo: S.pseudo, elo: S.elo } };
+        playStep = 4;
+        renderLive();
+        return;
+      }
       Fanorona.start({ mode: "ai", formatId: playCfg.format, opponent: { pseudo: "IA — Antso", elo: Math.max(600, S.elo - 60), region: "Madagascar" }, wager: 0 });
       /* Le HUD affiche le joueur RÉEL, jamais les valeurs par défaut du balisage. */
       fillHudMe(S.pseudo, S.elo);
@@ -9646,6 +10072,9 @@ const App = (() => {
       openChooseSide({ mode: "ai", sessionId: null, meNum: _st.playerNum, opponent: { pseudo: "IA — Antso" } });
       return;
     }
+
+    /* DEFI : meme regle pour les trois plateaux. Le plateau choisi part AVEC le
+       defi ; a l acceptation, le serveur ouvre la session de CE plateau. */
     if (playCfg.mode === "defi") {
       const target = playCfg.friend || (S.onlineUsers[0] && S.onlineUsers[0].pseudo);
       if (!target) return toast("Sélectionnez un adversaire en ligne.", "warn");
@@ -9653,13 +10082,16 @@ const App = (() => {
       kycRequired(() => sendChallenge(target));
       return;
     }
-    // online matchmaking
+
+    /* PARTIE CLASSEE : une seule file par couple (plateau, format). Le serveur
+       tient la session autoritaire du plateau demande — meme matchmaking, meme
+       Elo, meme classement que le Tsivy, qui n a plus aucun privilege. */
     if (S.matchmaking) return toast("Recherche déjà en cours…", "warn");
     S.matchmaking = true;
-    API.send({ type: "find_match", format: playCfg.format, mode: "online" });
+    API.send({ type: "find_match", game: variant, format: playCfg.format, mode: "online" });
     showModal(`
       <h2>Recherche d'adversaire</h2>
-      <p class="m-sub">File classée — Fanorona · ${FORMATS.find((f) => f.id === playCfg.format).name}</p>
+      <p class="m-sub">File classée — ${escHtml(vdef.name)} · ${FORMATS.find((f) => f.id === playCfg.format).name}</p>
       <div class="mm-spinner"><div class="mm-orbit"><i></i><i></i><i></i></div>
       <p class="muted small">Recherche d'un joueur…</p></div>
       <div class="m-foot"><button class="btn ghost" id="mm-cancel">Annuler la recherche</button></div>
@@ -9673,7 +10105,7 @@ const App = (() => {
 
   function sendChallenge(target) {
     if (playCfg.wager < 500) return toast("Mise minimale : 500 Ar.", "warn");
-    API.send({ type: "send_challenge", toPseudo: target, wager: playCfg.wager, format: playCfg.format });
+    API.send({ type: "send_challenge", toPseudo: target, wager: playCfg.wager, format: playCfg.format, game: playCfg.variant });
     showModal(`
       <h2>Défi envoyé à ${target} 🤝</h2>
       <p class="m-sub">Expire dans 15 minutes sans réponse.</p>
@@ -9698,11 +10130,17 @@ const App = (() => {
   }
 
   /* ------------------ PLATEAU (serveur autoritaire) ------------------ */
-  function startServerGame(sessionId, playerNum, state, opponent, mode, format, wager) {
+  function startServerGame(sessionId, playerNum, state, opponent, mode, format, wager, game) {
+    /* Le PLATEAU décide de l'écran, et rien d'autre : le socle ne teste aucun
+       identifiant de jeu, il lit `screen` dans le catalogue. */
+    if (ecranDeJeu(game) !== "board") {
+      return startVariantServerGame({ sessionId, playerNum, state, opponent, mode, game });
+    }
     /* On ne peut pas jouer ET regarder : lancer sa propre partie met fin au
        visionnage en cours (sinon le plateau afficherait deux matchs). */
     if (spectatingId) stopSpectating();
     S.currentSession = sessionId;
+    S.currentGame = "fanoron-tsivy";
     S.playerNum = playerNum;
     go("board");
     updateResumeBanner();
@@ -9727,9 +10165,17 @@ const App = (() => {
     }
   }
 
-  function onServerGameState(msg) {
+  /* Un état Tsivy reçu du serveur. `naviguer === false` = adoption silencieuse
+     (reprise retrouvée à la reconnexion) : le plateau est repeint, mais aucune
+     modale ne s'ouvre par-dessus l'écran où se trouve le joueur. */
+  function onServerGameState(msg, naviguer) {
     if (!msg.state) return;
+    /* Une variante peut arriver par une reprise : l'état porte son plateau. */
+    const g = msg.game || msg.state.game || "fanoron-tsivy";
+    if (ecranDeJeu(g) !== "board") return onVariantServerState(msg, naviguer);
     const mode = msg.state.mode || "online";
+    S.currentSession = msg.sessionId;
+    S.currentGame = "fanoron-tsivy";
     Fanorona.applyServerState(msg.state, {
       mode: mode === "ai" ? "ai" : (mode === "defi" ? "defi" : "online"),
       opponent: msg.state.opponent,
@@ -9740,7 +10186,8 @@ const App = (() => {
         else API.send({ type: "move", sessionId: msg.sessionId, move: m });
       },
     });
-    if (_onStateChoice) _onStateChoice(msg.state);
+    if (naviguer !== false && _onStateChoice) _onStateChoice(msg.state);
+    updateResumeBanner();
   }
 
   /* Réagit aux transitions de phase (choix des faces → jeu) sur l'état serveur. */
@@ -9783,6 +10230,7 @@ const App = (() => {
     const delta = r.delta || 0;
     const gain = r.gain || 0;
     S.currentSession = null;
+    S.currentGame = null;
     S.matchmaking = false;
     if (Fanorona && Fanorona.quit) Fanorona.quit(); // purge le plateau local terminé
     updateResumeBanner();
@@ -9803,6 +10251,40 @@ const App = (() => {
       </div>
     `, "", false);
     document.getElementById("res-back").onclick = () => { closeModal(); go("play"); };
+    refreshAfterGame();
+  }
+
+  /* Fin d'une partie de VARIANTE en ligne. Même carte de résultat que le
+     Tsivy, avec deux différences factuelles : le plateau est nommé, et le
+     nombre de pions restants n'est pas ramené à un total de 22 (chaque plateau
+     a le sien : 45, 24, 6). La nulle est un résultat à part entière. */
+  function onVariantServerGameEnd(msg) {
+    const r = msg.result || {};
+    const draw = !!r.draw;
+    const won = !draw && r.winner === S.playerNum;
+    const gameId = r.game || (playLive && playLive.game);
+    S.currentSession = null;
+    S.currentGame = null;
+    S.matchmaking = false;
+    if (playLive && playLive.remote) quitterLive(false);
+    updateResumeBanner();
+    const v = variantById(gameId);
+    const reasonTxt = { alignement: "par alignement", capture: "par capture totale", abandon: "par abandon", temps: "au temps", blocage: "par blocage", nulle: "nulle" }[r.reason] || "";
+    const delta = r.delta || 0;
+    showModal(`
+      <div class="result-banner" style="position:relative;">
+        <div class="rb-ico">${draw ? "🤝" : won ? "🏆" : "💥"}</div>
+        <h2 style="color:${draw ? "var(--text-strong)" : won ? "var(--brand-2)" : "#ffb4b7"};">${draw ? "Partie nulle" : won ? "Victoire" : "Défaite"} ${reasonTxt}</h2>
+        <p class="muted small">${escHtml(v.name)} · ${r.mode === "ai" ? "Entraînement — aucun impact Elo ni wallet" : `contre ${escHtml(r.opponent || "")} · ${r.moves} coups`}</p>
+      </div>
+      <div class="result-stats">
+        <div class="stat-cell"><div class="v ${delta >= 0 ? "pos" : "neg"}">${r.mode === "ai" ? "—" : (delta >= 0 ? "+" : "") + delta}</div><div class="k">Points Elo</div></div>
+        <div class="stat-cell"><div class="v amber">${r.gain ? "+" + fmtAr(r.gain) : "—"}</div><div class="k">Gains</div></div>
+        <div class="stat-cell"><div class="v">${r.meLeft}</div><div class="k">Pions restants</div></div>
+      </div>
+      <div class="m-foot"><button class="btn" id="var-res-back">Retour aux jeux</button></div>
+    `, "", false);
+    document.getElementById("var-res-back").onclick = () => { closeModal(); go("play"); };
     refreshAfterGame();
   }
 
@@ -13394,12 +13876,35 @@ const App = (() => {
       S.matchmaking = false;
       S.pendingMatch = null;
       closeModal();
-      startServerGame(msg.sessionId, msg.playerNum, msg.state, msg.opponent, msg.mode, msg.format, msg.wager);
+      startServerGame(msg.sessionId, msg.playerNum, msg.state, msg.opponent, msg.mode, msg.format, msg.wager, msg.game);
     });
     API.on("game_state", (msg) => {
-      if (msg.sessionId === S.currentSession) onServerGameState(msg);
+      /* Le plateau voyage avec l'état : une partie de variante n'a pas à être
+         devinée à partir de ce que le client croyait lancer. */
+      const g = msg.game || (msg.state && msg.state.game) || "fanoron-tsivy";
+      const suivie = msg.sessionId === S.currentSession
+        || !!(playLive && playLive.remote && msg.sessionId === playLive.sessionId);
+      /* `S.currentSession` vide = le client a tout oublié (rechargement de
+         page) : le serveur vient de nous redire la partie qu'il tient. On
+         l'ADOPTE sans changer d'écran, et « Reprendre » devient possible. */
+      if (!suivie && S.currentSession) return;   // vieille session : ignorée
+      const naviguer = suivie;
+      if (ecranDeJeu(g) !== "board") return onVariantServerState(msg, naviguer);
+      if (!suivie) return retenirSession(msg);   // adoption silencieuse du Tsivy
+      onServerGameState(msg, naviguer);
     });
     API.on("game_end", (msg) => {
+      const g = msg.result && msg.result.game;
+      /* Le plateau du résultat décide de la carte de fin — même règle que pour
+         l'état, et même si `S.currentSession` a été perdu. */
+      if (ecranDeJeu(g) !== "board") {
+        /* Un `game_end` qui ne désigne PAS la partie suivie ne doit ni effacer
+           la session en cours ni afficher un résultat qui n'est pas le nôtre
+           (double onglet, trame rejouée). Sans session connue, on ne peut rien
+           affirmer : le serveur vient de nous parler de cette partie-là. */
+        if (S.currentSession && msg.sessionId !== S.currentSession) return;
+        return onVariantServerGameEnd(msg);
+      }
       if (msg.sessionId === S.currentSession) onServerGameEnd(msg);
     });
     API.on("matchmaking", (msg) => {
@@ -13438,6 +13943,7 @@ const App = (() => {
       S.defis = S.defis || [];
       S.defis.unshift({
         id: c.id, from: c.from, fromId: c.fromId || null, fromAvatar: c.fromAvatar || null, fromElo: c.fromElo, wager: c.wager, format: c.format,
+        game: c.game || "fanoron-tsivy",
         createdAt: c.createdAt || null, expiresAt: c.expiresAt || null,
       });
       toast(`Nouveau défi de ${c.from} (${c.wager ? fmtAr(c.wager) : "gratuit"}) !`, "warn");
@@ -13492,6 +13998,10 @@ const App = (() => {
       toast(msg.message || "Erreur", "error");
       // Un coup rejeté laisse G.busy à true côté client → débloquer le plateau immédiatement.
       if (Fanorona && Fanorona.unstuck) Fanorona.unstuck();
+      /* Partie de VARIANTE en ligne : un coup refusé a pu laisser l'affichage
+         optimiste en avance sur le serveur. On redemande l'état autoritaire —
+         le serveur reste seul juge, le plateau revient sur ce qu'il a accepté. */
+      if (playLive && playLive.remote) API.send({ type: "sync_game", sessionId: playLive.sessionId });
     });
     // À la (re)connexion WebSocket, resynchroniser l'état autoritaire pour éviter
     // que le client part d'un état périmé (désynchro → "je ne peux plus bouger").
@@ -13500,6 +14010,18 @@ const App = (() => {
       if (S.currentSession && API.isConnected()) {
         API.send({ type: "sync_game", sessionId: S.currentSession });
       }
+      /* Sans session connue (rechargement de page), rien à demander : le
+         serveur PUBLIE de lui-même la partie du joueur à l'authentification
+         (`findUserSession`), et le client l'adopte sans changer d'écran. */
+    });
+    /* Le serveur ne connaît plus la session (redémarrage, purge) : le bandeau
+       ne doit pas promettre une reprise impossible. Une partie LOCALE encore en
+       mémoire n'est pas concernée — elle n'a jamais eu de session serveur. */
+    API.on("no_active_game", () => {
+      if (playLive) return;
+      S.currentSession = null;
+      S.currentGame = null;
+      updateResumeBanner();
     });
     API.on("challenges_update", (msg) => {
       S.defis = (msg.challenges || []).map((c) => ({
@@ -14291,6 +14813,12 @@ const App = (() => {
     const raw = (location.hash.replace("#/", "") || "home");
     const [h, query] = raw.split("?");
     const r = ROUTES.includes(h) ? h : "home";
+    /* Le plateau embarqué n'existe que sur SON écran. Passer par l'historique
+       du navigateur (`hashchange` → `route`) court-circuite `go()` : sans ce
+       détachement, le minuteur de l'IA continuait de jouer hors écran et le
+       joueur retrouvait une position qui avait avancé sans lui. `playLive`
+       survit — la partie reste reprenable, comme après n'importe quelle sortie. */
+    if (r !== "play") detacherLive();
     document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === "screen-" + r));
     /* Plein écran : la classe n'est posée que sur les routes concernées (le CSS
        ne réagit de toute façon qu'au-dessus de 1081 px). L'écran de connexion
@@ -14308,7 +14836,7 @@ const App = (() => {
     if (mainTab && ti >= 0) mainTab.select(ti, true);
     // Profil d'un autre joueur : #/profile?id=<ID joueur>
     const viewId = query ? parseInt(new URLSearchParams(query).get("id")) : null;
-    const renderers = { home: renderHome, play: renderPlay, match: renderMatch, ranks: renderRanks, wallet: renderWallet, profile: viewId && viewId !== S.id ? () => renderPublicProfile(viewId) : async () => { await refreshUser(); await refreshMyTournaments(); renderProfile(); }, skins: async () => { await refreshSkins(); applyPionStyles(); renderSkins(); }, chat: renderChat, friends: renderFriends, notifications: renderNotifications, tournament: () => renderTournamentScreen(viewId), board: renderBoard };
+    const renderers = { home: renderHome, play: () => (playLive ? renderLive() : renderPlay()), match: renderMatch, ranks: renderRanks, wallet: renderWallet, profile: viewId && viewId !== S.id ? () => renderPublicProfile(viewId) : async () => { await refreshUser(); await refreshMyTournaments(); renderProfile(); }, skins: async () => { await refreshSkins(); applyPionStyles(); renderSkins(); }, chat: renderChat, friends: renderFriends, notifications: renderNotifications, tournament: () => renderTournamentScreen(viewId), board: renderBoard };
     renderers[r] && renderers[r]();
     /* Le VISIONNAGE SURVIT au changement d'onglet : c'est exactement ce qui rend
        le retour possible via le bouton « Reprendre ». Il se termine de deux
@@ -14569,6 +15097,9 @@ const App = (() => {
     setupWebSocket();
     updateTopbar();
     applySkins();
+    /* Une partie d'entraînement laissée ouverte avant le rechargement revient
+       ici (copie locale) : le bandeau « Reprendre » la remet en place. */
+    relirePartieLocale();
     route();
     updateResumeBanner();
     renderChatDock();

@@ -57,7 +57,8 @@ Position de depart (1 = clairs, 2 = sombres, 0 = vide) :
 
 - engine.js  : createState, legalMoves, isLegal, applyMove, status, key, clone
 - ai.js      : chooseMove(state, { level, budgetMs, rng })
-- board.js   : geometrie + rendu SVG, aucune regle
+- board.js   : geometrie (5 x 5, diagonales des points forts) et rendu par
+               `games/fanorona-board.js`, aucune regle
 - ui.js      : interaction (selection, validation, onMove), aucune regle
 - test.js    : harnais autonome (node test.js)
 - manifest.json : identite et capacites du jeu

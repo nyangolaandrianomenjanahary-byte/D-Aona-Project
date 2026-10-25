@@ -64,6 +64,17 @@ for (const slug of dirs(SRV_GAMES)) {
   const absent = WEB_REQUIRED.filter((f) => !fs.existsSync(path.join(dir, f)));
   if (absent.length) debt.push("d-aona-server/games/" + slug + " : encore sans " + absent.join(", "));
 }
+/* DOSSIER <-> REGISTRE : ajouter un plateau, c'est un dossier ET une ligne
+   dans registry.js. Un dossier present mais non enregistre ne serait jamais
+   jouable (aucune erreur, aucun ecran) : on verifie les deux sens. */
+const Registry = require(path.join(SRV_GAMES, "registry.js"));
+for (const slug of dirs(SRV_GAMES)) {
+  check(slug + " : enregistre dans le registre", Registry.has(slug), "registry.js");
+}
+for (const id of Registry.ids()) {
+  check(id + " : dossier de jeu present", fs.existsSync(path.join(SRV_GAMES, id)), id);
+}
+
 
 section("Socle");
 const facade = path.join(__dirname, "..", "game.js");
@@ -72,6 +83,36 @@ const srv = path.join(__dirname, "..", "server.js");
 if (lines(srv) > 250) debt.push("server.js : " + lines(srv) + " lignes (objectif < 250)");
 const shell = path.join(ROOT, "D-aona", "d-aona-web", "index.html");
 if (fs.existsSync(shell) && lines(shell) > 200) debt.push("index.html : " + lines(shell) + " lignes (objectif < 200)");
+
+section("Reprise (obligatoire pour tout plateau, present et futur)");
+/* Deux verrous, un par CÔTÉ du fil :
+   - serveur : chaque session de jeu déclare son plateau et le publie dans son
+     état — c'est ce que `game_state` transmet, donc ce qui permet au client de
+     repeindre le bon plateau après un rechargement ;
+   - interface : chaque entrée du catalogue déclare `screen`, l'écran où sa
+     partie se joue. C'est la SEULE ligne que la reprise demande à un jeu. */
+for (const slug of dirs(SRV_GAMES)) {
+  const sess = path.join(SRV_GAMES, slug, "session.js");
+  if (!fs.existsSync(sess)) continue;
+  const src = fs.readFileSync(sess, "utf8");
+  check(slug + " : la session declare son plateau", src.includes('this.game = "' + slug + '"'), "this.game");
+  check(slug + " : l etat publie le plateau", /game:\s*this\.game/.test(src), "getState().game");
+}
+const shellPath = path.join(ROOT, "D-aona", "d-aona-web", "index.html");
+if (fs.existsSync(shellPath)) {
+  const src = fs.readFileSync(shellPath, "utf8");
+  const block = src.match(/const FANORON_VARIANTS = \[([\s\S]*?)\n\];/);
+  check("catalogue des plateaux lisible", !!block, "FANORON_VARIANTS");
+  if (block) {
+    const entries = block[1].split(/\},\s*\n?\s*\{/);
+    for (const entry of entries) {
+      const id = (entry.match(/id:\s*"([^"]+)"/) || [])[1];
+      if (!id) continue;
+      const screen = (entry.match(/screen:\s*"([^"]+)"/) || [])[1];
+      check(id + " : ecran de jeu declare (screen)", screen === "board" || screen === "play", "screen=" + screen);
+    }
+  }
+}
 
 if (debt.length) {
   console.log("\nDETTE CONNUE (non bloquante, ordre de traitement dans PLAN-REFONTE.md) :");

@@ -9,6 +9,7 @@ const {
 
 class GameSession {
   constructor(sessionId, player1, player2, mode, format, wager) {
+    this.game = "fanoron-tsivy";
     this.sessionId = sessionId;
     this.player1 = player1;
     this.player2 = player2;
@@ -131,10 +132,16 @@ class GameSession {
 
   tickClock() {
     if (this.over) return null;
-    this.clock[this.turn] = Math.max(0, this.clock[this.turn] - 1);
-    if (this.clock[this.turn] === 0) {
+    /* Pendant le CHOIX DES FACES, `this.turn` n'est pas encore attribué : le
+       temps ne court pas (règle du tirage). Sans ce garde-fou, l'horloge se
+       dotait d'une clé parasite (`clock["null"] = NaN`) — et l'état publié sert
+       à REPRENDRE une partie, il doit rester propre. */
+    const p = this.turn === 1 || this.turn === 2 ? this.turn : 0;
+    if (!p) return null;
+    this.clock[p] = Math.max(0, this.clock[p] - 1);
+    if (this.clock[p] === 0) {
       this.over = true;
-      return { gameOver: true, winner: this.turn === 1 ? 2 : 1, reason: "temps" };
+      return { gameOver: true, winner: p === 1 ? 2 : 1, reason: "temps" };
     }
     return null;
   }
@@ -147,9 +154,19 @@ class GameSession {
     return { winnerId: winner === 1 ? this.player1.id : this.player2.id, delta1: d1, delta2: d2 };
   }
 
+  /* Pions restants d un camp. Meme methode que les sessions des variantes
+     (Dimy, Telo) : le socle lit ce chiffre sans savoir quel plateau il tient. */
+  piecesLeft(side) {
+    return countPieces(this.grid, side);
+  }
+
   getState() {
     return {
-      grid: this.grid,
+      game: this.game,
+      /* Copie DEFENSIVE du plateau : `getState` est un instantané public (il
+         part sur le reseau, et le socle le stocke en base). Exposer la
+         reference interne laisserait un consommateur corrompre la partie. */
+      grid: this.grid.map((row) => row.slice()),
       turn: this.turn,
       chain: this.chain ? {
         pos: [...this.chain.pos],

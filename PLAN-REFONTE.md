@@ -33,7 +33,7 @@ verification obligatoire apres chaque lot.
 | T6 | Dossier Telo autonome | VERT | 7 fichiers, node test.js : TOUS LES TESTS PASSENT |
 | T7 | Dossier Dimy | VERT | 7 fichiers, node test.js : 85/85 ; dialogue des variantes + partie 5x5 verifies en navigateur (sonde) |
 | T8 | Docs + garde-fou structurel | VERT | ARCHITECTURE.md + test/structure.js : bloque un dossier de jeu non conforme, liste la dette de taille |
-| T9 | Entree par variante dans l assistant | VERT | clic Fanorona -> dialogue 3 plateaux ; modes filtres par variante ; Telo et Dimy jouables (IA + 2 joueurs) ; Tsivy inchange |
+| T9 | Entree par variante dans l assistant | VERT | clic Fanorona -> dialogue 3 plateaux ; modes filtres par variante ; Telo et Dimy jouables DANS la carte de l etape 4 (IA + 2 joueurs, aucun ecran a part) ; Tsivy inchange |
 
 ## Contrats geles
 
@@ -95,6 +95,10 @@ strict et rend un rapport Portee / Objectifs / Preuves / Ecarts / Non-verifie / 
 - T9 : les vignettes de plateau du dialogue n affichent pas les diagonales
   (illisibles a 58 px). La geometrie complete reste dans board.js et sur le
   plateau joue ; c est un choix d affichage, pas une simplification du jeu.
+- T9 : la partie ne s ouvre plus dans un ecran a part — `VariantMatch.open`
+  recoit un `host` et s embarque a l etape 4 de la carte. L overlay plein
+  cadre reste dans le module (sans `host`) mais plus aucun appel ne l utilise :
+  a supprimer si le besoin ne revient pas.
 
 ## Reste a faire, dans l ordre
 

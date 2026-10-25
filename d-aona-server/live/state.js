@@ -7,7 +7,10 @@ const connections = new Map();     // ws -> { userId, pseudo }
 const userSockets = new Map();     // userId -> ws
 const sessions = new Map();        // sessionId -> GameSession (engine)
 const spectators = new Map();      // sessionId -> Set<userId>
-const disconnectTimers = new Map();// userId -> { timer, sessionId }
+/* UN delai par PARTIE en cours : la cle porte le joueur ET la session
+   (`<userId>|<sessionId>`). Avec un seul delai par joueur, une deuxieme partie
+   vivante n'etait jamais abandonnee et restait figee pour toujours. */
+const disconnectTimers = new Map();// "userId|sessionId" -> { timer, sessionId, userId }
 const pendingMatches = new Map();  // cle -> { p1, p2, p1Ready, p2Ready, format, game }
 const aiTimers = new Map();        // sessionId -> timer
 /* Files d attente : cle "<jeu>/<format>". Aucune cle n est pre-creee : une file

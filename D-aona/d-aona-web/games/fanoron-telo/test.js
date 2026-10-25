@@ -383,9 +383,23 @@ const Board = require("./board.js");
 const UI = require("./ui.js");
 
 check("8 lignes gagnantes de 3 cases", Board.LINES.length === 8 && Board.LINES.every((l) => l.length === 3));
+/* Le treillis grave est EXACTEMENT l adjacence du moteur : 12 orthogonales
+   + 4 demi-diagonales (0-4, 4-8, 2-4, 4-6). Une diagonale fantome (1-3, 1-5,
+   3-7, 5-7) serait une ligne que le plateau ne permet pas de suivre. */
+const arete = (a, b) => (a < b ? a + "-" + b : b + "-" + a);
+const gravees = new Set(Board.SEGMENTS.map((s) => arete(s[0], s[1])));
+const jouables = new Set();
+E.ADJ.forEach((voisins, i) => voisins.forEach((j) => jouables.add(arete(i, j))));
+check("le treillis grave EST l adjacence du moteur",
+  Board.SEGMENTS.length === 16 && gravees.size === jouables.size
+  && [...jouables].every((k) => gravees.has(k)), Board.SEGMENTS.length + " segments");
+const c4 = Board.cellRect(4, 300, 300, 10);
 check("geometrie : case 0 en haut a gauche, case 4 au centre",
-  Board.hitTest(12, 12, 300, 300, 10) === 0 && Board.cellRect(4, 300, 300, 10).x > 100);
-check("un clic dans la gouttiere ne touche aucune case", Board.hitTest(0, 0, 300, 300, 10) === null);
+  Board.hitTest(12, 12, 300, 300, 10) === 0
+  && Math.abs(c4.x + c4.w / 2 - 150) < 1 && Math.abs(c4.y + c4.h / 2 - 150) < 1);
+check("viser le milieu d une maille atteint toujours une intersection",
+  Board.hitTest(0, 0, 300, 300, 10) === 0 && Board.hitTest(299, 299, 300, 300, 10) === 8);
+check("un clic hors du plateau ne touche rien", Board.hitTest(-1, 150, 300, 300, 10) === null);
 
 {
   const stub = { render: () => null };
