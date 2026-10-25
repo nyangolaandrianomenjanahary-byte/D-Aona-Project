@@ -58,7 +58,16 @@ d-aona-server/_*.js
 d-aona-server/tools/
 d-aona-server/_*.err
 d-aona-server/_*.py
+d-aona-server/_*.out
+d-aona-server/_*.cmd
+d-aona-server/__pycache__/
+# Captures des sondes (`tools/_vm_shots.js`, `_variantes_verif.js`...) : des
+# images de contrôle, jamais du code ni un asset de l'application.
+d-aona-server/_shots/
 d-aona-server/test_ui_scenarios.fixed.js
+# Entrée de `_squarify_board.py` : la plaque AVANT mise d'équerre, copie de
+# l'asset versionné (2,3 Mo). Jamais versionnée, mais gardée pour rejouer l'outil.
+d-aona-server/_plateau_source.png
 
 # Brouillons racine et artefacts d'outillage local (jamais du code de l'app)
 tasks/

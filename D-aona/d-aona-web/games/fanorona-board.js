@@ -46,6 +46,12 @@
   const PAWN_RATIO = 0.57;
   const CELL_RATIO = 1;    // cote de la cible : les mailles se touchent
 
+  /* Plaques photo DEJA chargees (URL -> vrai). Un coup redessine tout le
+     plateau : sans ce memo, chaque clic recreerait une <img> et rejouerait le
+     fondu vectoriel -> photo. On ne le fait donc qu une fois par URL ; les
+     rendus suivants allument `has-art` d emblee, donc sans transition. */
+  const PLATES_OK = {};
+
   const el = (name, attrs) => {
     const n = document.createElementNS(SVG, name);
     for (const k in attrs) n.setAttribute(k, String(attrs[k]));
@@ -138,6 +144,7 @@
          last      cases du dernier coup (anneau)
          caps      cases prises au dernier coup
          winLine   alignement gagnant (Telo), trace d un trait
+         plate     URL d une photo de plaque carree (fond peint sous le treillis)
        Retourne les boutons de case (pratique pour les tests d integration).
        ------------------------------------------------------------------- */
     function render(host, view) {
@@ -160,6 +167,46 @@
       const plate = document.createElement("div");
       plate.className = "plate fp-plate";
       plate.style.setProperty("--fp-step-n", (100 / STEP).toFixed(4));
+
+      /* LA VRAIE PLAQUE (optionnelle) : `plate` est l URL d une photo de plaque
+         recadree carree, bande gravee comprise. On la pose en PREMIER enfant du
+         parent, donc SOUS tout le reste (champ, treillis, pions) : c est un fond
+         peint, jamais un element d interface. Sans `plate`, aucune classe et
+         aucune balise : le plateau garde exactement l habillage vectoriel.
+         La bascule se fait au CHARGEMENT de l image, jamais a l insertion :
+         `has-art` rend le champ transparent, donc s il tombait avant le `load`
+         on verrait, le temps du decodage, le `background-color` clair de la
+         plaque A TRAVERS le champ — un champ clair fugace. En attendant le
+         `load`, la frise et le degrade peints restent en place ; le fondu CSS
+         de `.fp-plate-art` masque la substitution. Et si l image echoue, on
+         retire la balise : on retombe sur l etat d aujourd hui, a l identique. */
+      if (v.plate) {
+        const art = document.createElement("img");
+        art.className = "fp-plate-art";
+        /* Decorative : le sens du plateau est porte par les boutons de case. */
+        art.setAttribute("alt", "");
+        art.setAttribute("aria-hidden", "true");
+        art.setAttribute("decoding", "async");
+        art.setAttribute("draggable", "false");
+        /* Les deux ecouteurs sont poses AVANT `src`, sinon un echec immediat
+           (asset absent, 404) ou un chargement depuis le cache pourrait se
+           produire avant qu on ecoute. */
+        const url = String(v.plate);
+        /* Deja vue : on ne rejoue pas la substitution, on l affiche d emblee
+           (la classe est posee avant l insertion, donc opacity vaut 1 des la
+           premiere mise en forme : aucune transition). */
+        if (PLATES_OK[url]) plate.classList.add("has-art");
+        art.addEventListener("load", () => {
+          PLATES_OK[url] = true;
+          plate.classList.add("has-art");
+        });
+        art.addEventListener("error", () => {
+          plate.classList.remove("has-art");
+          if (art.parentNode) art.parentNode.removeChild(art);
+        });
+        art.src = url;
+        plate.appendChild(art);
+      }
 
       const wrap = document.createElement("div");
       wrap.className = "board fp-board";
@@ -247,6 +294,10 @@
         let cls = "cell fp-cell " + prefix + "-cell";
         if (v.selected === i) cls += " fp-sel " + prefix + "-sel";
         if (win && win.indexOf(i) >= 0) cls += " fp-win " + prefix + "-win";
+        /* Aides au deplacement : `hints` liste les arrivees legales du pion
+           selectionne (ou les intersections libres, en phase de pose). La
+           decision reste au module de jeu — le plateau ne fait que la peindre. */
+        if (v.hints && v.hints.indexOf(i) >= 0) cls += " fp-hint";
         b.className = cls;
         b.dataset.cell = String(i);
         if (val === 1 || val === 2) b.dataset.pawn = String(val);

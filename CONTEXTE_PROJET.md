@@ -125,6 +125,347 @@
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
 
+## 2026-10-25 — Dimy et Telo à taille utile : la plaque grandit, la carte ne défile plus, les aides peignent enfin (entrée MANUELLE)
+
+**Demande.** Le plateau des variantes était **petit** et **coupé en bas** : la carte de
+l'assistant défilait. Trois exigences ensemble — agrandir la plaque, supprimer le
+**liseré clair** entre le champ et la bande gravée, et que l'écran tienne dans la carte
+**sans perdre une information** du plateau Tsivy.
+
+**Ce que la mesure a établi (1440 × 900).** Corps de carte **578 px**, contenu **725** :
+**147 px de défilement**. Le coupable n'était pas la plaque (416 px, qui tenait) mais la
+**colonne latérale : 528 px** — trois blocs de 102 + 189 + 216. Sonda `tools/_vm_metrics.js`
+(base jetable, serveur local, quatre tailles d'écran), qui liste désormais chaque enfant de
+`.vm-shell` **et** de `.vm-side` avec sa position, sa hauteur et son `scrollHeight`.
+
+**Réalisation — 147 px rendus, sans rien retirer d'utile.**
+(1) **`hidden` ne cachait rien** : `.vm-acts .btn` impose `display`, donc « Nouvelle partie »
+restait affichée dans le panneau alors que la barre du bas la porte déjà — **37 px**.
+Corrigé par `.vm-shell .btn[hidden] { display: none; }`.
+(2) Le panneau **« repères » était un doublon exact** : la modale Règles de la carte rend
+`VariantMatch.rulesHtml(id)`, c'est-à-dire les **mêmes** `def.rules`. Masqué dans la coquille
+embarquée seulement (`#vm-rules-panel`) — **216 px** — et l'information reste à un clic, à
+l'identique. La coquille plein écran, elle, garde son panneau.
+(3) La **référence de partie** (« Fanoron-Dimy · 5 × 5 · Entraînement contre l'IA ») était
+centrée sur sa propre ligne du corps : elle remonte dans la **barre haute**, entre `04 / 04`
+et « Règles du Fanorona », où la place était vide — **31 px**.
+(4) Gouttières du bandeau de tour et des sièges ramenées de 9 à 7 px — **8 px**.
+(5) L'unité du rapport de force (« pions sur le plateau ») passe **dans le titre** au lieu
+de flotter sur une ligne à part, détachée du nombre qu'elle qualifie — **18 px**.
+Résultat : panneau **528 → 240 px**, contenu de carte **725 → 578**. **Aucun défilement** à
+1440 × 900 (578/578) ni à 1366 × 768 (446/446) ; plateau 416 px et 284 px, bas de plaque
+toujours **au-dessus** du bas du corps.
+
+**Mobile.** Les sièges passent en **trois zones** (nom + pendule en première ligne, camp ·
+Elo · pions en seconde, **pleine largeur**) : 97 → 59 px, et le nom n'est plus tronqué en
+« Fano… ». La pastille d'initiales, décorative, cède la place (le pion de couleur collé au nom
+dit déjà le camp). Le sous-titre passe sur **deux lignes** plutôt que d'être tronqué — la
+troncature mangeait justement le **nombre de pions**. Enfin la borne de hauteur
+`calc(100dvh - 484px)` est **réservée aux deux colonnes** (`min-width: 861px`) : empilé, le
+corps de carte défile de toute façon, et cette borne réduisait la plaque à **156 px** sur un
+360 × 640 (maille de 27 px, cibles tactiles sous les 44 px) ; elle mesure maintenant **302 px**
+à cette taille et **332 px** à 390 × 844.
+
+**Bug de fond corrigé — les aides ne peignaient rien.** `variant-match.js` calculait bien les
+arrivées légales (`hintsFor`) et les passait à `ctl.draw`, mais **aucun** des deux `board.js`
+ne les transmettait à `G.render` : la bascule « Aides au déplacement » changeait son libellé
+ON/OFF sans rien dessiner. Une ligne dans chaque module ; vérifié en cliquant un pion —
+**1 pastille** au Dimy (une seule arrivée libre) et **7** au Telo en phase de pose.
+
+**Liseré clair et plaque carrée.** Le détourage du liseré n'est appliqué **qu'à**
+`plateau_square.webp` (Dimy, Telo) : la sonde de verticales gravées (`_fp_verticals.py`,
+9 verticales, bande 205–290, aucun pion) montre un décalage de **−27 … +23 px** quand on
+l'applique à la plaque **du Tsivy**, contre **≤ 5 px** sur l'originale — la gravure du Tsivy
+se désynchronise des positions de pions. `plateau_clean.png/.webp` ont été **remis** à l'état
+de l'index. Commentaires corrigés : bande **55 px / 864 = 6,37 %** (et non 67 px / 7,77 %).
+
+**Vérification.** `node tools/_vm_metrics.js` → 4 tailles, verdict par écran ; `node
+tools/_variantes_verif.js` → **TOUT PASSE** (inscription, trois plateaux, prise, règles sans
+quitter la partie, nouvelle partie, Tsivy, aucune erreur JS) ; `npm test` → **7 suites**
+(53 vérifications d'authentification, 85/85 Dimy, Telo, structure, variantes…) ;
+`node tools/_check_html.js` (balises équilibrées, script compilé) ; `node --check` sur
+`variant-match.js`, `fanorona-board.js` et les deux `board.js`. Captures de contrôle :
+`desk-dimy`, `desk-telo`, `desk-aides`, `desk-aides-telo`, `mob-dimy-top`, `mob-seats`,
+`mob-panel`, `small-dimy` (`tools/_vm_shots.js`, rendu à l'échelle 2 pour les zooms).
+
+**Limite assumée.** Sur un écran de **640 px de haut**, le corps de carte ne fait que 270 px :
+la plaque (302 px) **défile** dans la carte. C'est un choix mesuré — la réduire à ~150 px
+rendrait les intersections intouchables (maille de 27 px). Aucune découpe : le corps de carte
+est un conteneur défilant, la plaque entière reste atteignable.
+
+**Fichiers.** *Ajouté :* `D-aona/d-aona-web/assets/board/plateau_square.webp` (plaque carrée
+sans liseré). *Modifiés :* `D-aona/d-aona-web/index.html` (barre haute + référence de partie,
+`.pg-skip` insécable, sièges mobiles en grille, `hidden` des boutons, panneau latéral,
+`.vm-force-unit`, bornes de la plaque), `variant-match.js` (rapport de force, référence),
+`games/fanoron-dimy/board.js` et `games/fanoron-telo/board.js` (transmission de `hints` et
+commentaires de bande), ce journal. *Sondes jetables* (non versionnées, convention `tools/_*`) :
+`tools/_vm_metrics.js`, `tools/_vm_shots.js`, `_fp_*.py`.
+
+## 2026-10-25 — Les coins redeviennent arrondis : l'asset d'origine pour le Tsivy, 11,8 % pour les plaques carrées (entrée MANUELLE)
+
+**Demande.** « Remets les coins arrondis sur tous les plateaux. » Les trois plateaux
+avaient été mis d'équerre à la session précédente (« Le plateau ne doit pas avoir de
+coins arrondis ») : le Tsivy par reconstruction de l'asset (`_squarify_board.py`),
+le Dimy et le Telo par la plaque carrée `plateau_square.webp` — carrée jusque dans ses
+quatre coins. La demande est **annulée** : retour à l'arrondi, sans toucher à la
+géométrie, au pas, aux pions, ni à la taille des plateaux.
+
+**Ce que la mesure a corrigé dans le plan.** La mise d'équerre n'était pas un travail
+non commité : elle est **dans `4d0b621`** (« Retour terrain (8 demandes) »), et la
+plaque arrondie d'origine est au commit **`ce3297c`** — celui-là même dont
+`_squarify_board.py` se sert comme source. Un `git checkout HEAD --` sur les deux
+assets ne restitue donc **rien** (il réinstalle la version carrée) : la sonde
+indépendante l'a dit tout de suite (« 0/4 coins ont un arc »). La restauration se fait
+depuis `ce3297c`.
+
+**Tsivy — l'arrondi est GRAVÉ, le CSS n'y touche pas.** Les deux assets
+(`plateau_clean.png` et `.webp`) sont restaurés à l'identique de `ce3297c` :
+**190,42 / 191,44 / 176,38 / 175,26 px** de rayon aux quatre coins (ajustement
+circulaire de l'alpha, **RMS 0,20 / 0,38 / 0,22 / 0,23 px**), arêtes du bois à
+**16,50 / 1628,50 / 18,50 / 916,50 px**, **163 970 px** d'alpha < 250. Le `.webp`
+donne exactement les mêmes chiffres (sans perte). Poids : PNG **2 368 523 o**,
+WebP **1 466 824 o** — soit **11,9 Ko de MOINS** que la version carrée
+(1 479 556 o) : l'arrondi se comprime mieux que le rectangle plein. Côté CSS,
+`.screen-board` **reste à `border-radius: 0`** : le rayon est dans l'image, un rayon
+CSS en ajouterait un second, à l'intérieur du premier, avec la marge transparente de
+l'asset (16,5 / 16,9 / 18,5 / 37,5 px) visible entre les deux. Seul le commentaire
+change (il décrivait la mise d'équerre).
+
+
+**Dimy / Telo — l'arrondi en CSS, en PROPORTION.** `.fp-plate` reçoit
+`border-radius: 11.8%` et `overflow: hidden` (`overflow` est indispensable :
+`border-radius` seul ne rogne pas `.fp-plate-art`, enfant absolu en `inset: 0`).
+**11,8 %** n'est pas un chiffre de goût : c'est le rayon du Tsivy rapporté à sa largeur
+de bois — **190 px / 1613 px = 11,8 %** — pour que les trois plateaux se lisent au même
+arrondi à toute taille d'écran. C'est un **pourcentage**, jamais un jeton `--r-*` (les
+jetons sont en px, pour des surfaces d'UI fixes) : rayon effectif mesuré **51 px** à
+432 (desktop), **34,8 px** à 295 (téléphone), **25,5 px** à 216 (Telo). Le champ
+`.fp-board` est en retrait de 7,77 % : son coin le plus proche est à **49 px** du centre
+de l'arc pour un rayon de 51 — il n'est jamais mordu, et aucun pion ne l'est non plus.
+
+**Preuves (toutes sur le fichier livré, pas sur l'intention).**
+1) **Asset** — sonde indépendante `python d-aona-server/_chk_coins_plateau.py` :
+quatre arcs ajustés (chiffres ci-dessus), PNG et WebP identiques, verdict
+« coins arrondis OUI » ; lancée sur `4d0b621` elle répond « 0/4 coins ont un arc », ce
+qui prouve que la mesure discrimine bien les deux états.
+2) **DOM** — `node d-aona-server/tools/_fp_coins_check.js` (12 cas : 3 plateaux ×
+2 largeurs × 2 thèmes, DPR 2) : `.fp-plate` → `11.8%`, `overflow: hidden`,
+`has-art` posée, image **864 × 864** réellement chargée ; **`pionsHors.max = 0`** sur
+les 25 pions du Dimy et les 3 du Telo (équerrage des 4 coins de chaque pion contre la
+forme arrondie), **`champHors.max = 0`** ; `.screen-board` → `border-radius: 0px`,
+`plateau_clean.webp` **1647 × 955** chargée.
+3) **Pixels** — `python d-aona-server/_chk_coins_ecran.py` sur les 12 captures : dans un
+coin arrondi, le premier pixel de bois sur la diagonale tombe à `marge + 0,293 R`, soit
+**3,5 % à 4,4 %** de la largeur ; un coin carré le donnerait à 0-2 %. Mesuré :
+**3,24-3,70 %** (Dimy/Telo) et **4,57-4,93 %** (Tsivy) sur les **12/12** captures, dans
+les deux thèmes.
+4) **Feuille de style** — `node tools/_shape_scan.js --check` : **aucune déclaration
+malformée** ; `--no-var` inventorie bien `.fp-plate 11.8%`, `.screen-board 0`,
+`.fp-board 0` ; `node tools/_shapes_apply.js` : **0 remplacement** (la table ne touche
+que les valeurs `\d+px`, donc ni `0` ni `11.8%`).
+5) **Suite du dépôt** — `npm test` : **7 suites, code retour 0**.
+
+**Écarts assumés.** (1) `11,8 %` **rogne la moulure de coin** des plaques carrées :
+pour que l'arc du dessin (rayon d'environ 39 % de la plaque) soit conservé, il faudrait
+un rayon CSS de 39 %, qui mangerait alors le champ et les pions du bord. Le compromis
+retenu ampute donc légèrement les motifs de coin des plaques carrées (vérifié au zoom
+×2 sur les quatre coins, jour et nuit), là où le Tsivy garde ses motifs intacts.
+Repli documenté si la revue le refuse : recadrer `plateau_square.webp` avec un coin
+transparent à 39 % — même rendu que le Tsivy, mais nouvel asset à produire.
+(2) Le **champ intérieur** des plaques carrées garde l'arc de la photo (session
+précédente) : c'est le dessin réel, il ne heurte ni la moulure ni le treillis.
+
+**Fichiers.** *Modifiés :* `D-aona/d-aona-web/index.html` (commentaire de
+`.screen-board` ; `.fp-plate` : `border-radius`/`overflow` et leur justification ;
+table de rangement des rayons ; liste des exceptions) ·
+`D-aona/d-aona-web/assets/board/plateau_clean.png` et `plateau_clean.webp`
+(restaurés de `ce3297c`) · ce journal. *Hors Git :* `d-aona-server/_squarify_board.py`
+(**bandeau OBSOLÈTE** en tête : le rejouer re-carrerait la plaque en silence) ·
+`tools/_shapes_apply.js` (`.screen-board` retiré de la table `--r-md`, chemin par
+défaut réparé) · `tools/_shape_scan.js` (le chemin se lit désormais dans le premier
+argument non-drapeau, défaut réparé). *Ajoutés, hors Git (sondes `_*`) :*
+`_chk_coins_plateau.py` (coins de l'asset), `_chk_coins_ecran.py` (coins en pixels sur
+les captures), `tools/_fp_coins_check.js` (DOM + captures DPR 2).
+*Rappel :* `assets/board/plateau_square.webp` (81,2 Ko) reste **non suivi** par Git —
+il est indispensable au rendu Dimy/Telo et doit être ajouté au prochain commit.
+
+## 2026-10-25 — Dimy et Telo : la vraie plaque carrée (864 px) à la place de la frise simulée en CSS (entrée MANUELLE)
+
+**Demande.** Les plateaux 5×5 (Dimy) et 3×3 (Telo) affichaient une frise et un bois
+*simulés* (dégradés CSS + losanges répétés), alors que le Tsivy montre la photo
+gravée. Il fallait la vraie plaque : `assets/board/plateau_square.webp`, carrée,
+tirée de la même photo, **sans** toucher à la géométrie, au pas, aux pions, ni au
+plateau Tsivy.
+
+**Socle vérifié avant de s'appuyer dessus.** Le retrait des coins de la session
+précédente n'est pas un doute résiduel : le diff de `plateau_clean.png` est confiné
+au périmètre (**215 388 px** modifiés, tous à moins de **210 px** du bord du bois et
+dans un rayon de 300 px d'un coin ; **zéro** pixel plus profond), le champ est intact.
+La nouvelle plaque pouvait donc être construite sur cette source.
+
+**Décision — la bande de l'asset EST l'inset CSS, donc l'échelle ne bouge pas.** La
+plaque actuelle dessine sa moulure avec `--fp-band-pct: 7,77` % (128 px sur 1647, le
+seul rapport transposable du Tsivy). L'asset est donc construit pour que sa bande
+gravée mesure exactement **67 px sur 864 = 7,77 %** : la photo se pose sous le
+treillis sans déplacer une intersection, et `--fp-pitch`, `--fp-step-n`, `--fp-n`,
+`PAWN_RATIO` restent intacts. Assemblage : champ nu (le treillis Tsivy est retiré par
+inpainting, masque = écart au médian local 21 × 21 > 12, TELEA r=4), quatre bandeaux
+pris **chacun sur son propre côté** de la photo — jamais copiés-tournés, les quatre
+épaisseurs réelles diffèrent — et quatre blocs de coin réduits à 162 × 162.
+
+**Preuves — audit indépendant.** `_fp_plate_qa.py` a été écrit pour auditer l'asset
+sans réutiliser la logique du constructeur. **23 contrôles, 23 OK** :
+- format : 864 × 864, RGB sans alpha, **81,2 Ko** (seuil 400 Ko) ;
+- épaisseur de bande **67 px sur les quatre côtés** (règle des 40 lignes consécutives
+  sombres, qui ignore la rainure de moulure) ; frontière bande → champ franche, sauts
+  de 53,4 / 46,5 / 71,0 / 52,4 niveaux ;
+- champ : **0,01 %** de pixels au-delà de 12 du fond local (max 15) — le treillis Tsivy
+  a bien disparu ;
+- raccords : ton continu au joint coin/bande (|Δ| 2,6 / 3,3 / 0,3 / 1,1 niveaux) et sur
+  l'axe du miroir (**0,1**) ;
+- coins : moulure en **arc continu** — rayon de bascule 105 à 116 px, **étendue 6 à
+  9 px** sur ±18° (un escalier ferait varier le rayon de plusieurs px) ;
+- éclairage : chaque bande vient de son côté — haut et bas diffèrent de **3,3
+  niveaux** (une copie tournée donnerait 0), tons 196,7 / 193,4 / 191,1 / 191,8 contre
+  195,5 / 193,2 / 190,2 / 190,7 dans la source.
+
+*Le premier jet de cette sonde rendait 9 échecs — et c'étaient mes contrôles qui
+étaient faux, pas l'asset.* Trois erreurs de mesure, toutes documentées dans le
+script : la rainure de moulure (12 px de ton 123) passait pour le début du champ et
+annonçait une bande de 26 px ; une frontière réelle moulure/champ gonflait un rapport
+de gradients à 20,8 ; le seuil de l'arc (110) était sous le ton réel du filet. Contrôles
+réécrits (40 lignes consécutives, continuité de TON et non de gradient, mesure radiale
+du rayon), puis 23/23.
+
+**Preuves — rendu et chargement, mesurés au navigateur.** `_fp_plate_load.js`
+(captures `%TEMP%\daona_shots\plate-live-*.png`, DPR 2, clair et sombre) : plaque
+**432 px** en desktop et **295 px** en téléphone pour le Dimy, **216 px** pour le Telo
+aux deux largeurs (c'est le pas qui commande, pas la carte) ; `outside: 0` — aucun pion
+rogné (`_fp_render_check.js`) ; image de 864 px réellement chargée, **`has-art` posée au
+`load` et non à l'insertion** (sinon le champ transparent laisserait voir le
+`background-color` clair pendant le décodage), fond et champ vectoriels retirés.
+Repli éprouvé en cassant la source de la balise : l'écouteur `error` du module retire
+l'image **et** `has-art`, et la frise de losanges comme le dégradé du champ reviennent
+à l'identique — un asset manquant ne casse donc rien. `node test.js` : Dimy
+**85/85**, Telo tous verts.
+
+**Fichiers.** *Modifiés :* `games/fanorona-board.js` (option `plate`, +47 lignes :
+`img.fp-plate-art` en premier enfant de `.fp-plate`, mémo `PLATES_OK` pour ne pas
+rejouer le fondu à chaque rendu, bascule au `load`, retrait au `error`),
+`games/fanoron-dimy/board.js` (+7) et `games/fanoron-telo/board.js` (+6) : l'option et
+son commentaire, rien d'autre ; `index.html` (+30 : `.fp-plate-art` et les règles
+`has-art`, qui laissent les règles vectorielles en place comme repli) ; ce journal.
+*Ajouté :* `D-aona/d-aona-web/assets/board/plateau_square.webp` (81,2 Ko, seul
+fichier nouveau). *Hors Git :* `d-aona-server/tools/_fp_plate_square.py` (construction),
+`_fp_plate_qa.py` (audit indépendant), `_fp_plate_load.js` (chargement + captures).
+
+**Écarts assumés.** (1) Les quatre coins du **champ intérieur** gardent l'arc de la
+photo (rayon de l'ordre de 55-60 px dans l'asset, soit ~28 px CSS à 432) : c'est le
+dessin réel, acté par la session précédente, et le treillis du Dimy s'arrête dessus
+sans heurter la moulure. (2) La frise **n'est pas identique** sur les quatre côtés,
+chaque bande venant de son propre côté : c'est fidèle, mais qui compare deux bords verra
+des motifs différents. (3) Les blocs de coin sont réduits sur **deux axes distincts**
+(≈ 256 × 237 → 162 × 162), donc la frise du coin est très légèrement comprimée en
+horizontale : invisible à la taille réelle, perceptible à 2×. (4) Le plateau Tsivy
+n'est pas touché : il garde `#board-stage` et sa propre plaque.
+
+**Non fait.** Rien de demandé ne reste ouvert. Pistes écartées : découper l'arc des
+quatre coins du champ (ce serait effacer un trait réel de la plaque), et router un
+`file://` pour simuler un 404 (Playwright ne l'intercepte pas — le repli a donc été
+éprouvé en cassant la source de la balise visible, ce qui exerce le même écouteur).
+
+## 2026-10-25 — La plaque mise d'équerre : quatre coins carrés, le reste au pixel près (entrée MANUELLE)
+
+**Demande.** « Le plateau ne doit pas avoir de coins arrondis » — les quatre coins
+de `plateau_clean.png` (plaque gravée Telo/Dimy/Tsivy) sont arrondis par un arc de
+rayon 176 à 193 px, alors que la plaque doit se lire comme un rectangle plein dans la
+carte du jeu.
+
+**Cause racine, mesurée.** Le rayon des quatre coins n'est pas le même : **189, 193,
+176 et 178 px** (ajustement circulaire, RMS 0,42 / 2,08 / 0,38 / 0,37), pour un cadre
+de bois de **1613 × 898 px** (x 17..1629, y 19..916) sur une source de 1647 × 955 dont
+**139 606 px** sont transparents. Un rayon unique ne pouvait donc pas convenir : chaque
+coin est mesuré puis traité séparément, par symétrie (l'image est retournée pour que le
+coin traité soit toujours en haut à gauche, si bien que le biseau mesuré suit l'arête
+réellement voisine).
+
+**Premier essai, faux — et pourquoi.** Le vide était comblé en recopiant le bandeau
+clair à angle constant, en ne cherchant un « bois plat » que **sur l'angle** (±20°).
+Résultat : une **bande sombre floue** le long de l'ancien arc. Diagnostic chiffré : les
+pixels les plus sombres de la zone reconstruite étaient tous à 25 px *hors* de l'arc et
+tous à la **même luminance 83** — c'est l'**intérieur du grand triangle gravé**, qui
+occupe toute la plage angulaire à cette profondeur ; aucune rotation ne pouvait en
+sortir, donc le repli recopiait le motif. Ce n'était pas un défaut de rayon, c'était un
+défaut du modèle de recherche.
+
+**Décision — balayer l'angle ET la profondeur, ne moyenner que du bois plat.** Chaque
+pixel du coin reçoit la moyenne des pixels sources voisins **pondérée par une gaussienne
+(σ = 12° et 16 px)** sur un balayage **±60° par pas de 6° × profondeurs 0, ±10, ±20,
+±30 px** (147 candidats), et **seuls les pixels de bois plat** y contribuent
+(luminance > 165 et gradient < 22 : les motifs gravés sont à ~120, un trait à 83). Un
+motif large ne peut donc plus entrer dans le coin, et la moyenne garde un grain continu
+au lieu de choisir un pixel par-ci par-là (aucune couture entre voisins). L'alpha reste
+le **produit des deux rampes d'arête** mesurées sur la source (couverture exacte d'un
+coin à 90°, comme le ferait un moteur de rendu), et le biseau est redessiné le long des
+arêtes droites. La profondeur de source est étalée de 12 px (bord de l'arc) à 74 px
+(pointe du coin) : ni étirement ni duplication du grain.
+
+**Contrôle 2 réécrit — le seuil 128 ne peut pas mesurer un coin.** La dernière colonne
+de la plaque n'est couverte qu'à **53 %** (alpha 134) ; au coin, le produit des deux
+rampes y vaut **86 < 128**, donc un seuil absolu tombe **2,3 px** plus bas alors que
+l'arête est parfaitement droite. Le contrôle mesure désormais la **position sous-pixel**
+de chaque bord (croisement de la moitié du *plateau* de la ligne / colonne, interpolé
+entre les deux pixels encadrants) et exige qu'elle soit constante sur toute la longueur
+(≤ 1,25 px, soit la quantification ±0,5 px), plus **aucun pixel de bois hors du
+rectangle**. La normalisation par le plateau est ce qui rend la mesure insensible au
+taux de couverture de la ligne — le contrôle mesure la *géométrie*, pas l'alpha.
+
+**Preuves.** Outil de production : `python d-aona-server/_squarify_board.py` (HORS Git :
+`_*.py` est ignoré au même titre que les ~110 autres sondes du dossier). Contrôles
+relus après coup par une sonde indépendante, sur le fichier livré :
+1) **plateau intact** : **48 275 px modifiés** au total (comparaison RGBA au bit près avec
+la source), tous dans les quatre blocs de coin, **0 px à plus de 210 px d'un bord** et
+0 px en dehors des quatre quadrants ;
+2) **silhouette rectangulaire** : position sous-pixel des arêtes, mesurée sur 400 lignes
+et 400 colonnes — gauche 16,50 px (écart 0,00), droite 16,92 (0,58), haut 18,58 (0,92),
+bas 37,50 (0,00) : **écart max 0,92 px**, contre 1,00 px annoncé par le contrôle interne
+(tolérance 1,25) et **0 px de bois dehors** ;
+3) **coin plein** : **0 trou** (alpha < 250) à 4 px des bords, alpha min **255** dans le
+plateau, les quatre coins du bloc **opaques** ;
+4) **WebP sans perte** : alpha **identique** et RGB **identique sur tous les pixels
+visibles** (un écart max de 168 par canal se lit si l'on ne masque pas les pixels
+transparents, où la couleur n'a pas de sens) ; PNG **2300,9 Ko**, WebP **1434,1 Ko**.
+Bois reconstruit : luminance **min 185 / médiane 193 / max 225**, **0 px sous 150** —
+alors que ces mêmes pixels, dans la source, descendaient à **57** (285 px sous 150) :
+c'est bien le motif gravé qui a disparu (le premier essai, lui, le recopiait à 83).
+Grain : écart-type **3,6** sur le coin reconstruit contre **4,8** sur le bois plat du
+bandeau — même grain, à peine plus lissé. `npm test` : **7 suites, code retour 0**.
+L'outil a été relancé de bout en bout une seconde fois : quatre contrôles OK et les deux
+fichiers réécrits **à l'octet près identiques** (même SHA-256) — le pipeline est
+déterministe, rejouable sans surprise.
+Rendu relu à la taille réelle de l'app (plaque de 740 px et 823 px de large, soit 42 %
+de la source) : rectangle net, quatre coins pleins, frise continue.
+
+**Fichiers.** *Modifiés :* `D-aona/d-aona-web/assets/board/plateau_clean.png`,
+`plateau_clean.webp`, `.gitignore` (`d-aona-server/_*.out`, `_*.cmd`, `__pycache__/`,
+`_plateau_source.png` : les sous-produits et l'entrée de l'outil cessent de polluer
+`git status`, dans l'esprit du bloc « scripts jetables de session » déjà présent), ce
+journal. *Hors Git :* `d-aona-server/_squarify_board.py` (production de l'asset),
+`_apercu_plateau.py` (aperçus dans `%TEMP%\daona_board`), `_plateau_source.png` (la
+source 1647 × 955 d'origine, dont l'outil a besoin pour être rejoué).
+
+**Écarts assumés.** (1) Le **champ sombre intérieur** garde ses coins arrondis : son
+rayon est une valeur du dessin (il est en retrait de la bande), hors demande — seuls les
+quatre coins extérieurs sont mis d'équerre. (2) Le raccord entre le coin reconstruit et
+le bandeau se fait à 7-12 px de profondeur : le grain y est décalé de cette distance,
+invisible aux 42 % d'affichage réel (vérifié sur les aperçus 740/823 px). (3) Le coin
+reconstruit est un peu plus **lisse** que le bandeau (écart-type 3,6 contre 4,8) : c'est
+une moyenne gaussienne, donc du grain de bois sans motif — et non un motif recopié.
+(4) Le halo doux de la source (alpha 1..12 sur 2-3 px hors du cadre) est laissé tel
+quel : c'est l'anti-aliasing de la photo, il n'est pas « du plateau » et ne se voit sur
+aucun fond.
+
+
 ## 2026-10-25 — Plateaux Telo et Dimy : la plaque gravée du Tsivy, un seul PAS pour les trois (entrée MANUELLE)
 
 **Demande.** « Les plateaux telo, dimy et tsivy doivent être les mêmes plateaux.

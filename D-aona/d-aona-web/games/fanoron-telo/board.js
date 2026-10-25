@@ -53,9 +53,19 @@
     if (lm) last = lm.type === "place" ? [lm.to] : [lm.from, lm.to];
     return G.render(host, {
       slug: "telo",
+      /* Meme plaque photo que le Dimy : recadree carree, bande gravee comprise,
+         bande reelle de 55 px sur 864 = les 6,37 % de l inset CSS (le liseré
+         clair a été mangé par le champ, `_fp_no_rim.py` ; le pas et la
+         geometrie sont donc inchanges). La frise photographiee est continue et
+         le champ reste nu : seules les deux grandes diagonales du Telo s y
+         ajoutent. Repli vectoriel automatique si l image manque. */
+      plate: "assets/board/plateau_square.webp",
       values: s.board || [],
       selected: typeof o.selected === "number" ? o.selected : null,
       disabled: !!o.disabled,
+      /* AIDES AU DÉPLACEMENT : arrivées légales calculées par l'appelant
+         (`variant-match.js`) ; sans ce passage, la bascule ne peignait rien. */
+      hints: Array.isArray(o.hints) ? o.hints : null,
       onCell: o.onCell,
       owner: o.owner,
       last: last,

@@ -61,46 +61,103 @@ window.VariantMatch = (function () {
     return n;
   };
 
+  /* Initiales d'un nom, pour la pastille ronde (deux lettres au plus). */
+  function initiales(nom) {
+    const mots = String(nom || "?").replace(/[—–-]/g, " ").trim().split(/\s+/).filter(Boolean);
+    if (!mots.length) return "?";
+    if (mots.length === 1) return mots[0].slice(0, 2).toUpperCase();
+    return (mots[0][0] + mots[1][0]).toUpperCase();
+  }
+
+  /* Une carte de siège : avatar, nom, camp, Elo, pions restants, prises,
+     pendule. CE SONT LES INFORMATIONS des barres de joueur du plateau Tsivy
+     (nom + camp + Elo + prises + pendule), dans la langue de cette carte — pas
+     une copie de leur style. */
+  function siegeHtml(side, nom, elo) {
+    return `
+      <div class="vm-seat" data-side="${side}">
+        <div class="vm-ava" aria-hidden="true">${esc(initiales(nom))}</div>
+        <div class="vm-id">
+          <div class="vm-nm">
+            <b>${esc(nom)}</b>
+            <span class="vm-pawn pion-view ${side === 2 ? "pion-view--dark sombre" : "clair"}" data-pion-side="${side}" aria-hidden="true"></span>
+          </div>
+          <div class="vm-sub">
+            <span class="vm-camp">${esc(SIDE[side])}</span>
+            <span data-elo="${side}">${elo ? esc(String(elo) + " Elo") : "—"}</span>
+            <span class="vm-left" data-count="${side}">0</span>
+          </div>
+        </div>
+        <span class="vm-cap" title="Pions adverses pris par ce camp">×<span data-caps="${side}">0</span></span>
+        <span class="vm-clock" data-clock="${side}">00:00</span>
+      </div>`;
+  }
+
   function shellHtml(def, opts) {
-    /* Les deux camps sont affichés par CAMP (1 = clairs à gauche, 2 = sombres à
-       droite), pas par « moi / adversaire » : en ligne on peut être le joueur 2,
-       et le plateau doit garder ses couleurs. */
+    /* Les deux camps sont affichés par CAMP (1 = clairs, 2 = sombres), pas par
+       « moi / adversaire » : en ligne on peut être le joueur 2, et le plateau
+       doit garder ses couleurs. */
     const names = opts.names || {};
+    const elos = opts.elos || {};
     const p1 = names[1] || "Vous";
     const p2 = names[2] || (opts.mode === "local2p" ? "Joueur 2" : "IA — Antso");
-    /* EMBARQUÉ (`inline`) : l'hôte fournit déjà cadre, titre, bouton de règles
-       et sortie — la carte de l'assistant. On ne garde que le jeu : joueurs,
-       plateau, statut. En plein écran, la coquille garde sa barre et ses
-       actions (comportement historique de l'overlay). */
+    /* EMBARQUÉ (`inline`) : l'hôte fournit le cadre (carte de l'assistant, son
+       titre, son bouton Règles, sa sortie) — on ne garde que le jeu et son
+       panneau. En plein écran, la coquille garde sa barre et sa sortie. */
     const inline = !!opts.inline;
     const hid = inline ? " hidden" : "";
     return `
       <div class="vm-shell${inline ? " vm-shell--inline" : ""}"${inline ? ' role="group"' : ' role="dialog" aria-modal="true"'} aria-label="${esc(def.name)}">
+
         <div class="vm-top"${hid}>
           <button class="vm-back" id="vm-quit" aria-label="Quitter la partie">←</button>
           <div class="vm-title"><b>${esc(def.name)}</b><small>${esc(def.meta)}</small></div>
-          <button class="vm-rules-btn" id="vm-rules" aria-expanded="false" aria-controls="vm-rules-panel">Règles</button>
         </div>
-        <div class="vm-players">
-          <div class="vm-player" data-side="1">
-            <span class="vm-pawn pion-view clair" data-pion-side="1"></span><b>${esc(p1)}</b><small data-count="1">0</small>
-          </div>
-          <span class="vm-vs">VS</span>
-          <div class="vm-player flip" data-side="2">
-            <span class="vm-pawn pion-view pion-view--dark sombre" data-pion-side="2"></span><b>${esc(p2)}</b><small data-count="2">0</small>
-          </div>
+
+        <div class="vm-turn" id="vm-turn"><span aria-hidden="true">⚡</span><span id="vm-turn-txt">…</span></div>
+
+        <div class="vm-seats">
+          ${siegeHtml(1, p1, elos[1])}
+          ${siegeHtml(2, p2, elos[2])}
         </div>
-        <div class="vm-board" id="vm-board"></div>
-        <p class="vm-status" id="vm-status" role="status">…</p>
+
+        <div class="vm-stage">
+          <div class="vm-board" id="vm-board"></div>
+          <aside class="vm-side">
+            <section class="vm-panel">
+              <h3><span>Rapport de force</span><span class="vm-force-unit" id="vm-force-note"></span></h3>
+              <div class="vm-force"><div class="fill" id="vm-force-fill" style="width:50%"></div></div>
+              <div class="vm-force-legend">
+                <span id="vm-force-l">${esc(p1)}</span>
+                <span id="vm-force-r">${esc(p2)}</span>
+              </div>
+            </section>
+            <section class="vm-panel">
+              <h3>Actions</h3>
+              <div class="vm-acts">
+                <button class="btn ghost" type="button" id="vm-rules">Règles</button>
+                <button class="btn ghost" type="button" id="vm-draw">Proposer nul</button>
+                <button class="btn ghost" type="button" id="vm-help" aria-pressed="true">
+                  <span>Aides au déplacement</span><span class="vm-help-state" id="vm-help-state">ON</span>
+                </button>
+                <button class="btn ghost" type="button" id="vm-resign">Abandonner</button>
+                <button class="btn ghost" type="button" id="vm-new"${inline ? " hidden" : ""}>Nouvelle partie</button>
+              </div>
+            </section>
+            <section class="vm-panel" id="vm-rules-panel">
+              <h3>${esc(def.name)} · repères</h3>
+              <ul class="vm-notes">${def.rules.map((r) => "<li>" + esc(r) + "</li>").join("")}</ul>
+            </section>
+          </aside>
+        </div>
+
+        <p class="vm-status" id="vm-status" role="status" aria-live="polite">…</p>
         <div class="vm-actions"${hid}>
-          <button class="btn ghost" id="vm-new">Nouvelle partie</button>
-          <button class="btn" id="vm-close">Quitter</button>
-        </div>
-        <div class="vm-rules" id="vm-rules-panel"${hid}>
-          <ul>${def.rules.map((r) => "<li>" + esc(r) + "</li>").join("")}</ul>
+          <button class="btn ghost" id="vm-close">Quitter</button>
         </div>
       </div>`;
   }
+
 
   function statusText(m) {
     const st = m.state;
@@ -155,24 +212,133 @@ window.VariantMatch = (function () {
     });
   }
 
+  /* ---------- PENDULE, PRISES, RAPPORT DE FORCE, AIDES ----------
+     Toutes ces valeurs sont LISIBLES dans l'état du jeu : aucune n'est inventée
+     pour imiter le plateau Tsivy. Le temps est le temps réellement passé par
+     chaque camp au trait (une variante locale n'a pas d'horloge de partie). */
+  const fmtClock = (s) => {
+    const t = Math.max(0, s | 0);
+    return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
+  };
+
+  /* Le Telo ne prend pas de pion : son « rapport de force » est la MOBILITÉ
+     (nombre de coups légaux de chaque camp), seule mesure qui bouge vraiment. */
+  function captures(m, side) {
+    if (m.E.PHASE) return 0;                       // Telo : aucune prise
+    const total = m.E.PAWNS_PER_PLAYER || 0;
+    return Math.max(0, total - count(m.state.board, side));
+  }
+
+  function mobilite(m, side) {
+    try {
+      const st = m.E.clone ? m.E.clone(m.state) : m.state;
+      st.turn = side;
+      const mv = m.E.legalMoves(st);
+      return Array.isArray(mv) ? mv.length : 0;
+    } catch (e) { return 0; }
+  }
+
+  function forceInfo(m) {
+    const names = m.names || {};
+    if (!m.E.PHASE) {
+      const n1 = count(m.state.board, 1), n2 = count(m.state.board, 2);
+      const tot = n1 + n2;
+      return {
+        ratio: tot ? n1 / tot : 0.5,
+        left: (names[1] || "Clairs") + " · " + n1,
+        right: (names[2] || "Sombres") + " · " + n2,
+        note: "pions sur le plateau",
+      };
+    }
+    const m1 = mobilite(m, 1), m2 = mobilite(m, 2);
+    const tot = m1 + m2;
+    return {
+      ratio: tot ? m1 / tot : 0.5,
+      left: (names[1] || "Clairs") + " · " + m1,
+      right: (names[2] || "Sombres") + " · " + m2,
+      note: "coups possibles",
+    };
+  }
+
+  /* Aides au déplacement : les arrivées LÉGALES, calculées par le moteur.
+     Rien au tour de l'IA, rien quand la partie est finie, rien si l'aide est
+     coupée — et aucune pastille sous un pion qu'on n'a pas encore choisi. */
+  function hintsFor(m) {
+    const st = m.state;
+    if (!m.help || !st || st.over) return null;
+    if (m.mode !== "local2p" && !m.remote && st.turn !== m.mySide) return null;
+    const sel = m.ctl.getSelected ? m.ctl.getSelected() : null;
+    let mv = [];
+    try { mv = m.E.legalMoves(st) || []; } catch (e) { mv = []; }
+    const pose = !!(st.phase && m.E.PHASE && st.phase === m.E.PHASE.PLACEMENT);
+    if (pose) return mv.map((x) => (x && typeof x.to === "number" ? x.to : null)).filter((v) => v !== null);
+    if (sel === null) return null;
+    return mv.filter((x) => x && x.from === sel).map((x) => x.to);
+  }
+
+  function turnText(m) {
+    const st = m.state;
+    const names = m.names || {};
+    if (st.over) {
+      if (!st.winner) return { html: "Partie nulle" + (st.reason ? " — " + (REASON[st.reason] || st.reason) : ""), cls: "is-over" };
+      return { html: "Victoire des " + SIDE[st.winner] + " — " + (REASON[st.reason] || "fin de partie"), cls: "is-over" };
+    }
+    if (m.mode === "local2p") return { html: "Aux " + SIDE[st.turn] + " de jouer — <b>" + esc(names[st.turn] || SIDE[st.turn]) + "</b>", cls: "" };
+    if (m.remote) {
+      return st.turn === m.mySide
+        ? { html: "À VOUS de jouer — <b>" + esc(names[m.mySide] || "vous") + "</b>", cls: "" }
+        : { html: "<b>" + esc(names[3 - m.mySide] || "L'adversaire") + "</b> joue…", cls: "is-opp" };
+    }
+    if (st.turn === 2) return { html: "<b>" + esc(names[2] || "L'IA") + "</b> réfléchit…", cls: "is-opp" };
+    return { html: "À VOUS de jouer — <b>" + esc(names[1] || "vous") + "</b>", cls: "" };
+  }
+
   function refresh() {
     const m = current;
     if (!m || !m.el) return;
     const host = m.el.querySelector("#vm-board");
-    if (host) m.ctl.draw(host, { onCell: (i) => onCell(i), owner: ownerOf(m) });
+    if (host) m.ctl.draw(host, { onCell: (i) => onCell(i), owner: ownerOf(m), hints: hintsFor(m) });
 
     [1, 2].forEach((side) => {
-      const n = m.el.querySelector('[data-count="' + side + '"]');
-      if (n) n.textContent = String(count(m.state.board, side));
-      const card = m.el.querySelector('.vm-player[data-side="' + side + '"]');
-      if (card) card.classList.toggle("is-turn", !m.state.over && m.state.turn === side);
+      const carte = m.el.querySelector('.vm-seat[data-side="' + side + '"]');
+      const trait = !m.state.over && m.state.turn === side;
+      if (carte) {
+        carte.classList.toggle("is-turn", trait);
+        carte.classList.toggle("is-idle", !m.state.over && !trait);
+      }
+      const reste = m.el.querySelector('[data-count="' + side + '"]');
+      if (reste) reste.textContent = String(count(m.state.board, side));
+      const prises = m.el.querySelector('[data-caps="' + side + '"]');
+      if (prises) prises.textContent = String(captures(m, side));
+      const pendule = m.el.querySelector('[data-clock="' + side + '"]');
+      if (pendule) pendule.textContent = fmtClock(m.clocks[side]);
     });
+
+    const tour = m.el.querySelector("#vm-turn");
+    const tourTxt = m.el.querySelector("#vm-turn-txt");
+    const t = turnText(m);
+    if (tourTxt) tourTxt.innerHTML = t.html;
+    if (tour) tour.className = "vm-turn " + t.cls;
+
+    const f = forceInfo(m);
+    const barre = m.el.querySelector("#vm-force-fill");
+    if (barre) barre.style.width = Math.round(f.ratio * 100) + "%";
+    const bg = m.el.querySelector("#vm-force-l"), bd = m.el.querySelector("#vm-force-r");
+    if (bg) bg.textContent = f.left;
+    if (bd) bd.textContent = f.right;
+    const note = m.el.querySelector("#vm-force-note");
+    if (note) note.textContent = f.note;
 
     const st = m.el.querySelector("#vm-status");
     if (st) {
       st.textContent = statusText(m);
       st.classList.toggle("over", !!m.state.over);
     }
+    const helpState = m.el.querySelector("#vm-help-state");
+    const helpBtn = m.el.querySelector("#vm-help");
+    if (helpState) helpState.textContent = m.help ? "ON" : "OFF";
+    if (helpBtn) helpBtn.setAttribute("aria-pressed", m.help ? "true" : "false");
+
     /* L'état courant est PUBLIÉ à l'appelant : c'est lui qui permet de
        remonter le plateau à l'identique après un changement d'écran (reprise
        d'une partie locale de Dimy/Telo). Un seul point de sortie d'état. */
@@ -182,6 +348,17 @@ window.VariantMatch = (function () {
        posés sur l'hôte, donc rien n'est perdu au repeint suivant. */
     paintPions(m);
   }
+
+  /* La pendule avance pour le camp qui a le trait, et pour lui seul. Un
+     intervalle par partie (jamais deux) : `close()` l'éteint. */
+  function tickClock(m) {
+    if (!m || m.state.over) return;
+    const side = m.state.turn === 2 ? 2 : 1;
+    m.clocks[side] += 1;
+    const el = m.el && m.el.querySelector('[data-clock="' + side + '"]');
+    if (el) el.textContent = fmtClock(m.clocks[side]);
+  }
+
 
   function onCell(i) {
     const m = current;
@@ -218,6 +395,7 @@ window.VariantMatch = (function () {
     if (!m || m.remote) return;
     if (m.timer) { clearTimeout(m.timer); m.timer = null; }
     m.state = m.E.createState();
+    m.clocks = { 1: 0, 2: 0 };
     m.ctl.sync(m.state);
     refresh();
   }
@@ -235,6 +413,7 @@ window.VariantMatch = (function () {
   function close() {
     const m = current;
     if (m && m.timer) clearTimeout(m.timer);
+    if (m && m.clockTimer) clearInterval(m.clockTimer);
     current = null;
     /* On retire l'élément RÉELLEMENT monté, où qu'il soit (overlay ou hôte) :
        le chercher par identifiant laisserait l'écran embarqué en place. */
@@ -271,10 +450,19 @@ window.VariantMatch = (function () {
     const names = remote
       ? { 1: (state.player1 && state.player1.pseudo) || "", 2: (state.player2 && state.player2.pseudo) || "" }
       : { 1: (o.me && o.me.pseudo) || "Vous", 2: mode === "local2p" ? "Joueur 2" : "IA — Antso" };
+    /* Elo affiché : celui du compte pour mon camp, celui de l'adversaire quand
+       on le connaît (partie en ligne). L'IA n'a pas de classement : on garde le
+       même écart que le plateau Tsivy (voir `Fanorona.start`), jamais un chiffre
+       inventé pour faire joli. */
+    const eloMoi = (o.me && Number(o.me.elo)) || null;
+    const eloOpp = (o.opponent && Number(o.opponent.elo)) || null;
+    const elos = mode === "local2p"
+      ? { 1: eloMoi, 2: null }
+      : { 1: eloMoi, 2: eloOpp };
     const el = document.createElement("div");
     el.className = host ? "vm-embed" : "vm-overlay";
     if (!host) el.id = "vm-overlay";
-    el.innerHTML = shellHtml(def, { mode: mode, names: names, inline: !!host });
+    el.innerHTML = shellHtml(def, { mode: mode, names: names, elos: elos, inline: !!host });
     if (host) host.appendChild(el); else document.body.appendChild(el);
     if (!host) document.body.classList.add("vm-open");
 
@@ -297,8 +485,14 @@ window.VariantMatch = (function () {
         scheduleAi();
       },
     });
-    current = { def: def, E: E, B: B, U: U, AI: AI, mode: mode, remote: remote,
+    const sess = { def: def, E: E, B: B, U: U, AI: AI, mode: mode, remote: remote,
                 mySide: side, el: el, ctl: ctl, state: state, timer: null,
+                /* Noms affichés : le bandeau et les sièges les lisent. */
+                names: names,
+                /* Pendule par camp (secondes réellement passées au trait) et
+                   aides au déplacement — même mémoire que le plateau Tsivy. */
+                clocks: { 1: 0, 2: 0 }, clockTimer: null,
+                help: (function () { try { return localStorage.getItem("daona_help") !== "0"; } catch (e) { return true; } })(),
                 /* Apparence du compte local (hors ligne), et seulement elle :
                    celle de l'adversaire ne vient QUE de l'état du serveur. */
                 pionFallback: o.pionStyles || null,
@@ -306,6 +500,7 @@ window.VariantMatch = (function () {
                    changement d'écran). Facultatif — l'overlay historique s'en
                    passe. */
                 onState: typeof o.onState === "function" ? o.onState : null };
+    current = sess;
 
     /* En version embarquée, la barre de titre et les actions sont ABSENTES :
        on ne câble que ce qui existe (l'écran doit se monter dans les 2 formes). */
@@ -313,16 +508,49 @@ window.VariantMatch = (function () {
     bind("vm-quit", close);
     bind("vm-close", close);
     bind("vm-new", newGame);
-    const rulesBtn = el.querySelector("#vm-rules");
-    const panel = el.querySelector("#vm-rules-panel");
-    if (rulesBtn && panel) rulesBtn.onclick = () => {
-      const shown = panel.hidden;
-      panel.hidden = !shown;
-      rulesBtn.setAttribute("aria-expanded", shown ? "true" : "false");
-    };
+    /* RÈGLES : en embarqué, la carte de l'assistant porte déjà son bouton ; ici
+       on ouvre la même modale par l'appelant (`onRules`), à défaut on déplie les
+       repères de la variante déjà présents dans le panneau. */
+    bind("vm-rules", () => {
+      const panel = el.querySelector("#vm-rules-panel");
+      if (typeof o.onRules === "function") return o.onRules();
+      if (panel) panel.hidden = !panel.hidden;
+    });
+    /* AIDES AU DÉPLACEMENT : même mémoire que le plateau Tsivy (`daona_help`),
+       pour que le réglage vaille partout où l'on joue. */
+    bind("vm-help", () => {
+      if (!current) return;
+      current.help = !current.help;
+      try { localStorage.setItem("daona_help", current.help ? "1" : "0"); } catch (e) {}
+      refresh();
+    });
+    /* « PROPOSER NUL » : une variante locale se joue sur un seul appareil (il
+       n'y a personne à qui proposer) et le serveur n'arbitre pas de nulle
+       négociée. Le bouton garde sa place dans les actions — l'information est
+       là — mais il dit pourquoi il ne fait rien. */
+    const nulBtn = el.querySelector("#vm-draw");
+    if (nulBtn) {
+      nulBtn.disabled = true;
+      nulBtn.title = def.meta.indexOf("prise") >= 0
+        ? "La nulle se joue sur triple répétition ; elle ne se propose pas hors ligne."
+        : "La nulle se joue sur triple répétition ; elle ne se propose pas hors ligne.";
+    }
+    /* ABANDONNER : c'est l'appelant qui sait ce qu'abandonner veut dire (sortir
+       d'une partie locale, ou envoyer `resign` au serveur). À défaut, on ferme. */
+    bind("vm-resign", () => {
+      if (typeof o.onResign === "function") return o.onResign();
+      close();
+    });
     /* Échap ferme l'overlay ; EMBARQUÉ, c'est l'assistant qui commande la
        sortie (flèche du bandeau bas) — un Échap ne doit pas laisser un cadre vide. */
     if (!host) el.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+
+    /* La pendule d'un camp ne tourne que pendant son trait. Un seul intervalle
+       par partie, éteint par `close()`. */
+    sess.clockTimer = setInterval(() => {
+      if (current !== sess) return;
+      tickClock(sess);
+    }, 1000);
 
     refresh();
     /* REPRISE d'une partie LOCALE : `open` remonte l'état tel quel. Si c'était

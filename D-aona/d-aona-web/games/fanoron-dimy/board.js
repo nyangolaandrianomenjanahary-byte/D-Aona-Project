@@ -44,9 +44,23 @@
     const last = s.last && typeof s.last.from === "number" ? s.last : null;
     return G.render(host, {
       slug: "dimy",
+      /* Vraie plaque photo, recadree carree (bande gravee COMPRISE). Sa bande
+         mesure 55 px sur 864 — soit exactement les 6,37 % de l inset CSS : le
+         liseré clair qui la séparait du champ a été mangé par le champ (outil
+         `_fp_no_rim.py`), et c est cette nouvelle bande que le CSS reproduit,
+         donc l echelle du plateau ne bouge pas. La frise y est continue (plus
+         de motif tuile) et le champ est nu : c est le treillis du Dimy, et lui
+         seul, qui se grave dessus. Le module retombe de lui-meme sur la plaque
+         vectorielle si l image manque. */
+      plate: "assets/board/plateau_square.webp",
       values: s.board || [],
       selected: typeof o.selected === "number" ? o.selected : null,
       disabled: !!o.disabled,
+      /* AIDES AU DÉPLACEMENT : la liste des arrivées légales est calculée par
+         l'appelant (`variant-match.js`, à partir des coups du moteur) et doit
+         TRAVERSER ce module pour atteindre les cases — sans cette ligne, la
+         bascule « Aides au déplacement » ne peignait rien. */
+      hints: Array.isArray(o.hints) ? o.hints : null,
       onCell: o.onCell,
       owner: o.owner,
       last: last ? [last.from, last.to] : null,
