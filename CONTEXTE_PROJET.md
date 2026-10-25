@@ -125,6 +125,69 @@
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
 
+## 2026-10-25 — Plateaux Telo et Dimy : la plaque gravée du Tsivy, un seul PAS pour les trois (entrée MANUELLE)
+
+**Demande.** « Les plateaux telo, dimy et tsivy doivent être les mêmes plateaux.
+Je veux que dans les autres plateaux, il soit de la même façon que dans le jeu
+tsivy. Les pions doivent être de la même taille, le plateau aussi. »
+
+**Cause racine, mesurée.** `.vm-shell--inline .telo-board` et `.dimy-board`
+recevaient la MÊME `max-width: 380px`. À largeur égale, un 3×3 pose un module plus
+grand qu'un 5×5 : **pas de 129,2 px et pion de 80,1 px pour le Telo, contre 65,4
+et 37,3 px pour le Dimy** (pions ×2,15). Le Dimy était déjà à l'échelle du Tsivy
+(pion de 88,9 px pour un pas de 156,25 px, soit **0,57**) ; le Telo non.
+
+**Décision — l'échelle du système est le PAS, pas la largeur de la carte.**
+`fanorona-board.js` publie `--fp-step-n` (100 / pas) sur un nouveau parent
+`.fp-plate` ; `index.html` en déduit la largeur de la plaque
+(`--fp-pitch` × nombre de pas, plus la bande). Un 3×3 est donc PLUS PETIT qu'un
+5×5, et c'est voulu : ce sont le pion et la maille qui doivent être identiques,
+pas la planche. `PAWN_RATIO` passe de 0,62 à **0,57** (valeur mesurée sur
+l'asset). La géométrie interne du plateau (repère 0..100, `inset: 0`) n'est pas
+touchée : la plaque est un PARENT, pas un contour, donc le débordement des pions
+se calcule comme avant.
+
+**Décision — une plaque gravée, pas un fond.** Le champ est échantillonné sur
+`plateau_clean.png` (#A47A59 → #9C7656 → #967254), creusé sous une bande de bois
+clair de **7,77 %** de la largeur (128 px sur 1647 : le seul rapport de l'asset
+qui se transpose) et bordé d'un double liseré de gravure #5B4025. La frise de la
+bande est **vectorielle** (data-URI : aucune image, aucun octet ajouté) et non un
+extrait du PNG en `border-image` — mesuré, l'extrait de 128 px réduit à 36 px
+donne des motifs incohérents entre la bande haute (×3) et les bandes latérales
+(×6,5), pour 1,48 Mo de plus au premier rendu. Le support (`.vm-board`) épouse
+enfin la plaque (`fit-content`) : 560 px de cadre autour d'un 3×3 laissaient
+172 px de vide de chaque côté et faisaient passer le petit plateau pour un
+plateau raté.
+
+**Preuves.** `node tools/_fp_alignment_check.js` (sonde ajoutée) : pas de **62 px
+et pion de 35,33 px pour le Telo COMME pour le Dimy** à la largeur réelle de la
+carte (539 px), rapport 0,57 des deux côtés, aucun débordement ; palette
+**ΔE ≤ 6 sur 8 points** (max 4,3 ; le 9e point est écarté parce que la bande
+basse de l'asset est dans l'ombre de la photo). Dans l'application (serveur
+réel, compte de sonde supprimé depuis) : Dimy plaque 432 px, contenu 578 px pour
+578 disponibles — plus de scroll interne ; Telo 216 px ; `#board-stage` du Tsivy
+**inchangé** (700×406, ratio 1,725, 44 pions, zéro `.fp-plate`). `npm test` :
+7 suites vertes, code retour 0 ; `test:telo` 85/85 ; `test:dimy` 85/85.
+
+**Fichiers.** *Modifiés :* `D-aona/d-aona-web/games/fanorona-board.js` (plaque
+parente, `--fp-step-n`, `PAWN_RATIO` 0,57), `D-aona/d-aona-web/index.html`
+(`.vm-board` qui épouse la plaque, `.fp-plate`, `.fp-board`, jeton `--fp-pitch`,
+relief `.fp-nodes`), les README de Telo et Dimy, ce journal. *Ajoutés au dépôt :*
+aucun — la sonde `d-aona-server/tools/_fp_alignment_check.js` reste HORS Git
+(`d-aona-server/tools/` est ignoré, convention du dépôt : ce sont des outils de
+preuve locaux, aux côtés des ~110 autres).
+
+**Écarts assumés.** (1) Sur un téléphone de 390 px, le 5×5 est bridé par la
+largeur de la carte : pas de 42,4 px au lieu des 44 px visés — la maille reste
+au-dessus de 42 px, cible tactile acceptable, et le 3×3 garde le pas de 62 px.
+(2) À 66 px, la barre d'actions sortait de la carte (24 px de scroll interne) :
+le jeton est réglé à **62 px**, un seul nombre à changer si la carte grandit.
+(3) Le Telo occupe donc une petite plaque dans une grande carte : conséquence
+directe de « même pion », pas un oubli. (4) `plateau_exact.svg` n'a pas servi :
+c'est un `<image>` base64 de 8,5 Mo (0 chemin, 0 groupe), pas une source
+vectorielle.
+
+
 ## 2026-10-21 — Refonte du design system « apple-design » : fondations v2 (entrée MANUELLE)
 
 **Demande.** Installer le skill `apple-design` (`emilkowalski/skills`) puis refondre de fond en comble le design system — **sans changer les couleurs du système**.

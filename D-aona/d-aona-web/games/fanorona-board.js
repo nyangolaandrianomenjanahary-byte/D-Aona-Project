@@ -39,7 +39,11 @@
      garantit qu un pion de coin ne deborde pas du plateau (un pion de coin
      s eloigne du bord d une demi-taille de pion). */
   const PAD = 16;
-  const PAWN_RATIO = 0.62; // diametre du pion, en fraction du pas
+  /* Diametre du pion, en fraction du pas. 0,57 est la valeur MESUREE sur le
+     plateau Tsivy (pion de 88,9 px pour un pas de 156,25 px) : les plateaux
+     posent donc des pions de la MEME taille a pas egal, quelle que soit la
+     variante. Ne pas remonter cette valeur sans remesurer le plateau Tsivy. */
+  const PAWN_RATIO = 0.57;
   const CELL_RATIO = 1;    // cote de la cible : les mailles se touchent
 
   const el = (name, attrs) => {
@@ -145,6 +149,18 @@
       host.innerHTML = "";
       host.classList.add(prefix + "-board");
 
+      /* LA PLAQUE : le cadre grave (bande claire, moulure, ombre portee) est un
+         PARENT du plateau, jamais son contour. Le repere interne du plateau
+         (pourcentages de 0 a VIEW) reste donc rigoureusement le meme : seule la
+         plaque grandit autour, et un debordement de pion se calcule comme avant.
+         `--fp-step-n` publie le pas en unites de plateau (100 / pas) : c est ce
+         nombre qui permet au CSS de dimensionner la plaque pour que le PAS soit
+         identique d une variante a l autre. L echelle du systeme est le pas,
+         pas la largeur de la carte. */
+      const plate = document.createElement("div");
+      plate.className = "plate fp-plate";
+      plate.style.setProperty("--fp-step-n", (100 / STEP).toFixed(4));
+
       const wrap = document.createElement("div");
       wrap.className = "board fp-board";
       /* Deux mesures, en pourcentage de la largeur du plateau : le pion ne peut
@@ -248,7 +264,8 @@
       wrap.appendChild(svg);
       wrap.appendChild(pieces);
       wrap.appendChild(cells);
-      host.appendChild(wrap);
+      plate.appendChild(wrap);
+      host.appendChild(plate);
       return out;
     }
 

@@ -48,6 +48,15 @@ Position de depart (1 = clairs, 2 = sombres, 0 = vide) :
       1 1 1 1 1
       1 1 1 1 1
 
+## Plateaux
+
+Le plateau est une PLAQUE GRAVEE, la meme que celle du Tsivy : geometrie et rendu
+par `games/fanorona-board.js`, habillage `.fp-plate` dans `index.html`. Le PAS
+(la maille) est commun aux trois variantes et vaut `--fp-pitch` : le 5 x 5 remplit
+la carte, le 3 x 3 du Telo garde la meme maille et le meme pion (0,57 pas) dans
+une plaque plus petite. Ne jamais regler une largeur de plateau pour rattraper une
+taille de pion : c'est le pas qui porte l'echelle.
+
 ## Coups
 
 - deplacement : { from: 12, to: 7 }   (le sens est deduit de la geometrie)
