@@ -1,4 +1,4 @@
-/* =========================================================================
+﻿/* =========================================================================
    S13 — DONNÉES : classement vivant, badge Amis, photo de profil, noms
    cliquables et Elo gagné/perdu
    =========================================================================
@@ -232,6 +232,11 @@ async function s13_datafix(browser) {
     await sleep(900);
     const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==", "base64");
     await A.page.setInputFiles("#avatar-input", { name: "photo.png", mimeType: "image/png", buffer: png });
+    /* La photo passe par le RECADREUR (zone déplaçable + zoom, aperçu rond) :
+       le test le traverse comme le joueur, en validant le cadrage. */
+    if (!(await until(A.page, () => !!document.getElementById("av-crop-ok"), 15000)))
+      return "le recadreur de photo ne s'ouvre pas";
+    await A.page.click("#av-crop-ok");
     if (!(await until(A.page, () => !!document.querySelector("#profile-avatar img"), 15000)))
       return "la photo déposée n'apparaît pas dans la carte profil";
     const src = await A.page.evaluate(() => document.querySelector("#profile-avatar img").getAttribute("src"));
@@ -434,5 +439,140 @@ async function s13_datafix(browser) {
       if (hit) bad.push(`${r} : « ${hit} »`);
     }
     return bad.length ? bad.slice(0, 3).join(" | ") : true;
+  });
+}
+
+/* =========================================================================
+   S14 — ADMINISTRATION : bouton du profil, cartes de modules, écrans réels
+   =========================================================================
+   Le back-office est un espace à droits. Ce scénario vérifie d'abord qu'un
+   joueur ORDINAIRE ne le voit pas et n'en reçoit aucune gêne, puis qu'un super
+   administrateur — rôle attribué par `admin_grant.js` sur la COPIE de la base —
+   ouvre les écrans et y lit des données RÉELLES. Chaque étape compare ce que
+   l'écran AFFICHE à ce que l'API RÉPOND : aucun droit n'est supposé.
+   ========================================================================= */
+async function s14_admin(browser) {
+  const A = await ensure(browser, "A");
+  const AD = await ensureAdmin(browser);
+
+  await step("un joueur sans rôle ne voit aucun bouton « Administration »", async () => {
+    await goScreen(A.page, "profile");
+    await sleep(700);
+    const has = await A.page.locator('#profile-root button:has-text("Administration")').count();
+    return has ? "le bouton d'administration est proposé à un joueur sans rôle" : true;
+  });
+
+  await step("la route #/admin refuse proprement et SANS message d'erreur", async () => {
+    await goScreen(A.page, "admin");
+    await sleep(900);
+    const txt = await A.page.evaluate(() => ((document.getElementById("admin-root") || {}).innerText || ""));
+    if (!/acc[eè]s refus/i.test(txt)) return "la route #/admin n'annonce pas le refus : « " + txt.slice(0, 90) + " »";
+    /* Le 403 de /api/admin/me est attendu : il ne doit pas produire de toast. */
+    const t = (await toasts(A.page)).join(" | ");
+    if (/refus|erreur|403/i.test(t)) return "un refus silencieux a produit un message visible : " + t;
+    /* La v2 ne peint AUCUN écran pour un compte sans rôle : ni barre latérale,
+       ni module. Seul le message de refus est attendu. */
+    const nav = await A.page.locator("#admin-root [data-voir]").count();
+    return nav === 0 ? true : "des modules sont proposés malgré le refus (" + nav + ")";
+  });
+
+  await step("après attribution du rôle, le profil propose « Administration »", async () => {
+    /* Le rôle a été écrit en base APRÈS l'ouverture de la session : la page
+       recharge ses droits, comme au démarrage de l'application. */
+    await AD.page.reload({ waitUntil: "domcontentloaded" });
+    await sleep(2600);
+    const me = await apiFromPage(AD.page, "/api/admin/me");
+    if (me.status !== 200) return "/api/admin/me répond " + me.status + " au super administrateur";
+    await goScreen(AD.page, "profile");
+    await sleep(900);
+    const btn = AD.page.locator('#profile-root button:has-text("Administration")').first();
+    if (!(await btn.count())) return "aucun bouton « Administration » dans le profil malgré le rôle";
+    await btn.click();
+    const ok = await until(AD.page, () => (location.hash || "").includes("admin"), 8000);
+    await sleep(1200);
+    return ok ? true : "le clic sur « Administration » n'ouvre pas la route admin";
+  });
+
+  await step("la barre latérale liste EXACTEMENT les modules du catalogue serveur", async () => {
+    await goScreen(AD.page, "admin");
+    await sleep(1800);
+    const api = await apiFromPage(AD.page, "/api/admin/modules");
+    const mods = (api.json && api.json.modules) || [];
+    if (!mods.length) return "le catalogue serveur est vide";
+    /* Les entrées de navigation sont construites À PARTIR du catalogue : une
+       vue ne peut pas exister sans son module, ni l'inverse. */
+    const shown = await AD.page.evaluate(() => [...document.querySelectorAll("#admin-root [data-voir]")]
+      .map((b) => ({ id: b.dataset.voir })));
+    if (shown.length !== mods.length)
+      return shown.length + " entrée(s) affichée(s) pour " + mods.length + " module(s)";
+    const missing = mods.filter((m) => !shown.some((s) => s.id === m.id));
+    if (missing.length) return "modules absents de la barre : " + missing.map((m) => m.id).join(", ");
+    return true;
+  });
+
+  await step("écran Campagnes : les bannières affichées sont celles servies par l'API", async () => {
+    await AD.page.evaluate(() => window.Admin.go("campaigns"));
+    await sleep(1600);
+    const api = await apiFromPage(AD.page, "/api/admin/ads");
+    const ads = (api.json && api.json.ads) || [];
+    const shown = await AD.page.evaluate(() => ({
+      n: document.querySelectorAll("#admin-root tbody tr").length,
+      txt: ((document.getElementById("admin-root") || {}).innerText || ""),
+    }));
+    if (ads.length && !shown.n) return ads.length + " bannière(s) côté serveur, aucune ligne à l'écran";
+    if (!ads.length && !/aucune banni/i.test(shown.txt)) return "aucune bannière au serveur et aucun message explicite";
+    return /\bundefined\b/.test(shown.txt) ? "l'écran Campagnes contient « undefined »" : true;
+  });
+
+  await step("écran Rôles : un contrôle par droit, rôle protégé en lecture seule", async () => {
+    await AD.page.evaluate(() => window.Admin.go("roles"));
+    await sleep(1800);
+    const api = await apiFromPage(AD.page, "/api/admin/roles");
+    const mods = (api.json && api.json.modules) || [];
+    const expected = mods.reduce((s, m) => s + (m.actions || []).length, 0);
+    /* Le premier onglet est le rôle protégé (super_admin) : tout doit y être
+       désactivé, et aucun bouton « Enregistrer » ne doit être proposé. */
+    await AD.page.locator("#admin-root [role=tab][data-role]").first().click();
+    await sleep(1500);
+    const got = await AD.page.locator("#admin-root input[data-grant]").count();
+    if (got !== expected) return got + " contrôle(s) pour " + expected + " droit(s) du catalogue";
+    const ro = await AD.page.evaluate(() => {
+      const boxes = [...document.querySelectorAll("#admin-root input[data-grant]")];
+      return { n: boxes.length, disabled: boxes.filter((b) => b.disabled).length,
+        save: !!document.querySelector("#admin-root [data-save]") };
+    });
+    if (ro.disabled !== ro.n) return ro.disabled + " contrôle(s) désactivé(s) sur " + ro.n + " pour le rôle protégé";
+    return ro.save ? "le rôle protégé propose tout de même « Enregistrer »" : true;
+  });
+
+  await step("écran Journal : les décisions sont listées, jamais « undefined »", async () => {
+    await AD.page.evaluate(() => window.Admin.go("audit"));
+    await sleep(1600);
+    const txt = await AD.page.evaluate(() => ((document.getElementById("admin-root") || {}).innerText || ""));
+    if (/undefined|NaN/.test(txt)) return "le journal affiche une valeur technique : « " + txt.slice(0, 90) + " »";
+    const rows = await AD.page.locator("#admin-root tbody tr").count();
+    /* L'attribution du rôle a été journalisée par admin_grant.js : le journal
+       ne peut pas être vide. */
+    return rows > 0 ? true : "journal vide alors que l'attribution du rôle a été auditée";
+  });
+
+  await step("interrupteur de module : couper ferme l'accès, rallumer le rouvre", async () => {
+    /* Le 403 de /api/admin/badges pendant la coupure est le RÉSULTAT attendu :
+       le navigateur le journalise comme une ressource en échec, on l'annonce
+       donc au harnais le temps de la vérification. */
+    allowFailure("/api/admin/badges");
+    try {
+      const off = await apiFromPage(AD.page, "/api/admin/modules/ranking", "POST", { enabled: false });
+      if (off.status !== 200) return "la désactivation répond " + off.status;
+      const closed = await apiFromPage(AD.page, "/api/admin/badges");
+      const on = await apiFromPage(AD.page, "/api/admin/modules/ranking", "POST", { enabled: true });
+      if (on.status !== 200) return "la réactivation répond " + on.status;
+      const reopened = await apiFromPage(AD.page, "/api/admin/badges");
+      if (closed.status !== 403) return "module éteint mais /api/admin/badges répond " + closed.status;
+      return reopened.status === 200 ? true : "module rallumé mais /api/admin/badges répond " + reopened.status;
+    } finally {
+      await sleep(400);
+      dropFailure("/api/admin/badges");
+    }
   });
 }

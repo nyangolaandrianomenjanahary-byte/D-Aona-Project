@@ -40,44 +40,63 @@ async function s12_match(browser) {
     return tpl && tpl !== "none" ? tpl.split(" ").filter(Boolean).length : 0;
   }, sel);
 
-  /* Vérifie le KYC comme le fait l'application après la simulation de la CIN :
-     le serveur persiste, puis la page recharge son état (S.kyc est lu au
-     démarrage). Un défi AVEC MISE est refusé sans KYC — on ne court-circuite pas
-     la règle, on la respecte. */
+  /* Vérifie le KYC comme le fait un administrateur : dépôt des DEUX faces puis
+     approbation par le compte d'administration, et la page recharge son état
+     (S.kyc est lu au démarrage). Un défi AVEC MISE est refusé sans KYC — on ne
+     court-circuite pas la règle, on la respecte. */
   const mtVerify = async (p) => {
     if ((await stateOf(p.page)).kyc) return true;
-    const r = await apiFromPage(p.page, "/api/kyc/verify", "POST", {});
-    if (!r.json || r.json.kyc !== true) return false;
+    const r = await verifyKycViaApi(p.page, browser);
+    if (!r || r.status !== "verified") return false;
     await p.page.reload({ waitUntil: "domcontentloaded" });
     await sleep(2800);
     return (await stateOf(p.page)).kyc === true;
   };
 
-  /* Envoi d'un défi par le geste réel : l'adversaire est choisi dans la colonne
-     « Joueurs en ligne », puis l'assistant de l'écran Jeux (déjà configuré en
-     mode défi par ce clic) est mené jusqu'à la mise en jeu. */
-  const mtSendChallenge = async (p, pseudo) => {
+  /* Ouvre l'assistant de défi depuis la colonne « Joueurs en ligne » et le mène
+     jusqu'au RÉCAPITULATIF : jeu → plateau → format. L'étape 02 (Mode) est
+     RETIRÉE de ce parcours (le mode est déjà « défi »), c'est le récapitulatif
+     qui porte l'adversaire et la mise. Renvoie true, ou le message d'échec. */
+  const mtOuvrirDefi = async (p, pseudo) => {
     await goMatchTab(p.page, "defis");
     const sel = '#mt-online-root [data-mtdefy="' + pseudo + '"]';
     if (!(await until(p.page, (s) => !!document.querySelector(s), sel, 9000))) {
       return "adversaire « " + pseudo + " » absent de la colonne Joueurs en ligne";
     }
     await mtClick(p.page, sel);
-    /* Le défi ouvre l'assistant à l'ÉTAPE 2 (mode « Défi » déjà sélectionné, le
-       formulaire affiché). Un choix vaut « suivant » : la MISE valide le défi, puis
-       le FORMAT, et le CTA de l'étape 4 envoie le défi. */
-    const wagerSel = "#play-root [data-wager]";
-    if (!(await until(p.page, (s) => !!document.querySelector(s), wagerSel, 9000))) {
-      return "l'assistant de mise en jeu ne s'ouvre pas sur le mode défi";
+    const gameSel = "#play-root .pg-opt[data-game]";
+    if (!(await until(p.page, (s) => !!document.querySelector(s), gameSel, 9000))) {
+      return "l'assistant ne s'ouvre pas sur le choix du jeu";
     }
-    await mtClick(p.page, wagerSel);
-    await sleep(600);
+    await mtClick(p.page, gameSel);
+    await sleep(500);
+    const varSel = "#play-root .pg-opt[data-variant]";
+    if (!(await until(p.page, (s) => !!document.querySelector(s), varSel, 9000))) {
+      return "les plateaux ne s'ouvrent pas après le choix du jeu";
+    }
+    await mtClick(p.page, varSel);
+    await sleep(650);
     const fmtSel = "#play-root .pg-fmt:not(.off)";
     if (!(await until(p.page, (s) => !!document.querySelector(s), fmtSel, 9000))) {
-      return "aucun format disponible après la mise du défi";
+      return "aucun format proposé après le choix du plateau";
     }
     await mtClick(p.page, fmtSel);
-    await sleep(600);
+    await sleep(650);
+    if (!(await until(p.page, (s) => !!document.querySelector(s), "#play-root [data-wager]", 9000))) {
+      return "l'assistant de mise en jeu ne s'ouvre pas sur le récapitulatif du défi";
+    }
+    return true;
+  };
+
+  /* Envoi d'un défi par le geste réel : l'adversaire est choisi dans la colonne
+     « Joueurs en ligne », puis l'assistant de l'écran Jeux est mené jusqu'au
+     récapitulatif (voir `mtOuvrirDefi`) où la mise et l'envoi se règlent. */
+  const mtSendChallenge = async (p, pseudo) => {
+    const ouvert = await mtOuvrirDefi(p, pseudo);
+    if (ouvert !== true) return ouvert;
+    const wagerSel = "#play-root [data-wager]";
+    await mtClick(p.page, wagerSel);
+    await sleep(500);
     if (!(await until(p.page, () => !!document.getElementById("pg-cta"), 9000))) {
       return "l'étape de lancement du défi ne s'ouvre pas";
     }
@@ -106,6 +125,17 @@ async function s12_match(browser) {
       minutes: Math.round((exp - ret) / 60000),
     };
   });
+  /* Solde de départ de la campagne : depuis la règle PRD, un compte neuf ne
+     porte que le bonus de 1 000 Ar (verrouillé). Les scénarios de défi misent
+     plusieurs fois 500 Ar : on réalimente les DEUX joueurs UNE fois, au début,
+     pour que les refus mesurés plus loin soient ceux du scénario (plafond,
+     solde volontairement insuffisant) et non un manque d'argent hérité. */
+  for (const P of [A, B]) {
+    await apiFromPage(P.page, "/api/deposit", "POST", { amount: 8000, operator: "MVola" });
+    await P.page.reload({ waitUntil: "domcontentloaded" });
+    await sleep(2400);
+  }
+
   await step("l'écran Match est un héro avec trois tuiles de statistiques, aucun « À jouer »", async () => {
     await goScreen(A.page, "match");
     const info = await A.page.evaluate(() => {
@@ -350,11 +380,8 @@ async function s12_match(browser) {
      Ariary, la validation nomme ce qui ne va pas, et le montant retenu vaut pour
      les DEUX joueurs — pot recalculé, et le défi part réellement avec ce montant. */
   await step("« Montant personnalisé » : chaque saisie invalide est refusée avec un message clair", async () => {
-    await goMatchTab(A.page, "defis");
-    const sel = '#mt-online-root [data-mtdefy="' + B.pseudo + '"]';
-    if (!(await until(A.page, (s) => !!document.querySelector(s), sel, 9000)))
-      return "adversaire absent de la colonne Joueurs en ligne";
-    await mtClick(A.page, sel);
+    const ouvert = await mtOuvrirDefi(A, B.pseudo);
+    if (ouvert !== true) return ouvert;
     if (!(await until(A.page, () => !!document.querySelector("#play-root [data-wager-perso]"), 9000)))
       return "le bouton « Montant personnalisé » n'est pas proposé dans « Mise du défi »";
     await mtClick(A.page, "#play-root [data-wager-perso]");
@@ -396,25 +423,24 @@ async function s12_match(browser) {
 
   await step("le montant personnalisé s'applique aux DEUX joueurs et le pot est recalculé", async () => {
     const MONTANT = 1500;
+    /* Les deux joueurs ont été réalimentés au début du scénario (règle PRD :
+       un compte neuf n'a que 1 000 Ar de bonus verrouillé). */
     /* On rouvre l'assistant depuis la colonne des joueurs en ligne : l'étape
        précédente a pu laisser l'écran ailleurs (elle se termine sur l'onglet
        Défis), et un clic dans une vue masquée ne mesurerait rien. */
-    await goMatchTab(A.page, "defis");
-    const cible = '#mt-online-root [data-mtdefy="' + B.pseudo + '"]';
-    if (!(await until(A.page, (s) => !!document.querySelector(s), cible, 9000)))
-      return "adversaire absent de la colonne Joueurs en ligne";
-    await mtClick(A.page, cible);
+    const ouvert = await mtOuvrirDefi(A, B.pseudo);
+    if (ouvert !== true) return ouvert;
     if (!(await until(A.page, () => !!document.querySelector("#play-root [data-wager-perso]"), 9000)))
       return "l'assistant ne s'ouvre pas sur la mise du défi";
     await A.page.click("#play-root [data-wager-perso]");
     await sleep(400);
     await A.page.fill("#wager-perso", String(MONTANT));
     await A.page.click("#wager-perso-ok");
-    /* La mise vaut validation : l'assistant passe à l'étape du format. */
-    if (!(await until(A.page, () => !!document.querySelector("#play-root .pg-fmt:not(.off)"), 8000)))
-      return "la mise personnalisée valide n'ouvre pas l'étape du format";
-    await mtClick(A.page, "#play-root .pg-fmt:not(.off)");
-    await sleep(600);
+    /* Dans le parcours direct, la mise se règle SUR LE RÉCAPITULATIF (l'étape
+       Mode est retirée) : valider le montant y ramène, le format étant déjà
+       choisi. */
+    if (!(await until(A.page, () => !!document.querySelector("#play-root .pg-recap"), 8000)))
+      return "le récapitulatif du défi ne s'affiche pas après la mise personnalisée";
     if (!(await until(A.page, () => !!document.getElementById("pg-cta"), 8000)))
       return "l'étape de lancement ne s'ouvre pas";
     const recap = await A.page.evaluate(() => (document.querySelector(".pg-recap") || {}).innerText || "");

@@ -140,6 +140,7 @@ const SCENARIOS = [
   ["S11", "Messagerie : dock, envoi et réception temps réel", () => s11_chat(BROWSER)],
   ["S12", "Écran Match : héro, tuiles de statistiques, deux colonnes, défis réels et annulation", () => s12_match(BROWSER)],
   ["S13", "Données : classement vivant, badge Amis, photo de profil, noms cliquables, Elo gagné/perdu", () => s13_datafix(BROWSER)],
+  ["S14", "Administration : bouton du profil, cartes de modules, écrans réels, interrupteur", () => s14_admin(BROWSER)],
 ];
 let BROWSER = null;
 

@@ -261,8 +261,14 @@ async function s2_nav(browser) {
     const solde = d.tuiles.find((t) => /solde/i.test(t)) || "";
     const nu = (s) => String(s).replace(/[\s\u00a0\u202f]/g, "");
     if (!/Ar/.test(solde)) return "le solde n'affiche pas l'unité « Ar » : « " + solde + " »";
-    if (!nu(solde).includes(nu(d.etat.balance)))
-      return `le solde affiché (« ${solde} ») ne correspond pas au wallet réel (${d.etat.balance})`;
+    /* Le solde affiché est le DISPONIBLE (solde − réservé), la même règle que le
+       header, le Wallet et le Profil : le bonus de bienvenue (1 000 Ar) est
+       verrouillé et ne compte donc pas. La valeur de référence vient du SERVEUR
+       (`withdrawable`), pas d'une reconstruction locale. */
+    const apiUser = await apiFromPage(A.page, "/api/user");
+    const dispo = apiUser.json.user.withdrawable;
+    if (!nu(solde).includes(nu(dispo)))
+      return `le solde affiché (« ${solde} ») ne correspond pas au disponible réel (${dispo})`;
     if (!d.tuiles.some((t) => /parties jou/i.test(t))) return "l'indicateur « Parties jouées » manque";
     return d.tuiles.some((t) => /victoires/i.test(t)) ? true : "l'indicateur « Victoires » manque";
   });

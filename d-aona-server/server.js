@@ -20,6 +20,20 @@ const { GameSession, computeEloDelta, legalMoves, checkWin, countPieces, initial
 const Registry = require("./games/registry");
 const DATA = require("./data");
 const Auth = require("./auth");
+/* Pièces d'identité (recto/verso) et back-office : deux modules qui ont besoin
+   de la base et des magasins, jamais de ce fichier — le sens des dépendances
+   reste unique (server → modules). */
+const Kyc = require("./kyc");
+const Admin = require("./admin");
+/* Magasin financier : les retraits sont désormais des DEMANDES instruites par
+   le back-office. `Finance.balanceOf()` est la seule source du « disponible »
+   affiché au joueur — même calcul des deux côtés de la frontière. */
+const Finance = require("./admin/store.finance");
+/* Réglages de la plateforme : `registrations_open` conditionne l'inscription.
+   Le module est requis directement : `Admin` n'expose pas (encore) ses magasins,
+   et faire passer un réglage par le routeur HTTP serait un détour inutile. */
+const Settings = require("./admin/store.v2");
+const { imageMagicOk } = require("./image");
 
 const PORT = parseInt(process.env.D_AONA_PORT || process.env.PORT || "8080", 10);
 const TICK_MS = 1000;
@@ -62,6 +76,28 @@ function sanitizeUser(u) {
     badge: badge ? { name: badge.name, icon: badge.icon, color: badge.color } : null };
 }
 
+/* Charge utile du joueur POUR LUI-MÊME.
+   `sanitizeUser` sert aussi aux profils publics (et /api/users/:id retire
+   explicitement `kyc`) : y ajouter l'état du dossier d'identité le ferait fuiter
+   sur le profil des autres. L'état KYC n'est donc injecté QUE dans les trois
+   réponses « moi » (connexion, inscription, /api/user). */
+function selfPayload(u) {
+  const k = Kyc.statusOf(u.id);
+  /* Le solde AFFICHÉ doit être le solde ENGAGEABLE : un joueur qui vient de
+     déposer une demande de retrait ne doit pas lire un solde qu'il ne peut plus
+     utiliser. `reserved` est exposé pour que l'écran puisse expliquer l'écart. */
+  const b = Finance.balanceOf(u.id);
+  /* Profil déclaré (migration 030). `profile_complete` est calculé ICI, une
+     seule fois : l'interface n'a pas à réimplémenter la règle des cinq champs. */
+  const complete = !!(u.first_name && u.last_name && u.birth_date && u.phone && u.avatar && u.bio);
+  return { ...sanitizeUser(u), kyc_status: k.status, kyc_reason: k.reason || null,
+    reserved: b.reserved, withdrawable: b.withdrawable,
+    phone: u.phone || null,
+    first_name: u.first_name || null, last_name: u.last_name || null,
+    birth_date: u.birth_date || null, bio: u.bio || null,
+    profile_complete: complete };
+}
+
 /* ---------- Limitation de débit du chat ----------
    Un fil de discussion n'a aucune raison d'accepter des dizaines de messages
    par seconde : fenêtre glissante simple par joueur (20 messages / 10 s).
@@ -77,19 +113,10 @@ function allowChatMessage(userId) {
   return e.count <= CHAT_RATE_MAX;
 }
 
-/* ---------- Signature binaire des images (upload d'avatar) ----------
-   Le type DÉCLARÉ (extension du dataURL) doit correspondre au CONTENU réel :
-   sans ce contrôle, un fichier HTML renommé « .png » serait stocké puis servi
-   depuis la même origine. Les formats acceptés sont déjà sans SVG (liste du
-   dataURL) ; ceci ferme le dernier écart (contenu ≠ déclaration). */
-function imageMagicOk(buf, ext) {
-  if (!buf || buf.length < 12) return false;
-  if (ext === "png") return buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
-  if (ext === "jpg") return buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
-  if (ext === "gif") { const h = buf.slice(0, 6).toString("ascii"); return h === "GIF87a" || h === "GIF89a"; }
-  if (ext === "webp") return buf.slice(0, 4).toString("ascii") === "RIFF" && buf.slice(8, 12).toString("ascii") === "WEBP";
-  return false;
-}
+/* ---------- Signature binaire des images ----------
+   Le contrôle vit dans image.js : la route de la photo de profil et celle des
+   pièces d'identité doivent appliquer EXACTEMENT la même règle. Deux copies
+   finiraient par diverger, et c'est la plus faible qui déciderait. */
 
 /* ---------- Seed de la base ----------
    Désactivé par défaut : la base reste dans l'état où elle est. Réactivation
@@ -181,7 +208,9 @@ function readElo(userId) {
    pas la discipline des appelants. */
 function walletPayload(userId) {
   const b = Wallet.getBalance(userId) || {};
-  return { type: "wallet_update", balance: b.balance, bonusLock: b.bonus_lock };
+  const f = Finance.balanceOf(userId);
+  return { type: "wallet_update", balance: b.balance, bonusLock: b.bonus_lock,
+    reserved: f.reserved, withdrawable: f.withdrawable };
 }
 
 function leaderboardForClient(userId) {
@@ -220,11 +249,17 @@ function handleRest(req, res, url, userId) {
         userAgent: req.headers["user-agent"], ip: clientIp(req),
       });
       if (!r.ok) return respond(res, { error: r.error }, r.status);
-      return respond(res, { token: r.token, expiresAt: r.expiresAt, user: sanitizeUser(r.user) });
+      return respond(res, { token: r.token, expiresAt: r.expiresAt, user: selfPayload(r.user) });
     }
 
     if (method === "POST" && pathname === "/api/auth/register") {
       if (isRateLimited(req, res)) return;
+      /* Interrupteur du back-office : les inscriptions peuvent être fermées
+         sans redéploiement. Lu À CHAQUE requête (jamais mis en cache au
+         démarrage) : fermer les inscriptions est une décision d'exploitation
+         qui doit prendre effet immédiatement. */
+      if (Settings.setting("registrations_open") === false)
+        return respond(res, { error: "Les inscriptions sont fermées pour le moment", code: "INSCRIPTIONS_FERMEES" }, 403);
       const payload = await readBody(req, 2048);
       if (payload.__tooLarge) return respond(res, { error: "Requête trop volumineuse" }, 413);
       const r = await Auth.register({
@@ -238,7 +273,7 @@ function handleRest(req, res, url, userId) {
          « le nouveau joueur apparaît » autrement qu'au prochain rechargement —
          la requête /api/leaderboard, elle, renvoie déjà tout le monde. */
       broadcast({ type: "leaderboard_update" });
-      return respond(res, { token: r.token, expiresAt: r.expiresAt, user: sanitizeUser(r.user) });
+      return respond(res, { token: r.token, expiresAt: r.expiresAt, user: selfPayload(r.user) });
     }
 
     /* Disponibilité d'un pseudo, AVANT création du compte.
@@ -264,8 +299,47 @@ function handleRest(req, res, url, userId) {
       return respond(res, { ok: true });
     }
 
+    /* GET /api/ads/active — bannières du carrousel d'accueil.
+       La table `ads` (module Publicités du back-office) est désormais la source ;
+       le fichier statique assets/ad/pubs.json ne sert plus que de repli côté
+       client. Le filtre par dates est fait EN BASE, avec la même règle que
+       `pubsActives` : une bannière hors de sa fenêtre n'est pas renvoyée.
+       PUBLIQUE, et volontairement : c'est un contenu commercial, identique pour
+       tous, et le fichier qu'elle remplace l'était. La placer derrière la
+       session ferait échouer l'appel au chargement de la page de connexion
+       (401 systématique dans la console du navigateur). */
+    if (method === "GET" && pathname === "/api/ads/active") {
+      const position = url.searchParams.get("position") === "profil" ? "profil" : "accueil";
+      return respond(res, { pubs: Admin.Store.adsActive(position) });
+    }
+
     if (!userId) return respond(res, { error: "Non authentifié" }, 401);
     if (!user) return respond(res, { error: "Utilisateur introuvable" }, 404);
+
+    /* ---------- Back-office ----------
+       Aiguillé AVANT les routes métier : /api/admin/* n'a aucune raison de
+       traverser soixante tests de chemin pour finir en 404. Le routeur applique
+       lui-même ses trois barrières (session, module, permission) et journalise
+       ses refus ; ce fichier ne lui transmet que ce qu'il ne peut pas connaître
+       (l'identité résolue, et comment diffuser un événement tournoi). */
+    if (pathname === "/api/admin" || pathname.startsWith("/api/admin/")) {
+      return Admin.handle(req, res, url, {
+        userId, user,
+        hooks: {
+          broadcast,
+          sendUser,
+          /* Pousser l'état du portefeuille à UN joueur : le paiement d'un
+             retrait change son solde disponible, il doit le voir sans
+             recharger. Même fabrique (`walletPayload`) que partout ailleurs,
+             donc aucun risque d'émission partielle. */
+          walletUpdate: (uid) => sendUser(uid, walletPayload(uid)),
+          /* Le bracket est généré par server.js (il connaît les matchs, les
+             délais et les notifications) : le back-office le déclenche, il ne le
+             réimplémente pas. */
+          generateBracket: (id) => generateBracket(id),
+        },
+      });
+    }
 
     /* Changement de mot de passe (session requise).
        Révoque toutes les sessions : si le changement fait suite à un
@@ -283,7 +357,10 @@ function handleRest(req, res, url, userId) {
 
     // GET /api/user
     if (method === "GET" && pathname === "/api/user")
-      return respond(res, { user: sanitizeUser(user), transactions: Wallet.getTransactions(user.id) });
+      return respond(res, { user: selfPayload(user), transactions: Wallet.getTransactions(user.id),
+        /* La demande de retrait en cours : sans elle, le joueur voit son solde
+           disponible baisser sans explication à l'écran. */
+        withdrawal: Finance.openRequest(user.id) });
 
     // GET /api/tournaments
     if (method === "GET" && pathname === "/api/tournaments")
@@ -304,10 +381,10 @@ function handleRest(req, res, url, userId) {
       if (user.balance < t.entry) return respond(res, { error: `Solde insuffisant` }, 400);
       if (t.entry > 0 && !user.kyc) return respond(res, { error: "KYC requis" }, 403);
       Tournament.register(user.id, t.id);
-      if (!user.bonus_used && t.entry > 0) {
-        User.update(user.id, { bonus_used: true });
-        Wallet.credit(user.id, 1000, "Bonus de bienvenue", true);
-      }
+      /* Comptes HÉRITÉS seulement : les comptes neufs ont déjà reçu le bonus
+         (1 000 Ar, non retirable) à l'inscription. `grantWelcome` est
+         idempotent, donc aucun risque de le créditer deux fois ici. */
+      if (t.entry > 0) Wallet.grantWelcome(user.id);
       Wallet.spend(user.id, t.entry, `Mise entrée - ${t.name}`);
       const bal = Wallet.getBalance(user.id);
       sendUser(user.id, walletPayload(user.id));
@@ -347,6 +424,61 @@ function handleRest(req, res, url, userId) {
       fs.writeFileSync(fpath, buf);
       User.update(user.id, { avatar: `/uploads/avatars/${fname}` });
       return respond(res, { ok: true, avatar: `/uploads/avatars/${fname}` });
+    }
+
+    /* POST /api/user/profile — les CINQ champs obligatoires du Profil.
+       Nom, prénom et date de naissance doivent être CONFORMES au CIN : le
+       serveur ne peut pas lire la carte, il borne donc la forme (longueurs,
+       caractères d'un état civil, date réelle, pas dans le futur) et laisse la
+       conformité au KYC, qui compare les pièces.
+       Un champ absent (`undefined`) est laissé INTACT ; une chaîne vide
+       l'efface. Le client envoie toujours les cinq, l'appel est donc idempotent. */
+    if (method === "POST" && pathname === "/api/user/profile") {
+      const payload = await readBody(req, 8 * 1024);
+      const clean = (v) => (typeof v === "string" ? v.trim() : v === null ? "" : undefined);
+      const fields = {};
+      const NAME_RE = /^[\p{L}][\p{L}\p{M}'’.\- ]{1,59}$/u;
+      for (const key of ["first_name", "last_name"]) {
+        const v = clean(payload[key]);
+        if (v === undefined) continue;
+        if (!NAME_RE.test(v))
+          return respond(res, { error: "Nom et prénom : 2 à 60 lettres, conformes au CIN.", field: key }, 400);
+        fields[key] = v;
+      }
+      if (payload.birth_date !== undefined) {
+        const v = String(clean(payload.birth_date) || "");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v))
+          return respond(res, { error: "Date de naissance attendue au format AAAA-MM-JJ.", field: "birth_date" }, 400);
+        const d = new Date(v + "T00:00:00Z");
+        const today = new Date();
+        const age = (today - d) / (365.25 * 24 * 3600 * 1000);
+        if (isNaN(d.getTime()) || d.getUTCFullYear() < 1900 || d > today || age < 13 || age > 120)
+          return respond(res, { error: "Date de naissance invalide (conforme au CIN).", field: "birth_date" }, 400);
+        fields.birth_date = v;
+      }
+      if (payload.bio !== undefined) {
+        const v = String(clean(payload.bio) || "");
+        if (!v) return respond(res, { error: "La bio est obligatoire.", field: "bio" }, 400);
+        if (v.length > 160) return respond(res, { error: "Bio : 160 caractères maximum.", field: "bio" }, 400);
+        fields.bio = v;
+      }
+      if (payload.phone !== undefined) {
+        const v = String(clean(payload.phone) || "").replace(/[\s.\-]/g, "");
+        if (!/^03\d{8}$/.test(v) && !/^\+2613\d{8}$/.test(v))
+          return respond(res, { error: "Numéro invalide (ex. 034 12 345 67).", field: "phone" }, 400);
+        fields.phone = v;
+      }
+      if (!Object.keys(fields).length) return respond(res, { error: "Aucun champ à enregistrer." }, 400);
+      try {
+        User.update(user.id, fields);
+      } catch (e) {
+        /* Index UNIQUE sur le téléphone : deux comptes ne peuvent pas partager
+           un numéro de retrait — sinon l'opérateur paierait le mauvais joueur. */
+        if (/UNIQUE/i.test(e.message || ""))
+          return respond(res, { error: "Ce numéro de téléphone est déjà utilisé.", field: "phone" }, 409);
+        throw e;
+      }
+      return respond(res, { ok: true, user: selfPayload(User.getById(user.id)) });
     }
 
     // GET /api/skins
@@ -430,7 +562,12 @@ function handleRest(req, res, url, userId) {
         return respond(res, { error: "Skin deja possede" }, 400);
       /* Un skin clair et son pendant sombre : deux transactions distinctes. */
       if (sk.price && sk.price > 0) {
-        if (user.balance < sk.price) return respond(res, { error: "Solde insuffisant" }, 400);
+        /* On ne dépense pas de l'argent DÉJÀ PROMIS à un retrait : sinon le
+           paiement de la demande échouerait plus tard, sur un solde que le
+           joueur croyait disponible. Le contrôle porte donc sur le
+           disponible, pas sur le solde brut. */
+        const dispo = Finance.balanceOf(user.id).withdrawable;
+        if (dispo < sk.price) return respond(res, { error: "Solde insuffisant" }, 400);
         Wallet.spend(user.id, sk.price, `Achat ${sk.name}`);
       }
       Skins.buy(user.id, sk.id);
@@ -699,25 +836,46 @@ function handleRest(req, res, url, userId) {
       });
     }
 
-    // POST /api/kyc/verify — persiste la vérification d'identité (la simulation
-    // locale côté client) pour que les fonctions serveur (défis avec mise,
-    // entrée de tournoi…) voient kyc=true au même titre que l'UI.
-    if (method === "POST" && pathname === "/api/kyc/verify") {
-      User.update(user.id, { kyc: 1 });
-      return respond(res, { ok: true, kyc: true, user: User.getById(user.id) });
+    /* ---------- Vérification d'identité : recto ET verso ----------
+       La route précédente (`/api/kyc/verify`) se contentait de mettre kyc = 1 :
+       aucune image n'était reçue, aucune n'était stockée. La « vérification »
+       était une animation côté client — un simple POST suffisait à débloquer
+       dépôts, retraits, mises et tournois payants.
+
+       Elle répond désormais 410 : un client ancien s'arrête là et n'obtient
+       jamais un compte vérifié. Le dossier est ensuite revu PAR UN
+       ADMINISTRATEUR (`kyc.review`) — c'est lui, et lui seul, qui met
+       `users.kyc = 1` (voir kyc.js et admin/index.js). */
+    if (method === "POST" && pathname === "/api/kyc/verify")
+      return respond(res, {
+        error: "La vérification immédiate n'existe plus : envoyez le recto ET le verso, un administrateur validera votre dossier.",
+        code: "KYC_SUBMIT_REQUIRED",
+      }, 410);
+
+    if (method === "POST" && pathname === "/api/kyc/submit") {
+      /* 6 Mo : deux faces de 2 Mo en base64 (~2,7 Mo chacune) plus l'enveloppe
+         JSON. Le client réduit chaque photo à ~300 Ko ; ce plafond est une
+         borne, pas la taille attendue. */
+      const payload = await readBody(req, 6 * 1024 * 1024);
+      if (payload.__tooLarge)
+        return respond(res, { error: "Images trop lourdes (2 Mo maximum par face)" }, 413);
+      const r = Kyc.submit(user.id, payload);
+      /* Les refus portent un CODE stable (VERSO_REQUIRED, MEME_IMAGE,
+         TROP_DE_SOUMISSIONS…) : l'interface affiche sa propre phrase, les tests
+         comparent un code. */
+      if (!r.ok) return respond(res, { error: r.error, code: r.code }, r.status);
+      return respond(res, { ok: true, kyc_status: "pending", submitted_at: r.submitted_at, caseId: r.caseId });
     }
 
     // POST /api/deposit
     if (method === "POST" && pathname === "/api/deposit") {
       const payload = await readBody(req);
-      /* Bonus de bienvenue : UNE SEULE FOIS par compte.
-         L'ancien code le recréditait à CHAQUE dépôt tant que le KYC n'était pas
-         fait : 5 000 Ar bloqués (non retirables, mais dépensables en mises et en
-         entrées de tournoi) s'ajoutaient indéfiniment, dépôt après dépôt. */
-      if (!user.kyc && !user.bonus_used) {
-        Wallet.credit(user.id, 5000, "Crédit de bienvenue", true);
-        db.prepare("UPDATE users SET bonus_used = 1 WHERE id = ?").run(user.id);
-      }
+      /* Bonus de bienvenue : UNE SEULE FOIS par compte, 1 000 Ar non retirables
+         (règle PRD, montant défini dans `Wallet.grantWelcome`). Ce bloc ne sert
+         plus qu'aux comptes HÉRITÉS créés avant le changement : les comptes
+         neufs l'ont déjà reçu à l'inscription, et `bonus_used` rend l'appel
+         sans effet — il ne peut donc jamais doubler le bonus. */
+      Wallet.grantWelcome(user.id);
       /* Montant : entier positif. Valeur absente ou zéro → 5 000 (comportement
          historique) ; valeur NÉGATIVE refusée — un « dépôt » négatif débiterait
          le wallet au lieu de le créditer. Libellé d'opérateur borné (40). */
@@ -728,23 +886,18 @@ function handleRest(req, res, url, userId) {
       return respond(res, { ok: true, balance: bal.balance, bonusLock: bal.bonus_lock });
     }
 
-    // POST /api/withdraw
+    // POST /api/withdraw — DÉPOSE une demande de retrait (aucun débit ici)
     if (method === "POST" && pathname === "/api/withdraw") {
       const payload = await readBody(req);
-      const amount = parseInt(payload.amount) || 0;
-      if (amount < 1000) return respond(res, { error: "Minimum 1000 Ar" }, 400);
-      /* Plafond QUOTIDIEN (500 000 Ar/jour) appliqué côté serveur, sur la somme
-         réelle des retraits du jour : le formulaire client l'affiche, la règle
-         vit ici. */
-      const withdrawnToday = Wallet.withdrawnToday(user.id);
-      if (amount > 500000 - withdrawnToday)
-        return respond(res, { error: "Plafond quotidien de retrait atteint (max. 500 000 Ar/jour)" }, 400);
-      const bal = Wallet.getBalance(user.id);
-      const available = bal.balance - bal.bonus_lock;
-      if (amount > available) return respond(res, { error: "Solde insuffisant" }, 400);
-      Wallet.spend(user.id, amount, `Retrait ${String(payload.operator || "MVola").slice(0, 40)}`);
-      const nBal = Wallet.getBalance(user.id);
-      return respond(res, { ok: true, balance: nBal.balance, bonusLock: nBal.bonus_lock });
+      /* Le débit n'a plus lieu ici : un opérateur doit d'abord instruire la
+         demande. `Finance.create` vérifie le minimum, le plafond quotidien
+         (calculé sur les demandes EN COURS, pas sur les seuls débits) et le
+         solde disponible, puis enregistre. Réponse : l'état du portefeuille
+         APRÈS réservation — le solde ne bouge pas, le disponible si. */
+      const r = Finance.create(user.id, payload);
+      if (!r.ok) return respond(res, { error: r.error, code: r.code }, r.status);
+      const b = Finance.balanceOf(user.id);
+      return respond(res, { ok: true, request: r.request, ...b });
     }
 
     // ---------- Notifications centralisées ----------
@@ -1229,6 +1382,14 @@ function rehydrateSessions() {
     Object.assign(session, snap);
     sessions.set(row.id, session);
     n++;
+    /* La ligne d'historique reprend l'état « en cours » : sans cela, une partie
+       interrompue par un redémarrage s'affichait « terminée » (ou disparaissait
+       de l'onglet « En cours ») alors qu'elle est bel et bien reprise. */
+    const recordId = snap.gameRecordId || row.game_record_id;
+    if (recordId) {
+      try { db.prepare("UPDATE games SET status = 'live', reason = 'en_cours' WHERE id = ?").run(recordId); }
+      catch (e) {}
+    }
     /* Le minuteur de l'IA vit dans un `setTimeout` : il est mort avec le
        processus. Si la partie reprend sur son tour, on le réarme. */
     if (session.mode === "ai" && session.turn === 2) {
@@ -1236,6 +1397,19 @@ function rehydrateSessions() {
     }
   }
   if (n) console.log(`[reprise] ${n} partie(s) rechargée(s) depuis la base`);
+  /* Toute ligne restée « en cours » alors que plus AUCUNE session ne l'est
+     (session abandonnée, illisible, ou joueur jamais revenu) : on les close.
+     Sans ce balayage, l'onglet « En cours » garderait indéfiniment des parties
+     qui n'existent plus en mémoire. */
+  try {
+    const r = db.prepare(
+      `UPDATE games SET status = 'cancelled', reason = 'Session abandonnée — partie close'
+        WHERE status = 'live'
+          AND id NOT IN (SELECT game_record_id FROM game_sessions
+                          WHERE status = 'playing' AND game_record_id IS NOT NULL)`
+    ).run();
+    if (r.changes) console.log(`[reprise] ${r.changes} partie(s) fantôme(s) close(s)`);
+  } catch (e) { console.error("reprise : balayage des parties fantômes impossible", e); }
 }
 
 function createGameSession(p1Id, p2Id, mode, formatId, wager, gameId) {
@@ -1267,7 +1441,7 @@ function createGameSession(p1Id, p2Id, mode, formatId, wager, gameId) {
   gs.game = game;
   gs.gameRecordId = GameRecord.create(p1Obj.id, p2.id, mode, formatId, wager, game);
   sessions.set(sessionId, gs);
-  GameSessionStore.create(sessionId, p1Obj.id, p2.id, mode, formatId, wager);
+  GameSessionStore.create(sessionId, p1Obj.id, p2.id, mode, formatId, wager, game, gs.gameRecordId);
   /* Persistée DES LA CREATION : une partie ouverte puis laissée sans le moindre
      coup (tirage en cours, adversaire qui n'a pas encore joue) doit survivre a
      un redemarrage comme les autres. */
@@ -1759,6 +1933,12 @@ function start() {
   /* Reprise : les parties encore ouvertes au dernier arrêt reviennent AVANT que
      la boucle de jeu et le serveur HTTP ne démarrent (aucune course possible). */
   rehydrateSessions();
+  /* Back-office : catalogue des modules/rôles et reprise des bannières du
+     fichier statique. Idempotent — ne réécrit jamais un droit déjà modifié par
+     un administrateur. Après `rehydrateSessions()` pour rester hors de la
+     fenêtre que le garde-fou `test/variantes.js` surveille ; les deux sont de
+     toute façon terminés avant l'écoute HTTP. */
+  Admin.init();
 
   const server = http.createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -1775,7 +1955,13 @@ function start() {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "SAMEORIGIN");
     res.setHeader("Referrer-Policy", "same-origin");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+    /* `camera=(self)` : le parcours KYC capture un SELFIE (caméra frontale).
+       Avec `camera=()`, le navigateur refusait `getUserMedia` pour l'origine
+       elle-même — la prise de vue en direct était impossible. La permission
+       reste limitée à notre origine (aucun cadre tiers : `frame-ancestors
+       'self'` ci-dessous). Le sélecteur natif `capture="user"`, lui, n'en
+       dépend pas : il reste le chemin de repli. */
+    res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=(), payment=()");
     res.setHeader("Content-Security-Policy",
       "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
       "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' ws: wss:; " +

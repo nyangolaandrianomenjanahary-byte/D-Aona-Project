@@ -48,11 +48,11 @@ async function s9_tournament(browser) {
        campagne complète, est ce qui vérifiait le KYC). On le vérifie ici :
        le scénario devient réellement autonome, comme annoncé plus haut. */
     if (!(await stateOf(A.page)).kyc) {
-      const r = await apiFromPage(A.page, "/api/kyc/verify", "POST", {});
-      if (!r.json || r.json.kyc !== true) return "impossible de vérifier le KYC du compte de test";
+      const r = await verifyKycViaApi(A.page, browser);
+      if (!r || r.status !== "verified") return "impossible de faire approuver le KYC du compte de test";
       await A.page.reload({ waitUntil: "domcontentloaded" });
       await sleep(2500);
-      if (!(await stateOf(A.page)).kyc) return "le KYC vérifié n'est pas relu par l'application";
+      if (!(await stateOf(A.page)).kyc) return "le KYC approuvé n'est pas relu par l'application";
       /* Le rechargement repart sur l'onglet « En direct » : on revient sur les
          tournois, sinon le bouton cherché n'existe pas dans la page. */
       await goMatchTab(A.page, "tournois");
@@ -127,7 +127,7 @@ async function s9_tournament(browser) {
     if (del.changes !== 1) return "aucune inscription à retirer pour l'utilisateur " + me.id;
     const B = await ensure(browser, "B");
     let bs = await stateOf(B.page);
-    if (!bs.kyc) { await apiFromPage(B.page, "/api/kyc/verify", "POST", {}); bs = await stateOf(B.page); }
+    if (!bs.kyc) { await verifyKycViaApi(B.page, browser); bs = await stateOf(B.page); }
     if (bs.balance < 1000) await apiFromPage(B.page, "/api/deposit", "POST", { amount: 1000, operator: "MVola" });
     const joinB = await apiFromPage(B.page, "/api/tournaments/join", "POST", { tournamentId: TID_UI });
     if (joinB.status !== 200) return "impossible de déclencher la diffusion serveur : " + JSON.stringify(joinB.json);

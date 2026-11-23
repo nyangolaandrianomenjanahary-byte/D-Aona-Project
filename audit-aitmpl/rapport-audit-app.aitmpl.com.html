@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit UI/UX — app.aitmpl.com</title>
+<style>
+  :root{
+    --bg:#ffffff; --surf-1:#fafafa; --surf-2:#f5f5f5; --surf-3:#efefef;
+    --border:#e5e5e5; --text:#0f0f0f; --text-2:#525252; --text-3:#737373;
+    --accent:#b65b3c; --accent-bg:#b65b3c14;
+    --s1:#b3261e; --s1-bg:#b3261e12;
+    --s2:#b45309; --s2-bg:#b4530912;
+    --s3:#0f6b8a; --s3-bg:#0f6b8a12;
+    --ok:#3f7d43; --ok-bg:#3f7d4312;
+    --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.55}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+  header.top{border-bottom:1px solid var(--border);padding:34px 0 26px;background:var(--surf-1)}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  h1{font-size:30px;line-height:1.2;margin:10px 0 8px;letter-spacing:-.02em}
+  .sub{color:var(--text-2);font-size:14px;max-width:78ch}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .tag{font-family:var(--mono);font-size:11px;padding:4px 9px;border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--text-2)}
+  section{padding:34px 0;border-bottom:1px solid var(--border)}
+  h2{font-size:19px;margin:0 0 6px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);font-size:12px;color:var(--text-3);margin-right:8px;font-weight:500}
+  .lead{color:var(--text-2);font-size:13.5px;margin:0 0 20px;max-width:80ch}
+  /* scores */
+  .scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px}
+  .score{border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:#fff}
+  .score .k{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3)}
+  .score .v{font-family:var(--mono);font-size:26px;font-weight:600;margin:4px 0 0;letter-spacing:-.02em}
+  .score .v span{font-size:12px;color:var(--text-3);font-weight:400}
+  .bar{height:4px;border-radius:2px;background:var(--surf-3);margin-top:9px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent)}
+  .low .v{color:var(--s1)} .mid .v{color:var(--s2)} .good .v{color:var(--ok)}
+  /* table */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);font-weight:600;padding:0 10px 8px 0;border-bottom:1px solid var(--border)}
+  td{padding:9px 10px 9px 0;border-bottom:1px solid var(--surf-3);vertical-align:top;color:var(--text-2)}
+  td:first-child{color:var(--text);font-weight:500}
+  code{font-family:var(--mono);font-size:12px;background:var(--surf-2);padding:1px 5px;border-radius:4px;color:var(--text)}
+  .sev{font-family:var(--mono);font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap}
+  .S1{color:var(--s1);background:var(--s1-bg)} .S2{color:var(--s2);background:var(--s2-bg)}
+  .S3{color:var(--s3);background:var(--s3-bg)} .S4{color:var(--text-3);background:var(--surf-3)}
+  /* findings */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{border:1px solid var(--border);border-radius:8px;padding:15px 17px;background:#fff}
+  .card h3{font-size:14px;margin:0 0 6px;line-height:1.35}
+  .card p{margin:0;font-size:13px;color:var(--text-2)}
+  .card .hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .card .id{font-family:var(--mono);font-size:10.5px;color:var(--text-3)}
+  /* gallery */
+  figure{margin:0 0 26px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff}
+  figure img{display:block;width:100%;height:auto;border-bottom:1px solid var(--surf-3)}
+  figcaption{padding:11px 15px;font-size:12.5px;color:var(--text-2)}
+  figcaption b{color:var(--text);font-weight:600}
+  .gal{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .gal figure{margin:0}
+  .note{border-left:3px solid var(--accent);background:var(--accent-bg);padding:12px 16px;border-radius:0 6px 6px 0;font-size:13px;color:var(--text-2)}
+  .note b{color:var(--text)}
+  footer{padding:26px 0 60px;color:var(--text-3);font-size:12px;font-family:var(--mono)}
+  ul.clean{margin:8px 0 0;padding-left:18px;color:var(--text-2);font-size:13.5px}
+  ul.clean li{margin-bottom:6px}
+  @media (max-width:820px){.grid2,.gal{grid-template-columns:1fr}h1{font-size:24px}}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="wrap">
+  <div class="kicker">Audit produit — 19 novembre 2026</div>
+  <h1>app.aitmpl.com — logique d'interface, fonctionnalités, UX, UI</h1>
+  <p class="sub">Catalogue de 2 021 composants Claude Code, 902 offres d'emploi, 23 certifications. Exploration réelle, 29 captures, mesures DOM / ARIA / CSS / Performance API sur desktop 1920 et 1366, mobile 390, thèmes clair et sombre. Testeur non connecté.</p>
+  <div class="meta">
+    <span class="tag">29 captures</span>
+    <span class="tag">20 pages auditées</span>
+    <span class="tag">53 constats priorisés</span>
+    <span class="tag">WCAG 2.2 AA</span>
+    <span class="tag">desktop + mobile</span>
+    <span class="tag">light + dark</span>
+  </div>
+</div></header>
+
+<section><div class="wrap">
+  <h2><span class="n">01</span>Verdict</h2>
+  <p class="lead">Le contenu est au niveau, la couche d'interaction ne l'est pas. La fiche composant est excellente, le design system est solide, mais les deux systèmes de recherche ne donnent pas les mêmes résultats, les filtres et le tri se désynchronisent de l'état réel, la pagination perd l'utilisateur et trois pages majeures sont vides sans JavaScript.</p>
+  <div class="scores">
+    <div class="score low"><div class="k">Logique d'interface</div><div class="v">4,5<span>/10</span></div><div class="bar"><i style="width:45%"></i></div></div>
+    <div class="score mid"><div class="k">Fonctionnalités</div><div class="v">5,5<span>/10</span></div><div class="bar"><i style="width:55%"></i></div></div>
+    <div class="score mid"><div class="k">UX</div><div class="v">5,5<span>/10</span></div><div class="bar"><i style="width:55%"></i></div></div>
+    <div class="score good"><div class="k">UI / design system</div><div class="v">6,5<span>/10</span></div><div class="bar"><i style="width:65%"></i></div></div>
+    <div class="score low"><div class="k">Accessibilité</div><div class="v">4,0<span>/10</span></div><div class="bar"><i style="width:40%"></i></div></div>
+    <div class="score good"><div class="k">Performance</div><div class="v">7,0<span>/10</span></div><div class="bar"><i style="width:70%"></i></div></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2><span class="n">02</span>Top 10 des priorités</h2>
+  <p class="lead">Classement par impact utilisateur rapporté à l'effort de correction.</p>
+  <table>
+    <thead><tr><th style="width:42px">#</th><th>Problème</th><th style="width:56px">Sév.</th><th style="width:190px">Où</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>La recherche <code>⌘K</code> ne trouve pas « Frontend Design » et classe hors sujet pour « react »</td><td><span class="sev S1">S1</span></td><td>toutes pages</td></tr>
+      <tr><td>2</td><td>Recherche inline et tri masqués en mobile : seule la palette cassée reste</td><td><span class="sev S1">S1</span></td><td>listes</td></tr>
+      <tr><td>3</td><td>Filtre catégorie en double (select + chips), désynchronisé, 8 catégories sur 30</td><td><span class="sev S2">S2</span></td><td>listes</td></tr>
+      <tr><td>4</td><td>Le tri ne « prend » pas : liste alphabétique, select revenu sur « Most Popular »</td><td><span class="sev S2">S2</span></td><td>listes</td></tr>
+      <tr><td>5</td><td>Pagination : scroll non remonté, aucun numéro de page (39 pages), aucun état d'URL</td><td><span class="sev S2">S2</span></td><td>listes</td></tr>
+      <tr><td>6</td><td>24 boutons <code>opacity:0</code> focusables au clavier</td><td><span class="sev S2">S2</span></td><td>listes</td></tr>
+      <tr><td>7</td><td>Palette <code>⌘K</code> et tiroir Stack sans rôle dialog ni gestion du focus</td><td><span class="sev S2">S2</span></td><td>global</td></tr>
+      <tr><td>8</td><td>Contraste de l'accent utilisé en texte : 3,25:1 (AA = 4,5:1)</td><td><span class="sev S2">S2</span></td><td>fiches, liens</td></tr>
+      <tr><td>9</td><td><code>/jobs</code>, <code>/certifications</code>, <code>/trending</code> vides sans JS ; 902 liens <code>href="#"</code></td><td><span class="sev S2">S2</span></td><td>3 pages</td></tr>
+      <tr><td>10</td><td>Hero ASCII + compteurs : ~400 px avant le catalogue, 2 rangées visibles en 1366×768</td><td><span class="sev S2">S2</span></td><td>accueil</td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<section><div class="wrap">
+  <h2><span class="n">03</span>Constats structurants</h2>
+  <p class="lead">Les quatre problèmes de fond, illustrés.</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="hd"><span class="sev S1">S1</span><span class="id">FX-01</span></div>
+      <h3>Deux moteurs de recherche, deux qualités</h3>
+      <p>Dans la palette <code>⌘K</code> : « frontend design » → <em>No results found</em> (le composant existe, il est n°1 de l'accueil). « react » → Shopify Expert, Web3 Integration Specialist, Communication Excellence Coach. La recherche inline des pages de liste, elle, trouve correctement. C'est le premier point de friction du produit.</p>
+    </div>
+    <div class="card">
+      <div class="hd"><span class="sev S2">S2</span><span class="id">LI-01 / LI-02</span></div>
+      <h3>Des contrôles qui ne partagent pas leur état</h3>
+      <p>Chip <code>creative-design</code> active → select toujours sur « All categories ». Select sur <code>database</code> → chip grise. Tri alphabétique → select revenu sur « Most Popular ». Trois contrôles, trois états parallèles pour la même vérité.</p>
+    </div>
+    <div class="card">
+      <div class="hd"><span class="sev S2">S2</span><span class="id">LI-06</span></div>
+      <h3>Trois squelettes de navigation</h3>
+      <p>Header global présent sur l'accueil et les listes, absent sur les fiches et <code>/my-components</code>. Sidebar enrichie de Docs/GitHub sur les fiches. Rail sponsorisé uniquement sur l'accueil. Cinq motifs de hero différents.</p>
+    </div>
+    <div class="card">
+      <div class="hd"><span class="sev S2">S2</span><span class="id">FX-05 / PERF-01</span></div>
+      <h3>Contenu non servi, contenu trop servi</h3>
+      <p>Trois pages renvoient une coquille de 54 Ko sans <code>h1</code> ni données. À l'inverse, <code>/jobs</code> rend 902 cartes d'un coup : 25 447 nœuds DOM, 2 392 SVG, <code>load</code> à 7,5 s.</p>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2><span class="n">04</span>Preuves visuelles</h2>
+  <p class="lead">Captures prises pendant l'exploration, classées par thème. Les fichiers sont dans <code>./shots/</code>.</p>
+
+  <h3 style="font-size:14px;margin:0 0 12px">Recherche et filtres</h3>
+  <div class="gal">
+    <figure><img src="shots/13-command-k-results.png" alt="Palette de recherche globale"><figcaption><b>Palette ⌘K</b> — requête « react » : aucun résultat contenant « react » dans le titre.</figcaption></figure>
+    <figure><img src="shots/02-search-empty.png" alt="État vide de recherche"><figcaption><b>État vide inline</b> — bien écrit, mais le bouton « Clear search » est sous la ligne de flottaison (y = 925 pour 863 px de haut).</figcaption></figure>
+    <figure><img src="shots/03-filters-panel.png" alt="Panneau de filtres"><figcaption><b>Panneau Filters</b> — 8 catégories seulement, slider « MIN DOWNLOADS » en bleu natif, « Clear All » en rouge ad hoc.</figcaption></figure>
+    <figure><img src="shots/11-sort-desync.png" alt="Tri désynchronisé"><figcaption><b>Tri désynchronisé</b> — la liste est alphabétique (« Emerging… », « Evaluation… »), le select affiche « Most Popular ».</figcaption></figure>
+    <figure><img src="shots/05-list-bottom.png" alt="Barre sticky qui recouvre la grille"><figcaption><b>Sticky 196 px</b> — le panneau de filtres reste ouvert et masque le haut des cartes pendant le défilement.</figcaption></figure>
+    <figure><img src="shots/10-pagination-page2.png" alt="Pagination"><figcaption><b>Pagination</b> — page 2 atteinte sans remonter le scroll ; aucun numéro de page.</figcaption></figure>
+  </div>
+
+  <h3 style="font-size:14px;margin:34px 0 12px">Fiche composant (le meilleur du produit)</h3>
+  <div class="gal">
+    <figure><img src="shots/06-detail-top.png" alt="Fiche composant"><figcaption><b>Fiche composant</b> — fil d'Ariane, onglets, fichiers, sans sommaire, install copiable. Structure exemplaire.</figcaption></figure>
+    <figure><img src="shots/26-detail-files-tab.png" alt="Onglet sécurité"><figcaption><b>Security scan</b> — score « 13 of 100 » sans échelle ni légende : 13/100 se lit comme une mauvaise note.</figcaption></figure>
+    <figure><img src="shots/25-stack-panel.png" alt="Stack Builder"><figcaption><b>Stack Builder</b> — bonne idée de panier, mais sans <code>role="dialog"</code> ni focus déplacé.</figcaption></figure>
+    <figure><img src="shots/24-add-page-stack.png" alt="Ajout en masse"><figcaption><b>Add Page to Stack</b> — 24 composants ajoutés en un clic, sans confirmation ni récapitulatif.</figcaption></figure>
+  </div>
+
+  <h3 style="font-size:14px;margin:34px 0 12px">Cohérence entre pages</h3>
+  <div class="gal">
+    <figure><img src="shots/17-trending.png" alt="Page trending"><figcaption><b>/trending</b> — six couleurs Tailwind hors tokens, tableau en <code>div</code>, KPI pastel.</figcaption></figure>
+    <figure><img src="shots/18-jobs.png" alt="Page jobs"><figcaption><b>/jobs</b> — KPI neutres (incohérents avec /trending), 9 contrôles de filtre, 902 liens <code>href="#"</code>.</figcaption></figure>
+    <figure><img src="shots/23-plugins.png" alt="Page plugins"><figcaption><b>/plugins</b> — troisième style de recherche et 1,35 Mo de HTML.</figcaption></figure>
+    <figure><img src="shots/22-my-components.png" alt="Page my components"><figcaption><b>/my-components</b> — seule page du site sans header global ; « Sign In » en simple lien texte.</figcaption></figure>
+    <figure><img src="shots/19-job-click.png" alt="Modale Clerk"><figcaption><b>Connexion</b> — modale Clerk hors charte : bouton noir, logo tiers, aucune couleur du produit.</figcaption></figure>
+    <figure><img src="shots/20-dark-signin.png" alt="Modale Clerk en thème sombre"><figcaption><b>La même en dark mode</b> — carte blanche sur fond à 11/255 : rupture visuelle complète.</figcaption></figure>
+  </div>
+
+  <h3 style="font-size:14px;margin:34px 0 12px">Mobile et mode sombre</h3>
+  <div class="gal">
+    <figure><img src="shots/14-mobile-skills.png" alt="Liste mobile"><figcaption><b>Mobile 390 px</b> — pas de débordement horizontal, mais recherche et tri ont disparu ; badge sécurité sur un tiers de la carte.</figcaption></figure>
+    <figure><img src="shots/29-mobile-detail.png" alt="Fiche mobile"><figcaption><b>Fiche mobile</b> — onglets tronqués + scrollbar visible, widget « Stack » qui recouvre la liste des fichiers.</figcaption></figure>
+    <figure><img src="shots/15-mobile-drawer.png" alt="Drawer mobile"><figcaption><b>Drawer mobile</b> — le point le plus soigné : backdrop, verrou de scroll, états actifs.</figcaption></figure>
+    <figure><img src="shots/16-dark-skills.png" alt="Mode sombre"><figcaption><b>Mode sombre</b> — noir chaud, accents conservés, contrastes mesurés à 6,06:1 et 7,24:1. Réussi.</figcaption></figure>
+    <figure><img src="shots/27-home-1366.png" alt="Accueil 1366"><figcaption><b>Accueil 1366×768</b> — deux rangées de cartes visibles, widget flottant qui recouvre le rail sponsorisé.</figcaption></figure>
+    <figure><img src="shots/01-home-desktop.png" alt="Accueil 1920"><figcaption><b>Accueil 1920</b> — ASCII art et compteurs animés : ~400 px avant le catalogue.</figcaption></figure>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2><span class="n">05</span>Plan d'action en trois sprints</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>1 · Rendre la recherche et les filtres fiables</h3>
+      <ul class="clean">
+        <li>Un seul index, un seul ranking, nombre de résultats affiché</li>
+        <li>Recherche et tri réintroduits en mobile</li>
+        <li>Un seul état filtre/tri, 30 catégories accessibles</li>
+        <li>Recherche, catégorie, tri et page dans l'URL</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Navigation et feedback</h3>
+      <ul class="clean">
+        <li><code>scrollTo(0)</code> au changement de page, pagination numérotée</li>
+        <li>Toasts + <code>aria-live</code> pour copie, save, filtres, stack</li>
+        <li>Confirmation sur « Add Page to Stack »</li>
+        <li>Palette et tiroir conformes (dialog, focus trap, Esc)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Cohérence et accessibilité</h3>
+      <ul class="clean">
+        <li>Accent assombri pour le texte (<code>#b65b3c</code> ≈ 4,6:1)</li>
+        <li>Jamais de <code>opacity:0</code> focusable</li>
+        <li>Labels sur les 3 champs et le slider</li>
+        <li>Tokens <code>danger/warning/info</code>, carte et modale uniques</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Chantier de fond · Shell unique</h3>
+      <ul class="clean">
+        <li>Un layout partagé par toutes les pages</li>
+        <li>SSR pour <code>/jobs</code>, <code>/certifications</code>, <code>/trending</code></li>
+        <li>URL par offre + pagination serveur sur <code>/jobs</code></li>
+        <li>Thème Clerk synchronisé avec le thème de l'app</li>
+      </ul>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2><span class="n">06</span>Limites</h2>
+  <div class="note">
+    <b>Parcours authentifié non couvert</b> (aucun compte disponible) : My Components, sauvegarde de stacks et collections, déblocage des offres et certifications, onboarding post-connexion.<br><br>
+    <b>Non testé</b> : API (<code>/api/spot</code>, <code>/openapi.json</code>), Safari/Firefox, lecteurs d'écran réels (NVDA, VoiceOver), réseau dégradé, charge. Les mesures de performance viennent d'une session unique : les valeurs absolues sont indicatives, les écarts structurels (25 k nœuds sur <code>/jobs</code>, 1,35 Mo de HTML sur <code>/plugins</code>) sont fiables.
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  Rapport détaillé, registre des 53 constats et recommandations complètes : <b>rapport-audit-app.aitmpl.com.md</b>
+</div></footer>
+
+</body>
+</html>

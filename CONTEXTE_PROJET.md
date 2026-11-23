@@ -125,6 +125,789 @@
 > Cette section est mise à jour par `update_log.js` (planifiée chaque jour à 09 h 00).
 > Chaque entrée = date + fichiers modifiés/ajoutés/supprimés (empreintes). Aucune donnée client.
 
+## 2026-11-07 — Correction back-office, étapes 4 et 5 : fiche joueur, colonnes de dates, scan facial, portes du dépôt (entrée MANUELLE)
+
+**Exigences.** « Examiner » ouvre une fiche joueur (téléphone, e-mail, création,
+activité, dernière visite dans le jeu, CIN recto/verso zoomables, résultat du scan
+facial) ; « Vu » devient « Date de création » et deux colonnes de dates
+apparaissent ; le KYC n'est « validé » que si toutes les pièces sont là.
+
+**Fiche « Examiner » — un acte journalisé, pas une commodité.** Nouvelle route
+`GET /api/admin/users/:id` (droit `users.read`) qui écrit `users.examine` (qui,
+quand, quel joueur). La fiche ne transporte **aucune image** : les pièces restent
+derrière `kyc.review` (`/kyc/:id/doc/:face`, `no-store`, lecture journalisée). Sans
+ce droit, la fiche dit seulement si les faces existent. Les images sont des URL
+d'objet **révoquées à la fermeture** (et pas avant, sinon le zoom se viderait).
+Le refus est **côté serveur** : un joueur connecté reçoit 403 — mesuré.
+
+**Dates.** `Vu` affichait `last_seen` sous un libellé qui faisait croire à la
+création du compte. Trois colonnes désormais : **Date de création**, **Dernière
+activité**, **Dernière visite dans le jeu** (`last_game_at` = la plus récente des
+sessions touchées et des parties créées, en **une** requête groupée). « — »
+signifie « jamais connecté ». Tri **client** sur ces trois dates et le nom : un
+en-tête cliquable, `aria-sort`, flèche — vérifié monotone après clic.
+
+**Scan facial (4.3) — la partie admin, et ce qui reste.** Migration **025** :
+`face_*` et `retention_until` sur `kyc_cases`. Le serveur **accepte** un `visage`
+si un client l'envoie (avec refus si c'est la photo de la carte), le stocke, le
+sert sous `kyc.review`, et calcule une rétention de **12 mois** à la décision.
+La règle « toutes les pièces » est **armée** par le réglage `kyc_face_required`
+(Paramètres, éteint par défaut) : allumé, valider sans visage répond
+`409 PIECES_INCOMPLETES` — mesuré, puis réglage remis à zéro par la sonde.
+
+**Point à confirmer, tranché et signalé.** La capture du selfie se fait dans
+l'application **joueur**, hors périmètre : je n'ai pas inventé une caméra que
+personne ne peut ouvrir depuis l'admin. Conséquence assumée : le visage n'est
+**pas encore exigé** (sinon aucun dossier ne serait validable) ; l'écran le dit
+en clair, la fiche dit « non fourni — capture à faire dans l'application joueur »,
+et les comptes vérifiés sans visage portent l'étiquette **legacy**. Le jour où la
+capture existe, **le réglage suffit** : aucune ligne de code à retoucher.
+
+**Checklist (étape 5).** `npm run verify` → **GO, code de sortie 0** :
+`verify:server` (7 suites), `verify:seed` (seed → export → `compare` 230/230),
+`scenarios`, `invariants`, **`permissions` 861/861**. Sonde admin : **123 points,
+123 OK, 0 KO** (15 vues × 3 tailles + les contrôles ciblés 1.1 → 4.3c). Sonde
+joueur : **32/32**. Documentation : `docs/ADMIN_API.md` (URL, fiche joueur, trois
+faces, codes `PIECES_INCOMPLETES`/`JOUEUR_INCONNU`, et la section « ce qui n'est
+pas fait » mise à jour).
+
+**Fichiers.** `d-aona-server/migrations/025_kyc_face.sql` ·
+`d-aona-server/kyc.js` (visage, rétention, `PIECES_INCOMPLETES`) ·
+`d-aona-server/admin/index.js` (route fiche, pièces, `faceRequired`) ·
+`d-aona-server/admin/store.v2.js` (réglage, `matchesList`) ·
+`d-aona-server/db/stores.js` · `d-aona-server/server.js` ·
+`D-aona/d-aona-web/admin/admin.core.js` (tri d'en-tête) ·
+`admin/admin.css` (en-tête triable, vignette, zoom) ·
+`admin/admin.views.moderation.js` (fiche, trois pièces, liste) ·
+`admin/admin.views.competition.js` · `admin/admin.views.system.js` ·
+`docs/ADMIN_API.md` · `CONTEXTE_PROJET.md`.
+
+
+## 2026-11-07 — Correction back-office, étapes 2 et 3 : mises en jeu, parties du jour, graphique, filtre « En cours » (entrée MANUELLE)
+
+**Exigences.** « Afficher le total des mises en cours tous jeux confondus » ;
+« séparer Défi et Matchmaking dans les parties du jour (UTC+3) » ; « réparer
+“Activité des parties” » ; « l'onglet En cours ne contient que des parties
+réellement actives, sans doublon, sans vainqueur, avec la colonne “Début” ».
+
+**Une cause commune, trouvée en mesurant.** `GameRecord.create()` n'écrivait pas
+`status` : la colonne prenait le défaut de la migration 018 (`'finished'`). Une
+partie EN COURS s'affichait donc « terminée sans vainqueur », `liveGames` valait 0,
+et la même partie apparaissait deux fois (la session + sa ligne d'historique).
+Le cycle est désormais explicite — `live` à la création, `finished` à la fin,
+`cancelled` à l'annulation — et `rehydrateSessions()` remet en `live` les parties
+reprises après un redémarrage, puis **balaye** les lignes restées « en cours »
+alors que plus aucune session ne l'est.
+
+**Le filtre « En cours » renvoyait TOUT.** `matchesList({status:'live'})` tombait
+dans la branche générique (condition `status !== "live"`) : mesuré « 60 lignes
+dont 49 vainqueurs ». Réécrit : les sessions `playing` pour « En cours », les
+lignes `games` **sauf** `live` pour l'historique, `status` inconnu normalisé en
+« toutes », colonne « Jouée le » → **« Début »**.
+
+**Mises en jeu.** `wager` est la mise PAR CAMP (le gagnant touche
+`wager × 2 × 0,9`) : le pot est donc `2 × wager`. `overview.liveWagers` publie
+`{ total, perSide, sessions, byGame }` sur les seules sessions `playing`, et la
+ventilation somme exactement le total (même filtre). Nouvelle métrique « Mises en
+jeu » + ventilation au pied des métriques (« fanoron-dimy 4 000 Ar ·
+fanoron-tsivy 0 Ar »). Migration **026** : `game_sessions.game` et
+`game_record_id` — la variante manquait à la session (lacune listée dans
+`docs/ADMIN_API.md` §7, qui annonçait « variante inconnue ») et le lien vers
+l'historique manquait pour réconcilier les deux tables. La même migration répare
+l'état hérité (`status='finished'`, sans vainqueur, `reason='en_cours'`).
+
+**Fuseau.** Tout décompte « du jour » passe en **UTC+3** (`date(created_at,
+'+3 hours')`), y compris les sept jours du graphique. Preuve : deux parties
+pièges encadrent minuit à Madagascar ; l'API répond **2** là où un calcul en UTC
+répondrait **1**.
+
+**Graphique.** Le portage avait inventé un balisage `chart-col` alors que la
+maquette dessine un SVG : `admin.demo.css` (généré) ne contient aucune règle, donc
+sept `<i>` inline de 17 px — « 7 colonnes, 0 stylée ». Les règles manquantes sont
+écrites dans `admin.css` (hauteur proportionnelle à `--v`).
+
+**Preuves.** Sonde : **114 points, 111 OK, 3 KO** (les 3 restants sont l'étape 4).
+— `2.1` pot = 4 000 Ar = oracle SQL ; `2.2` ventilation = total ; `2.4`
+« Mises en jeu » = « 4 000 Ar » à l'écran ; `3.1a` défi 2 · matchmaking 1 ;
+`3.1c` **API défi=2 · UTC+3=2 · UTC=1** ; `3.2` barres stylées et proportionnelles ;
+`3.2b` total du pied = somme des sept jours ; `3.3d` onglet « En cours » = 2 lignes,
+0 doublon, 0 vainqueur ; `3.3f` en-tête « Début » ; `3.3h` **transition jouée pour
+de vrai** : abandon du défi → 2 → 1 en cours, 51 → 52 terminées, ligne `games`
+`finished` avec vainqueur. `npm test` : 7 suites vertes, code 0.
+
+**Fichiers.** `d-aona-server/migrations/026_game_sessions_game.sql` (nouveau) ·
+`db/stores.js` (cycle de statut, session ↔ historique) · `server.js` (reprise,
+balayage) · `admin/routes.v2.js` (UTC+3, `liveWagers`, `gamesTodaySplit`, activité) ·
+`admin/store.v2.js` (`matchesList`) · `admin/admin.views.system.js` (métrique +
+ventilation) · `admin/admin.views.competition.js` (« Début ») ·
+`admin/admin.css` (règles du graphique).
+
+
+## 2026-11-07 — Correction back-office, étape 1.2 : les pop-ups ferment au clic extérieur, les actions sensibles non (entrée MANUELLE)
+
+**Exigence.** « Un clic à l'extérieur d'un pop-up le ferme — 100 % des types,
+admin **et** joueur — et aucun pop-up critique ne se ferme par accident. »
+
+**Côté joueur : rien à corriger, mais il fallait le PROUVER.** Audit des six
+familles réelles d'`index.html` (modale centrale, panneaux Notifications et Amis,
+calendrier du wallet, fenêtres de conversation, résultats de recherche, lancer de
+pièce) : chacune ferme déjà au clic extérieur, Échap fonctionne, et le lancer de
+pièce a même la bonne nuance — le **voile** ferme, la **carte** non. Nouvelle
+sonde `tools/_ui_popups_player.js` : elle ouvre chaque pop-up par le geste réel,
+clique **dedans** (doit rester ouvert), clique **dehors** (doit fermer) et
+vérifie le verrou `data-locked` — **32/32 au vert**, deux tailles (1 440 et 390).
+
+**Côté admin : le trou était réel.** `dialog()` créait un `<dialog>` natif et
+l'ouvrait en `showModal()` sans aucun écouteur : le clic sur le fond ne fermait
+rien. Trois corrections dans le noyau :
+
+1. `dialog({ critical })` — un clic dont la cible est `<dialog>` lui-même
+   (c'est-à-dire le fond) ferme, **sauf** si `critical`. `askReason()` — donc
+   suspendre, retirer une vérification, annuler une partie, refuser un dossier —
+   et l'examen d'un dossier KYC sont `critical` : il reste trois sorties
+   volontaires (croix, « Annuler », Échap).
+2. Une croix de fermeture dans l'en-tête, et une fermeture **idempotente** (quatre
+   chemins y mènent ; un double appel ne doit ni lever ni laisser d'écouteur).
+3. Un toast se ferme d'un clic ; il ne se ferme pas « à côté » (ce n'est pas un
+   pop-up bloquant).
+
+**Défaut trouvé en mesurant, invisible à la lecture.** Le dialogue ne se fermait
+toujours pas au clic extérieur, et le clic à côté tombait sur `.a-dialog-head`.
+Mesure : `rect=0,0` — le dialogue était **collé dans le coin haut-gauche**. Cause :
+la règle UA `dialog:modal` centre la boîte par `inset: 0` + `margin: auto`, mais le
+reset global de l'application (`* { margin: 0 }`, feuille d'auteur) l'emporte sur
+les styles du navigateur. Une ligne `margin: auto` dans `admin.css` rétablit le
+centrage — vérifié : `rect=440,161 560×579`, cible du clic `dialog.a-dialog`.
+
+**Preuves.** Sonde admin : `1.2a/b/c` **3/3 OK** ; total **109 points, 93 OK,
+16 KO** (les 16 restants sont les étapes 2, 3.x et 4.x). Sonde joueur : **32/32**.
+`npm test` : 7 suites vertes, code de sortie 0. Capture
+`%TEMP%\daona_probe\capture-dialogue-1440.png`.
+
+**Deux échecs réseau déclarés, pas masqués** (ils apparaissent dans la console du
+navigateur sans provenir du produit) : `403 /api/admin/me` — un joueur demande une
+fois s'il a un espace d'administration, la réponse est « non », silencieusement ;
+`404 /board` et `/cup` — la **graine de comparaison** (`seed_oracle.js`) recopie
+les vignettes de la maquette, qui n'ont pas de fichier. Les vraies bannières
+viennent de `assets/ad/pubs.json` et le serveur refuse tout chemin hors `assets/`
+(`AD_IMAGE_RE`) : le défaut n'existe que dans la base oracle.
+
+**Fichiers.** `d-aona-web/admin/admin.core.js` (dialogue, toast) ·
+`d-aona-web/admin/admin.css` (croix, toast cliquable, `margin:auto` du dialogue) ·
+`d-aona-web/admin/admin.views.moderation.js` (`critical` sur l'examen KYC) ·
+`d-aona-server/tools/_ui_popups_player.js` (nouveau, ignoré).
+
+
+## 2026-11-07 — Correction back-office, étape 0 (sonde de mesure) + étape 1.1 (le desktop défile enfin) (entrée MANUELLE)
+
+**Demande.** Un prompt de correction en 11 étapes sur l'interface d'administration
+(défilement, pop-ups, mises en cours, parties, joueurs, KYC), avec une méthode
+imposée : `/loop` — implémenter, vérifier, comparer au `/goal`, corriger l'écart,
+recommencer (5 itérations maximum par étape, preuve exigée).
+
+**Étape 0 — mesurer avant de corriger.** Nouvelle sonde jetable
+`d-aona-server/tools/_ui_admin_probe.js` (dossier `tools/`, gitignoré) : base
+**jetable**, `seed_oracle.js`, compte d'ancrage `super_admin`, puis **deux vraies
+parties en cours créées par les flux WebSocket réels** (matchmaking et défi à
+2 000 Ar par camp, pot attendu 4 000 Ar) — des `INSERT` à la main n'auraient pas
+reproduit la duplication `game_sessions` / `games`. Elle mesure 15 vues × 3 gabarits
+(1 440×900, 768×1 024, 390×844), compare chaque chiffre à un **oracle SQL
+indépendant** et chaque constat d'écran à la géométrie réelle du DOM.
+
+**Relevé d'entrée : 79 points, 56 OK, 23 KO** (`reports/probe-2026-11-07-avant.md`).
+Tous les défauts du prompt sont reproduits et chiffrés — dont trois causes racines
+qui n'étaient pas visibles à la lecture :
+
+1. `GameRecord.create()` n'écrit pas `games.status` → la colonne prend son défaut
+   `'finished'` (migration 018). D'où des parties **en cours comptées « terminées
+   sans vainqueur »**, `liveGames` faux (6 au lieu de 2 sessions réelles) et des
+   doublons entre l'onglet « Toutes » et « En cours ».
+2. `matchesList({status:'live'})` tombe dans la branche générique
+   (condition `status !== "live"`) et renvoie **toutes** les parties :
+   l'onglet « En cours » affichait **60 lignes dont 49 avec un vainqueur**.
+3. Le graphique « Activité des parties » : le balisage `chart-col` a été inventé au
+   portage, la maquette dessine un SVG dans `#activity-chart` et `admin.demo.css`
+   (généré) ne contient **aucune** règle `chart-col` → sept `<i>` inline de 17 px.
+   Piège de mesure corrigé au passage : « hauteur > 0 » déclarait ce graphique
+   dessiné ; le critère exige désormais une boîte non inline **et** des hauteurs
+   proportionnelles (0 stylée, `[17]` → KO).
+
+**Étape 1.1 — le défilement desktop.** Six écrans (Vue d'ensemble, Joueurs, Parties,
+Classement, Rôles, Modules) avaient leur bas de page **inatteignable** : 1 265 px,
+1 400 px, 3 610 px de contenu pour un cadre de 900 px. Cause : `admin` figure dans
+`FILL_ROUTES`, donc `body.is-fill` pose `height:100dvh; overflow:hidden` sur `body`
+et `#screens`, et seuls `#friends-root` / `#notifications-root` / `#tournament-root`
+reçoivent `overflow-y:auto` — `#admin-root` n'avait aucun conteneur défilant.
+
+Correctif **uniquement dans `admin.css`** (jamais dans `admin.demo.css`, qui est
+GÉNÉRÉ) : au-delà de 1 081 px, la coquille devient une colonne flex — la barre
+latérale reste une colonne fixe de 236 px (mêmes largeurs qu'avant, plus de
+`position:absolute` ni de `margin-left`), et **le canvas est le seul conteneur qui
+défile**. Un seul ascenseur de contenu, donc pas de double barre ; les ascenseurs
+de rail (`.sidebar .nav-scroll`) restent comptés à part, car ils existent déjà dans
+la maquette.
+
+**Preuves.** Sonde : `1.1` **45/45 OK** (15 vues × 3 gabarits), `coupé=false`,
+`#main-content{ovY:auto}` ; total **109 points, 92 OK, 17 KO** — les 17 restants
+sont exactement les autres étapes. Console : **45/45 sans erreur**. Captures
+1440/768/390 dans `%TEMP%\daona_probe\capture-*.png` (la vue d'ensemble montre les
+jours 01→07 empilés, sans une seule barre : le défaut 3.2 en image). `npm test`
+(7 suites) vert, dont `85/85` pour Dimy.
+
+**Fichiers.** `d-aona-server/tools/_ui_admin_probe.js` (nouveau, ignoré) ·
+`d-aona-web/admin/admin.css` (bloc « Défilement ») ·
+`reports/probe-2026-11-07-avant.md` (nouveau).
+
+
+## 2026-11-03 — Chantier de fidélité visuelle : coquille de la maquette portée, écart 36,5 % → 26,0 % (entrée MANUELLE)
+
+**Décision.** « Lancer un chantier de fidélité visuelle : rapprocher la mise en page
+du back-office de la maquette jusqu'à passer sous 0,5 %. »
+
+**Ce qui a été construit, et pourquoi dans cet ordre.**
+
+Le seuil de 0,5 % n'est atteignable qu'à une condition : produire le **même
+balisage** sous la **même feuille**. D'où trois briques, dans cet ordre :
+
+1. **`scripts/extract-demo-css.js`** extrait la feuille de la maquette (104 Ko
+   minifiés, 170 classes) et la **scope** sous `#admin-root` : `:root` devient
+   `#admin-root`, `:root[data-theme=dark]` devient `html[data-theme="night"]
+   #admin-root`, `body` devient `#admin-root`, et chaque sélecteur d'une liste est
+   préfixé. Résultat : **360 règles, 54,5 Ko, aucune fuite**. Sans ce scoping,
+   importer la feuille repeindrait l'accueil, le profil et le plateau (la maquette
+   définit `.panel`, `.btn`, `.status`, `.badge` en global).
+2. **`admin/admin.uikit.js`** reproduit les primitives de la maquette : **39 icônes
+   SVG extraites** (pas redessinées), avatar, personne, statut, panneau, métrique,
+   tableau, onglets, bouton, état vide, plateau décoratif. Classes de la maquette,
+   volontairement non préfixées.
+3. **Coquille** : barre latérale (marque, espace de travail, groupes de navigation,
+   compte, bascule de thème), en-tête mobile, `.canvas`, `scope-row`, pied.
+
+**Les deux feuilles coexistent** (`admin.css` pour les écrans non portés,
+`admin.demo.css` pour les portés). Les jeux de classes ne se croisent pas : la
+migration se fait **écran par écran sans jamais casser l'application** — S14 reste à
+**11/11**.
+
+**Deux pièges corrigés en mesurant.**
+
+- La maquette gère sa mise en page par `.sidebar{position:fixed}` +
+  `.canvas{margin-left:236px}`, pas par une grille. Ma grille `display:grid` à deux
+  colonnes enfermait le canvas dans 236 px → neutralisée par `.demo-shell`.
+- `position:fixed` vise la **fenêtre** : vrai pour une application autonome, faux
+  pour un module posé au milieu de la page — la barre latérale se collait au coin de
+  l'écran. Ancrée par `position:relative` + `absolute`.
+
+**Trajectoire mesurée** (`npm run visual`) : **36,5 % → 25,8 %** (protocole corrigé)
+**→ 15,2 %** (coquille) **→ 13,5 %** (ancrage) — puis **26,0 % sur la matrice
+complète** des 90 captures, contre 36,5 % au départ.
+
+**Ce qui reste, et la méthode.** Le seuil n'est pas atteint : il faut porter le
+**contenu des 15 vues**. La méthode est établie et documentée dans
+`docs/FIDELITE_VISUELLE.md` : charger la maquette sur la route, **dumper l'arbre** de
+`#view-content` (classes + boîtes), reconstruire à l'identique, mesurer.
+
+Trois enseignements déjà tirés, valables pour les 15 écrans : les métriques vivent
+**dans** `overview-main` et non au-dessus de la grille ; `.panel-foot` est un
+**frère** du panneau, pas un enfant ; les blocs de droite sont des `.panels`
+empilés dans `overview-rail` (330 px). Mon premier portage de la vue d'ensemble
+plaçait les métriques hors grille — d'où les 14,8 % qui restent sur cet écran.
+
+**Ce que le chantier ne touche pas.** C'est du front pur : 230 comparaisons de
+données, 861 assertions de permissions, 8 scénarios, 14 invariants et 336 tests
+serveur restent verts. `npm run verify` demeure la porte fonctionnelle ;
+`npm run visual` mesure la fidélité graphique et ne fait pas échouer la chaîne.
+
+**Fichiers.** `scripts/extract-demo-css.js` · `admin/admin.demo.css` (généré) ·
+`admin/admin.uikit.js` · `admin/admin.core.js` (coquille) · `admin/admin.boot.js`
+(deux feuilles) · `admin/admin.css` (`.demo-shell`) · `admin/admin.views.system.js`
+(vue d'ensemble) · `scripts/visual.js` · `docs/FIDELITE_VISUELLE.md` · `SPEC.md` ·
+`reports/compare-2026-11-02.md`.
+
+
+## 2026-11-03 — §11.8 MESURÉ : la parité pixel n'est pas atteinte, et c'est structurel (entrée MANUELLE)
+
+**Demande.** « Continue » — la régression visuelle.
+
+**`scripts/visual.js`** capture les **15 modules** des deux côtés, en **3 tailles**
+(1440×1000, 768×1024, 390×844) et **2 thèmes** : **90 captures** comparées.
+Le diff est calculé **dans le navigateur** (canvas + `getImageData`, seuil 12/255 par
+composante) : aucune bibliothèque de diff à installer, et le calcul porte sur les
+pixels réellement rendus. Les PNG vont dans `%TEMP%\daona_visual` ; seul le rapport
+est versionnable.
+
+**Protocole corrigé en cours de route.** La première version comparait `#app` de la
+démo (hauteur de CONTENU : 1 171, 1 434… px) à `#admin-root` (hauteur VISIBLE :
+791 px). L'écart mesurait alors la longueur des pages, pas leur dessin. Le nouveau
+back-office est désormais capturé d'abord, et la démo est **découpée au même
+rectangle** (1 394×790 contre 1 394×791). La mesure est devenue honnête — et l'écart
+a AUGMENTÉ (18,9 % → 25,8 % sur la première configuration), ce qui est le signe
+qu'on compare enfin ce qu'il faut.
+
+**Résultat : 0/90 écran sous le seuil de 0,5 %, écart moyen 36,5 %.**
+
+**Ce n'est pas un défaut, c'est une différence de nature.** Trois causes, dans
+l'ordre d'importance :
+
+1. **La maquette est une application autonome** ; le back-office livré est un
+   MODULE embarqué dans la coque de D-aôna (barre haute, barre d'onglets). Sa
+   largeur utile est de 1 394 px contre 1 440 : les retours à la ligne, hauteurs de
+   ligne et positions diffèrent mécaniquement.
+2. **Les icônes et la typographie** ne sont pas les mêmes (jeu d'icônes du produit
+   contre SVG de la maquette).
+3. **La mise en page suit le design system du produit** ; seuls les libellés, les
+   colonnes et l'ordre sont alignés sur l'oracle.
+
+**Ce qui EST atteint** : la parité fonctionnelle et structurelle — 230 comparaisons
+de données, 861 assertions de permissions, 8 scénarios, 14 invariants, 336 tests
+serveur. **Ce qui ne l'est pas** : la parité pixel, qui exigerait de réécrire le
+back-office comme une application séparée.
+
+**Décision demandée** : accepter cet écart comme **divergence autorisée** (§11.13
+l'admet pour la mise en page, à condition de la lister et de la motiver — c'est fait
+dans `reports/visual-2026-11-03.md` et `SPEC.md` §8), ou ouvrir un chantier de
+fidélité visuelle.
+
+**`scripts/visual.js` n'entre pas dans `npm run verify`** et ne sort pas en code
+d'erreur : un écart déjà mesuré et expliqué ne doit pas faire échouer une chaîne de
+vérification. `npm run visual` reste disponible, filtrable par `--size` et `--theme`.
+
+**Reste** : §11.9 (axe-core), §11.10/§11.11 (budgets, exports CSV comparés), et
+l'arbitrage E12 (solde dérivé du grand livre).
+
+**Fichiers.** `scripts/visual.js` · `reports/visual-2026-11-03.md` · `package.json` ·
+`SPEC.md` §8 · `reports/compare-2026-11-02.md`.
+
+
+## 2026-11-04 — Fidélité visuelle : `audit` et `modules` portés sur le relevé, la vue d'ensemble recule (entrée MANUELLE)
+
+**Chantier.** La maquette n'est pas « à imiter de mémoire » : on la charge sur
+`file://…#/<écran>`, on **relève l'arbre** de `#view-content` (classes + bounding
+boxes + textes), puis on reconstruit le balisage à l'identique. Cette passe a relevé
+puis porté trois écrans.
+
+**Résultats mesurés (1440 × light, `node scripts/visual.js --size=1440 --theme=light`).**
+
+| Écran | Avant | Après |
+|---|---|---|
+| `modules` | 18,0 % | **11,8 %** (‑6,2) |
+| `audit` | 13,6 % | **11,4 %** (‑2,2) |
+| `overview` | 14,8 % | 15,5 % (+0,7) |
+
+Écart moyen 1440 × light : 13,5 % → **13,0 %**. Matrice complète (90 captures) :
+26,0 % → **25,9 %**.
+
+**Ce que la maquette impose et qui n'était pas respecté.**
+
+1. `.panel-foot` est un **frère** du panneau, jamais un enfant (`chart` puis
+   `panel-foot` empilés dans `overview-main`).
+2. Les tableaux, files et listes sont **enfants directs** du panneau — pas de
+   `.panel-body` (mode `bare` de `U.panel`).
+3. Un panneau **sans titre n'a pas d'en-tête** : `audit` et `modules` commencent
+   directement par `.toolbar` / `.module-row`.
+4. `audit` : pas de `h2`, un `notice info` **avant** le panneau, table à six colonnes
+   (`Date · Auteur · Action · Cible · Décision · Détail`) et dates « 02 nov., 08:30 ».
+5. `modules` : pas de tableau mais des `.module-row` (icône 20, `h3` + statut
+   « Essentiel » pour les 5 socles, `<p>` de description, `input.switch`).
+
+**API étendue.** `/api/admin/overview` sert désormais `gamesToday`, `liveGames` et
+`openRegistrations` — les quatre métriques de la maquette. `gamesToday` compte la
+date **réelle** du serveur (`date('now')`), pas le jour de référence du seed : c'est
+pourquoi la maquette affiche « 0 » aujourd'hui alors que le seed date du 2026-11-02.
+Une application qui afficherait 11 mentirait sur la journée en cours.
+
+**Réserve sur `overview`.** La reconstruction **régresse** de 0,7 point : la
+répartition `overview-main` (786×932) / `overview-rail` (330×932) et l'empilement des
+trois panneaux de droite (283/306/303) ne sont pas encore exacts. À corriger avant de
+porter d'autres écrans, sinon on empile des erreurs de mise en page.
+
+**Correction de test.** `_p14.js` cherchait `#admin-root table.a-table tbody tr` ;
+les écrans portés utilisent le `<table>` de la maquette (`.table-wrap`). Sélecteur
+élargi à `#admin-root tbody tr` — agnostique du habillage, il continue de couvrir les
+écrans non portés.
+
+**Portes.** `npm test` 336/336 · `verify:seed` 230/230 · `scenarios` 8/8 ·
+`invariants` 14/14 · `permissions` 861/861 · campagne UI 135/135 · **S14 11/11**.
+
+**Fichiers modifiés :** `d-aona-web/admin/admin.uikit.js` (`panel` avec `bare`/`foot`
+frère, `fmtShort`), `d-aona-web/admin/admin.views.system.js` (`overview`, `audit`,
+`modulesView`), `d-aona-server/admin/routes.v2.js` (`gamesToday`, `liveGames`,
+`openRegistrations`), `d-aona-server/test/ui/parts/_p14.js`, `docs/FIDELITE_VISUELLE.md`.
+
+
+## 2026-11-03 — Jalon §11.6 FRANCHI : 861 assertions de permissions, et un 17ᵉ écart corrigé (entrée MANUELLE)
+
+**Demande.** « Continue » — le dernier bloc fonctionnel du plan de comparaison : la
+parité de la matrice de permissions.
+
+**Deux niveaux, parce qu'un seul ne prouverait rien.**
+
+`scripts/permissions.js` crée **sept comptes, un par rôle**, puis mesure :
+
+- **A. 630 assertions d'autorisation** — pour chaque triplet rôle × module × action,
+  on appelle la barrière exacte que traverse chaque route
+  (`Admin.authorise(userId, "module.action")`) et on compare à l'**oracle**.
+  Fait AVANT le démarrage du serveur : `authorise` ne fait que lire, et on évite
+  deux écrivains sur le même fichier SQLite.
+- **B. 231 assertions HTTP** — un endpoint représentatif par couple
+  (module, action) qui en possède un. Elles prouvent que les routes **utilisent**
+  réellement cette barrière : une matrice correcte mais non câblée passerait A et
+  échouerait B.
+
+L'attendu vient de `reference/REFERENCE-DEMO.json`, **jamais** de `permissions.js` :
+comparer le code testé à lui-même ne prouverait rien.
+
+**Résultat : A 630/630 · B 231/231 · 861/861.**
+
+**Le banc a trouvé un 17ᵉ écart.** Les 4 premières assertions HTTP échouaient sur
+`tournaments.edit` : un rôle **sans** le droit recevait **404** au lieu de **403**.
+Cause : `POST /api/admin/tournaments/:id` lisait `Tournament.get(id)` **avant** de
+vérifier le droit. Avec un identifiant existant la barrière fonctionnait — c'est
+pourquoi aucun test écrit à la main ne l'avait vu. Mais la doctrine du dépôt est
+`session → module → DROIT → donnée` : une réponse qui dépend de l'existence de la
+ressource n'est pas un refus d'autorisation.
+
+Correction : le corps est lu, le droit vérifié (`tournaments.edit`), **puis** le
+tournoi chargé. Les deux branches (annulation, modification) exigeant le même
+droit, il est vérifié une seule fois — et la seconde déclaration, devenue
+redondante, a été retirée.
+
+**`npm run verify` enchaîne désormais cinq portes** et sort en succès :
+`npm test` (336/336) → `verify:seed` (GO, 230/230) → `scenarios` (8/8) →
+`invariants` (14/14 + fuzz 500) → `permissions` (861/861).
+
+**Reste, et c'est désormais uniquement de l'outillage visuel et de mesure** :
+§11.8 (régression visuelle, 16 routes × 3 tailles × 2 thèmes), §11.9 (axe-core),
+§11.10/§11.11 (budgets, exports). Et **un arbitrage** : E12, le solde dérivé du
+grand livre.
+
+**Fichiers.** `scripts/permissions.js` · `admin/index.js` (ordre des barrières) ·
+`package.json` · `SPEC.md` (E17) · `reports/compare-2026-11-02.md`.
+
+
+## 2026-11-03 — Jalons §11.4 et §11.5 FRANCHIS : 8 scénarios, 14 invariants, 3 défauts réels trouvés (entrée MANUELLE)
+
+**Demande.** « Continue » — après le seed, le bloc suivant du plan : les scénarios
+métier et les invariants.
+
+**Deux bancs d'essai, deux natures.**
+
+`scripts/scenarios.js` rejoue les **8 scénarios** de la maquette sur un seed NEUF,
+contre l'API réelle, dans l'ordre imposé par les dépendances (S6 avant S5, S7 après
+S2). `scripts/invariants.js` vérifie les **13 invariants** puis lance un **fuzz de
+500 commandes aléatoires valides**, avec revérification financière après CHACUNE.
+
+**Résultat : 8/8 scénarios, 14/14 invariants, 0 violation sur 500 commandes.**
+
+**Mais le banc a trouvé trois défauts RÉELS, et c'est là qu'il a servi.**
+
+| # | Défaut trouvé | Pourquoi il compte |
+|---|---|---|
+| **E14** | `match.result` **ne calculait aucun Elo**. Valider un résultat changeait le statut, jamais le classement. | Le scénario S5 attend +11/−11 : il en donnait 0. Un back-office qui « valide » sans effet est pire qu'un bouton absent. |
+| **E15** | **Annuler un tournoi n'annulait pas ses matchs.** Le bracket survivait à l'édition. | Des rencontres restaient jouables dans un tournoi qui n'existait plus. |
+| **E16** | **Le solde d'ouverture de 5 000 Ar n'avait AUCUNE écriture** au grand livre (`INSERT … balance = 5000`). | Tout compte neuf violait l'invariant n°1 **dès sa création**. Trouvé par le fuzz, pas par un scénario écrit à la main. |
+
+**E16 est le plus important** : il existait depuis toujours, aucun test ne le voyait,
+et il rendait la comptabilité fausse par construction pour chaque nouvel inscrit.
+Correction : `Wallet.opening()` crédite par une ÉCRITURE, et les **deux** chemins
+d'inscription (`Auth.register` et `User.createOrUpdate`) l'appellent — ils étaient
+deux à poser la colonne à la main, ils ne peuvent plus diverger.
+
+**Deux tests existants encodaient ce défaut** (« profil neuf : … aucune
+transaction », « GET /api/transactions -> vide pour un compte neuf »). Ils ont été
+**corrigés, pas supprimés** : ils exigent désormais UNE écriture d'ouverture et
+vérifient son libellé. Conformément au §17 du cahier des charges (« corrige le code,
+ou fais-moi valider l'écart »), l'écart est signalé ici et dans `SPEC.md`.
+
+**L'Elo appliqué est celui du MOTEUR.** Vérifié avant d'écrire une ligne : la formule
+de la maquette (`round(32 × (a − 1/(1+10^((e−t)/400)))`) et celle du dépôt
+(`computeEloDelta`) sont identiques — 1210 contre 1105 donne +11/−11 des deux côtés.
+Aucune seconde formule n'a été créée. Application **transactionnelle**, **une seule
+fois** (second appel → `409 ELO_DEJA_APPLIQUE`), et **jamais** sur une partie amicale.
+
+**Preuves.** `npm run scenarios` → **8/8** · `npm run invariants` → **14/14** + fuzz
+500 sans violation · `npm test` EXIT=0 (**336/336**, auth 53, Telo/Dimy 85/85) ·
+`npm run verify:seed` → **GO** (230/230, inchangé malgré la correction d'E16).
+
+**Reste** : §11.6 (630 assertions HTTP rôle × module × action), §11.8 (régression
+visuelle), §11.9/§11.10/§11.11 (a11y, budgets, exports) et l'arbitrage E12 (solde
+dérivé). `npm run verify` enchaîne désormais les quatre portes d'un coup.
+
+**Fichiers.** `scripts/scenarios.js` · `scripts/invariants.js` ·
+`d-aona-server/seed_oracle.js` (bracket de t5) · `admin/store.v2.js` (Elo) ·
+`admin/index.js` (annulation + matchs) · `db/stores.js` + `auth.js` (`Wallet.opening`)
+· `test_scenarios.js` · `package.json` · `SPEC.md` · `reports/compare-2026-11-02.md`.
+
+
+## 2026-11-03 — Jalon §11.2 FRANCHI : le seed reproduit l'oracle, `npm run compare` répond GO (entrée MANUELLE)
+
+**Arbitrage rendu.** Garder la stack actuelle (Node + SQLite + modules ES) et viser
+la parité par le **seed, les scénarios et les invariants** — pas de réécriture
+TypeScript/Postgres/React. C'est la seule option qui ne jette pas 336 vérifications
+serveur et 135 vérifications d'interface déjà vertes.
+
+**Le jalon qui bloquait.** `reports/compare-2026-11-02.md` concluait NO-GO parce
+qu'aucune comparaison de montants n'était possible : la base de développement ne
+contenait pas le jeu de données de l'oracle. C'est corrigé.
+
+**`d-aona-server/seed_oracle.js`** reconstruit l'état de la démo à l'identique, en
+suivant **son algorithme**, y compris le bouclage par crédit d'exploitation qui
+garantit que la somme des écritures égale la somme des soldes. Le recalculer
+autrement produirait les bons totaux avec les mauvaises lignes — donc une
+comparaison qui ne prouve rien.
+
+Valeurs obtenues, toutes conformes : **15 comptes · 63 écritures · 491 700 Ar ·
+28 000 Ar réservés · 463 700 Ar disponibles · 563 900 / 72 200 crédits-débits ·
+3/10/1 dossiers KYC · 2 retraits en attente + 1 payé · 1 litige ouvert + 1 en examen ·
+6 tournois · 24 inscriptions · 56 parties dont 11 le jour de référence**.
+
+**`scripts/export-actual.js`** lit la base réelle en LECTURE SEULE et produit
+`reference/ACTUAL.json` au format exact du golden file ; il dérive la structure du
+catalogue du serveur plutôt que de la recopier — une seconde source de vérité serait
+précisément ce que la comparaison doit détecter.
+
+**`scripts/compare.js`** compare champ par champ, classe chaque écart
+(BLOQUANT/MAJEUR/MINEUR), écrit `reports/compare-seed-AAAA-MM-JJ.md` et **sort en
+code non nul** dès qu'un écart bloquant subsiste. `reference/id-map.json` est généré
+au passage.
+
+**Résultat : 230 comparaisons, 230 conformes, 0 écart. Verdict GO.**
+
+Un point d'interprétation, écrit dans le code : `super_admin` est PROTÉGÉ, donc ses
+droits sont **calculés** et non stockés. La comparaison porte sur le droit EFFECTIF
+(toutes les actions), sinon elle signalerait un écart qui n'en est pas un.
+
+**Restauration (`npm run verify:seed`)** enchaîne seed → export → comparaison.
+Quatre portes restent ouvertes, toutes d'OUTILLAGE : scénarios §11.4, invariants +
+fuzz §11.5, régression visuelle §11.8, solde dérivé (§4 de `SPEC.md`).
+
+**Preuves.** `npm run verify:seed` → GO · `npm test` EXIT=0 (**336/336**, auth 53,
+Telo/Dimy 85/85) · campagne d'interface **135/135** · `node migrate.js` 024 appliquée ·
+**630** lignes `admin_grants` = 7 × 15 × 6.
+
+**Fichiers.** `d-aona-server/seed_oracle.js` · `scripts/export-actual.js` ·
+`scripts/compare.js` · `reference/ACTUAL.json`, `reference/id-map.json` ·
+`reports/compare-seed-2026-11-03.md` · `package.json` (racine : `ref`, `seed:oracle`,
+`actual`, `compare`, `verify`) · `SPEC.md` · `reports/compare-2026-11-02.md`.
+
+
+## 2026-11-02 — Prompt d'installation : oracle verrouillé, 13 écarts mesurés, 11 corrigés (entrée MANUELLE)
+
+**Demande.** « Suivre strictement le prompt du fichier md, refaire la vérification et
+améliorer ce qui a été fait. »
+
+**Ce qui manquait.** Le prompt annonce trois assets : `daona-admin-source.zip`,
+`REFERENCE-DEMO.json` et `scripts/export-reference.ts`. **Aucun des trois n'existe.**
+Le dossier de la démo ne contient que le HTML. Signalé dans `reference/LOCK.json →
+missingProvidedAssets` plutôt que remplacé par une invention.
+
+**Ce qui a été fait à la place.** Le golden file a été **produit depuis la démo
+réelle** : `scripts/export-reference.js` ouvre la démo dans Chromium, force une
+écriture (le store ne persiste qu'après une COMMANDE ; `theme.toggle` en est une),
+lit `localStorage["daona.admin.v2"]` et dérive les agrégats. Aucune valeur saisie à
+la main.
+
+**Résultat de la vérification, et c'est le point important.** Les **17 valeurs**
+annoncées par le prompt ont été recalculées indépendamment. **Toutes concordent**
+au chiffre près : 15 comptes, 63 écritures, 491 700 Ar de solde, 28 000 Ar réservés,
+463 700 Ar disponibles, 563 900 / 72 200 crédits/débits, 3/10/1 dossiers KYC,
+2 retraits en attente et 1 payé, 1 litige ouvert et 1 en examen, 6 tournois,
+24 inscriptions, 3 réserves actives, 11 parties aujourd'hui, 56 sur 7 jours,
+4 tournois ouverts, 12 inscriptions ouvertes, 7 décisions en attente. Le golden file
+du prompt est donc **fiable** — ce qui n'allait pas de soi sans les assets annoncés.
+
+**13 écarts mesurés entre l'oracle et l'implémentation, 11 corrigés.**
+
+| # | Écart | Correction |
+|---|---|---|
+| E1 | 34 permissions déclarées au lieu de 90 (15×6) | grille complète ; **630 lignes** `admin_grants` = 7 × 15 × 6 |
+| E2 | `admin` avait `roles.read` | aucun droit sur `roles`, comme la démo |
+| E3 | `dispute.open` exigé en `disputes.review` | `disputes.create` |
+| E4 | `kyc.open` inexistant | route ajoutée, `kyc.read`, **journalisée** |
+| E5 | annulation de tournoi en `tournaments.delete` | `tournaments.edit` (la démo n'accorde aucun `delete` ici) |
+| E6 | un litige ouvert ne bloquait pas la validation du résultat | `409 LITIGE_OUVERT` |
+| E7 | une partie de tournoi s'annulait isolément | `409 PARTIE_DE_TOURNOI` |
+| E8 | capacité « paire » au lieu de **puissance de 2** | 6 refusé, 4/8/16 acceptés |
+| E9 | badges validés badge par badge | **continuité** 1 → ∞, sans trou ni chevauchement |
+| E10 | export CSV vulnérable à l'**injection de formule** | préfixe `'` sur `= + - @`, nombres épargnés |
+| E11 | paiement d'un retrait en deux transactions | `BEGIN`/`COMMIT`, débit et statut ensemble |
+| E12 | solde stocké au lieu d'être dérivé du grand livre | **NON corrigé** : arbitrage d'architecture |
+| E13 | défauts de rôles incomplets (`finance`, `moderation`) | alignés sur l'oracle |
+
+**Vérification des 630 lignes, rôle par rôle** — chaque compte est celui de la démo :
+`super_admin` 90, `admin` 70 (14 modules × 5, aucun sur `roles`), `observer` 15,
+`moderation` 13, `tournaments` 11, `finance` 6, `marketing` 5.
+
+**Migration 024.** La grille change de forme : `admin_grants` est **vidée** puis
+reconstruite par `ensureSeed()` au démarrage. C'est une destruction volontaire de
+lignes écrites depuis 022 (elles portaient les anciens défauts) — acceptable parce
+que 022 et 024 sortent du même chantier, avant toute exploitation, et que la table
+est reconstruite depuis un oracle vérifié. Passé 024, l'invariant « on n'écrase
+jamais un droit existant » reprend.
+
+**Ce qui n'est PAS fait, et qui bloque le GO.** Le jalon §11.2/§11.3 (parité du seed)
+n'est pas franchi : **aucun générateur de seed équivalent** n'existe, donc aucune
+comparaison de montants n'est possible. `reports/compare-2026-11-02.md` conclut
+**NO-GO** avec 15 écarts bloquants, tous listés. Le chemin vers le GO est écrit.
+
+**Preuves.** `npm test` EXIT=0 : **336/336** scénarios (+8 : matrice 630, `admin`
+sans `roles`, puissance de 2, trou dans le barème, litige bloquant, `kyc.open`
+journalisé), authentification 53/53, Telo/Dimy 85/85 · `node test_ui_scenarios.js S14`
+**11/11** avec la grille à 90 permissions · `node migrate.js` applique 024 ·
+golden file : 17/17 valeurs confirmées.
+
+**Fichiers.** `reference/` (LOCK, HTML verrouillé, REFERENCE-DEMO.json) ·
+`scripts/export-reference.js` · `SPEC.md` · `reports/compare-2026-11-02.md` ·
+`migrations/024_permissions_grid.sql` · `admin/permissions.js` (grille 90) ·
+`admin/routes.v2.js`, `admin/store.v2.js`, `admin/store.finance.js`,
+`admin/index.js` (CSV, puissance de 2, cancel) · `admin.views.moderation.js`
+(audit d'ouverture) · `test_scenarios.js`.
+
+
+## 2026-11-02 — Refonte Administration, lots 3 à 11 : retraits instruisibles, 15 modules, back-office sorti du mono-fichier (entrée MANUELLE)
+
+**Demande.** « Continue jusqu'à la fin » — porter la maquette complète sur le socle
+réel et remplacer l'ancien écran.
+
+**Ce qui a changé de nature.**
+
+1. **Le retrait n'est plus un débit.** `POST /api/withdraw` déposait autrefois une
+   sortie d'argent immédiate. Il crée désormais une **demande** :
+   `pending → approved → paid`, ou `rejected` avec motif. Le débit n'a lieu qu'au
+   paiement, et par une primitive neuve `Wallet.spendWithdrawable()` qui **ne touche
+   jamais** au bonus verrouillé — `Wallet.spend()`, lui, consomme le bonus en premier,
+   ce qui est juste pour un achat et faux pour un retrait.
+
+2. **Le solde réservé se calcule, il ne se stocke pas.**
+   `réservé = bonus_lock + Σ(demandes pending + approved)`, `disponible = solde − réservé`.
+   C'est la raison pour laquelle la migration `wallet_holds` prévue au plan a été
+   SUPPRIMÉE : une table de réservations entretenue à la main aurait dupliqué la
+   source de vérité du même nombre (le défaut exact de `users.withdrawn_today`).
+   Le joueur voit ce disponible partout : `/api/user`, `wallet_update`, et les trois
+   endroits du portefeuille qui calculaient `solde − bonus`.
+
+3. **Le plafond de 500 000 Ar/jour compte désormais les demandes en cours.** Il lisait
+   les seules écritures comptables : un joueur pouvait empiler des demandes sans jamais
+   l'atteindre, puisque rien n'était débité avant le paiement.
+
+4. **On ne dépense pas de l'argent promis.** L'achat de skin contrôle le *disponible*
+   et non le solde brut : sinon le paiement échouerait plus tard sur un solde que le
+   joueur croyait libre.
+
+**Sept nouveaux modules** (litiges, catalogue de jeux, parties, classement+badges
+fusionnés, retraits, paramètres, journal et modules autonomes), avec leur SQL dans
+`admin/store.v2.js` et `admin/store.finance.js`, et leurs routes dans
+`admin/routes.v2.js` / `routes.finance.js` — un fichier par domaine, tous sous le même
+contrat `(contexte) → booléen`.
+
+**Les sanctions existent enfin.** Migration `023` : `user_sanctions` est un JOURNAL
+d'événements (`block`, `unblock`, `warning`, `kyc_revoke`), l'état courant se DÉDUIT du
+dernier. Une suspension **ferme les sessions ouvertes** (`revokeAllSessions`) et
+**refuse la reconnexion** (`403 COMPTE_SUSPENDU`, contrôlé APRÈS le mot de passe pour
+ne rien révéler à qui ne le connaît pas). Un super administrateur ne peut pas être
+suspendu.
+
+**Le back-office sort du mono-fichier.** `D-aona/d-aona-web/admin/` : `admin.css`
+(TOUT scopé sous `#admin-root`, jetons propres, jour ET nuit), `admin.core.js`
+(état, client HTTP, coquille, dialogues, toasts, temps réel), quatre familles de vues
+(système, modération, compétition, finances) et `admin.boot.js`. `index.html` perd
+**1 016 lignes** (935 de JS, 77 de CSS) et gagne un `import()` paresseux ; il ne garde
+que `adminRefresh()`, `adminCan()`, `adminLinkHtml()` — l'identité dont le Profil a
+besoin. `window.Admin.go()` remplace `App.adminShow()`, qui continue de fonctionner.
+
+**Décisions de méthode.** Le CSS a été scopé AVANT d'être écrit : l'application définit
+déjà `.btn`, `.panel`, `.status`, `.badge`, `.chip` en global, et la maquette utilise
+ces mêmes noms — sans scope, elle repeignait l'accueil. Le thème s'appelle `night` et
+non `dark` : cibler `dark` laissait le back-office blanc la nuit. Les pièces KYC sont
+lues en **blob** puis révoquées : un `<img src>` ne peut pas envoyer d'en-tête
+d'autorisation, et une carte d'identité ne doit pas survivre au changement d'écran.
+
+**Preuves.** `npm test` EXIT=0 : 328/328 scénarios (dont 9 nouveaux sur la chaîne de
+retrait : refus sans motif, paiement sans référence, bonus intact, double instruction
+refusée), authentification 53/53, Telo/Dimy 85/85 · **campagne UI complète 135/135**
+(S14 réécrit pour la v2 : barre latérale = catalogue serveur, Campagnes, Rôles, Journal,
+interrupteur, aucune erreur console) · `node migrate.js` : migrations 017 → 023
+appliquées, 15 modules dont 5 socles, 6 badges, 3 parties au catalogue avec moteur,
+3 entrées produit en brouillon.
+
+**Dettes assumées, écrites dans `docs/ADMIN_API.md`.** `game_sessions` ne mémorise pas la
+variante jouée (l'écran dit « variante inconnue ») · une correction de résultat ne
+recalcule pas l'Elo, et l'écran le dit · `settings.maintenance` est exposé et
+`registrations_open` est appliqué à l'inscription, mais la maintenance ne coupe pas
+encore l'accès joueur · les chemins HTTP `ads`/`accounting`/`elo`/`badges` restent servis
+(renommer une URL est un changement de contrat, pas une bascule de vocabulaire).
+
+**Fichiers.** `migrations/017` → `023` · `admin/{permissions,store,store.v2,store.finance,index,routes.v2,routes.finance}.js` · `db/stores.js` · `auth.js` · `server.js` · `D-aona/d-aona-web/admin/*` (7 fichiers neufs) · `D-aona/d-aona-web/index.html` (−1 016 l.) · `test_scenarios.js` · `test/ui/parts/{_p10,_p14}.js` · `test_ui_scenarios.js` · `docs/ADMIN_API.md` · ce journal · `PLAN-REFONTE.md`.
+
+
+## 2026-11-02 — Refonte Administration, lots 0 à 2 : une maquette HTML devient un contrat (6 migrations, vocabulaire v2, 15 modules) (entrée MANUELLE)
+
+**Demande.** Une démo HTML autonome de l'administration (15 écrans, 5 groupes, 7 rôles,
+25 commandes) doit devenir l'interface réelle : « changer tous les éléments backend,
+frontend, api et synchronisation ».
+
+**Constat — la démo n'appelle rien.** 0 occurrence de `/api/`, 1 `fetch(` inutilisé,
+données en `localStorage` (`daona.admin.v2`), architecture commande → reducer avec
+`revision` (concurrence optimiste) et `processed[]` (idempotence par UUID). C'est une
+maquette : chaque route est à écrire. Elle réutilise en revanche les comptes de
+démonstration du dépôt (`GuideAdmin`, `AinaRakoto`…) et les badges de `data.js`.
+
+**Écart mesuré.** 9 modules → 15 ; actions `view/update` → `read/edit` ;
+`dashboard`/`ads`/`accounting` renommés, `elo` + `badges` fusionnés en `ranking` ;
+sept modules sans aucune table (litiges, catalogue de jeux, parties statuées,
+retraits, paramètres, journal et modules autonomes). Et `POST /api/withdraw` débitait
+le portefeuille IMMÉDIATEMENT, sans demande, sans refus possible, sans référence de
+transfert.
+
+**Décision 1 — six migrations, pas sept.** `wallet_holds` est abandonnée : le solde
+réservé se CALCULE (`bonus_lock` + `Σ withdrawals pending/approved`). Une table de
+*holds* aurait créé une seconde source de vérité pour le même nombre, avec dérive
+garantie — c'est exactement le défaut de `users.withdrawn_today`.
+
+**Décision 2 — migrer les DONNÉES des droits, pas seulement le code.** `admin_grants`
+est la source de vérité (133 lignes = 7 rôles × 19 actions). Changer le vocabulaire
+sans migrer rend chaque ligne orpheline — `rightsOf()` ignore les modules inconnus —
+et vide le back-office pour tous les rôles sauf le super-administrateur. `022` renomme
+modules, actions et rôles dans la même transaction, et ferme les deux pièges de la
+fusion : `INSERT OR IGNORE` de `ranking.read` AVANT la suppression de `elo`/`badges`,
+puis renommage des actions.
+
+**Décision 3 — les nouveaux droits ne sont pas écrits dans la migration.**
+`ensureSeed()` les insère au démarrage (`INSERT OR IGNORE`), ce qui préserve
+l'invariant de `016` : un droit retiré à la main ne revient jamais. Effet mesuré :
+238 lignes = 34 permissions × 7 rôles ; les droits v1 des modules *survivants* sont
+conservés (le rôle `tournaments` garde son `delete`, hérité de `tournament_admin`),
+les sept nouveaux modules reçoivent les défauts v2.
+
+**Décision 4 — un pont v2 → v1 plutôt qu'une bascule sèche.** L'ancienne interface
+reste verte jusqu'à son remplacement (lot L9) : 19 permissions réécrites dans
+`index.html`, `ADM_LEGACY` (`overview`→`dashboard`, `campaigns`→`ads`,
+`finance`→`accounting`, `ranking`→`elo`) et `admViewId()` pour que le clic sur une
+carte du hub retombe sur la bonne vue. Un module sans vue ici (litiges, jeux, parties,
+retraits, paramètres) annonce « Aucun accès » plutôt que de mentir.
+
+**Décision 5 — les modules socles ne s'éteignent pas.** `overview`, `roles`,
+`modules`, `audit`, `settings` répondent 409 `MODULE_SOCLE` : couper « Rôles &
+permissions » laisserait le back-office sans moyen de se rallumer. Second verrou dans
+`Store.setModuleEnabled`, pour les scripts d'exploitation.
+
+**Fichiers.** `migrations/017_withdrawals.sql` → `022_admin_permissions_v2.sql` ·
+`admin/permissions.js` (réécrit : 15 modules, 7 rôles, 6 actions, groupes, `core`) ·
+`admin/index.js` (23 barrières réalignées + garde socle) · `admin/store.js`
+(`core`/`group` exposés, refus des socles) · `D-aona/d-aona-web/index.html` (pont v2→v1)
+· `test_scenarios.js` (+2 vérifications : socle refusé, socle resté allumé) ·
+`test/ui/parts/_p14.js` (sélecteurs du catalogue v2).
+
+**Preuves.** `node migrate.js` sur copie puis base réelle : 126 lignes après bascule
+(133 − 14 fusionnées + 7 `ranking.read`), 15 modules dont 5 socles, 602 parties
+rétro-étiquetées `finished`, 5 tables créées, `revision` amorcée · `npm test` EXIT=0 :
+319/319 scénarios, authentification 53/53, Telo et Dimy 85/85, structure verte ·
+`node test_ui_scenarios.js S14` : 11/11.
+
+**Reste à faire.** Lots L3 → L11 du plan (`admin/store/*`, retraits, routeur
+déclaratif, temps réel `admin_update`, `admin/` côté web, 15 vues, retrait de
+l'ancien écran, campagne UI complète, documentation d'API).
+
+
 ## 2026-10-25 — Dimy et Telo à taille utile : la plaque grandit, la carte ne défile plus, les aides peignent enfin (entrée MANUELLE)
 
 **Demande.** Le plateau des variantes était **petit** et **coupé en bas** : la carte de
@@ -3817,7 +4600,128 @@ embarquée, `close()` par référence d'élément), `D-aona/d-aona-web/index.htm
 d'embarquement), `d-aona-server/tools/_variantes_verif.js` (parcours),
 `ARCHITECTURE.md`, `PLAN-REFONTE.md` (T9), ce journal.
 
-<!-- JOURNAL_AUTO_START -->
+## 2026-10-31 — Identité vérifiée par un ADMINISTRATEUR : dossiers recto + verso, back-office modulaire
+
+**Constat.** `POST /api/kyc/verify` mettait `users.kyc = 1` sans recevoir la moindre image : un seul appel HTTP
+suffisait à débloquer dépôts, retraits, mises et tournois payants. La « vérification » n'existait que dans
+l'animation de l'interface.
+
+**Décision — la revue est MANUELLE, le dossier est un OBJET.** `kyc.js` reçoit deux photos (recto ET verso),
+vérifie le CONTENU binaire (signature réelle, pas l'extension déclarée), calcule une empreinte SHA-256 et refuse
+deux faces identiques (le contournement le plus évident). Les fichiers sont écrits **hors racine web**, dans
+`private/kyc/<id>/`, sous un nom **généré par le serveur** (horodatage + 8 caractères d'empreinte) : un chemin
+fourni par le client ne peut donc pas traverser un dossier, et aucune URL statique ne les sert. Quotas : un seul
+dossier ouvert par joueur (index partiel unique — un nouvel envoi remplace et efface l'ancien) et trois envois
+par 24 h. La table `kyc_cases` (migration `016_admin.sql`) porte les deux chemins relatifs, les empreintes, les
+types MIME, les tailles, l'auteur de la décision et le motif. `users.kyc` est **conservé** : les ~30 routes
+métier qui testent `!user.kyc` n'ont pas été touchées. `/api/kyc/verify` répond désormais **410**
+`KYC_SUBMIT_REQUIRED` — un client ancien s'arrête là et n'obtient jamais un compte vérifié.
+
+**Décision — le back-office est modulaire et ses droits vivent en BASE.** `admin/permissions.js` est la source
+de vérité (modules, actions « module.action », rôles et droits par défaut) ; `admin/store.js` porte toute la SQL
+et deux invariants : `can()` refuse TOUJOURS par défaut, `ensureSeed()` n'écrase JAMAIS un droit existant
+(`INSERT OR IGNORE`) — un droit retiré ne revient pas au redémarrage. `admin/index.js` applique trois barrières
+dans l'ordre : session (401), module allumé (403 `MODULE_DESACTIVE`), permission du rôle (403 `ACCES_REFUSE`).
+`super_admin` n'a aucune ligne en base : ses droits sont calculés, sinon un rôle protégé pourrait se retrouver
+vide. `admin_audit` est en **ajout seul** (triggers `RAISE(ABORT)` sur UPDATE/DELETE) ; les refus sur action
+modifiante y sont journalisés, les lectures non. `admin_grants`, `admin_assignments`, `admin_modules`,
+`admin_roles` complètent le modèle ; la table `ads` remplace le fichier statique du carrousel, recopié par le
+serveur au démarrage (une migration est immuable, son contenu éditorial ne doit pas y figer).
+
+**Amorçage.** Donner un rôle étant une route d'administration, il fallait une porte de service : `admin_grant.js`,
+script **hôte** (`list`, `grant`, `revoke`, `self-kyc`), qui écrit dans `admin_audit` sous l'acteur
+`script:hôte`. Aucun lien d'invitation public n'existe, volontairement : un tel lien, s'il fuit, offre les pleins
+pouvoirs.
+
+**Interface.** Le volet KYC dépose les deux faces (`/api/kyc/submit`), lit `kyc_status`
+(`none` / `pending` / `verified` / `rejected`) et dit l'attente (« Un administrateur vérifie vos deux photos.
+Réponse sous 24 h. ») ; il ne se déclare jamais vérifié lui-même.
+
+**Tests — deux correctifs de campagne, pas de contournement du produit.** (1) `wizard()` (helper partagé par
+S3/S5/S6/S12/S13) ne connaissait pas la **sous-vue des plateaux** : depuis le lot « trois plateaux », taper la
+tuile du jeu ouvre les variantes DANS l'étape 1 et c'est la variante qui fait passer à l'étape 2. Il clique
+désormais explicitement le plateau (`fanoron-tsivy`) — les deux joueurs d'une classée doivent choisir le MÊME.
+(2) `verifyKycViaApi()` est rendu **idempotent** : il demande d'abord le statut au SERVEUR, et si le compte est
+déjà vérifié il recharge la page au lieu de renvoyer un dossier. Sans cela, la campagne COMPLÈTE échouait en S12
+(`409 DEJA_VERIFIE` sur un compte partagé dont la page n'avait pas rechargé depuis S9) alors que S12 isolé
+passait — un faux négatif qui aurait masqué une vraie régression. Les fixtures (`test/kyc_fixtures.js`) fournissent
+deux PNG réels et l'attribution du rôle sur la **copie jetable** uniquement.
+
+**Preuves.** `node test_scenarios.js` : **317/317**, exit 0 · `node test_ui_scenarios.js` : **127/127**
+(campagne complète, S1 → S13 + SX), exit 0 · campagne isolée `S5,S6` 17/17 et `S12,S13` 40/40 · nettoyage :
+fichiers de diagnostic `_s*.txt` / `_ui.pid` supprimés.
+
+**Fichiers.** `d-aona-server/kyc.js`, `image.js`, `admin/index.js`, `admin/permissions.js`, `admin/store.js`,
+`admin_grant.js`, `migrations/016_admin.sql`, `server.js`, `test/kyc_fixtures.js`, `test_scenarios.js`,
+`D-aona/d-aona-web/index.html`, `.gitignore`, ce journal — et, côté campagne d'interface, les **morceaux
+sources** `test/ui/parts/_p1.js` (fixtures), `_p2.js` (`stateOf` + `ensureAdmin` / `verifyKycViaApi`), `_p6.js`
+(`wizard()`), `_p10.js` (S7), `_p11.js` (S9), `_p13.js` (S12) : `test_ui_scenarios.js` est GÉNÉRÉ par
+`node test/ui/build.js`, une correction faite seulement dans le fichier assemblé disparaît à la reconstruction.
+Vérifié : reconstruction → **SHA-256 identique** au fichier validé (`4AFB104C…FFA4FA`).
+
+
+## 2026-10-31 — Back-office : les écrans existent, et ils lisent les données réelles
+
+**Constat.** Le socle serveur (droits en base, audit en ajout seul, `admin_grant.js`) était en place, mais
+l'espace d'administration **n'avait pas d'écrans** : le Profil n'offrait aucun point d'entrée, `#/admin`
+n'affichait qu'un conteneur vide, et le gestionnaire de modules renvoyait sur des vues inexistantes —
+`ReferenceError` au premier rendu. Un back-office qui refuse de s'ouvrir ne protège rien : il empêche
+seulement de vérifier les identités et de publier une bannière.
+
+**Décision — un seul point d'entrée, des vues qui se rechargent.** Le hub des modules est la page d'accueil de
+l'espace (`perm: null` : tout porteur d'un rôle y entre, c'est lui qui distribue vers le reste). Chaque vue
+**recharge ses données à l'ouverture** : aucun cache n'est partagé entre deux visites, sinon un droit retiré
+continuerait de s'afficher. `adminCan()` ne fait que **masquer** ce que l'appelant ne peut pas utiliser — la
+décision reste au serveur, qui refuse chaque route.
+
+**Décision — les pièces d'identité ne restent pas en mémoire.** `/api/admin/kyc/:id/doc/:face` est protégée par
+l'en-tête `Authorization`, donc un `<img src>` ne peut pas la lire. La vue récupère la pièce en **blob**, en fait
+une URL d'objet, et **révoque** celle-ci à chaque changement d'écran, à la fermeture de l'aperçu et à la
+décision — vérifié par `renderAdmin()`, qui appelle `admRevokeDocs()` avant tout rendu. L'ouverture est déjà
+journalisée côté serveur (`kyc.doc`).
+
+**Décision — on n'écrase pas le travail d'un autre administrateur.** L'écran des rôles affiche **un rôle à la
+fois** (matrice modules × actions) et n'envoie que les cases **changées** (`data-was`), jamais « tout le rôle ».
+Le rôle protégé est en lecture seule : cases désactivées, bouton d'enregistrement absent. L'attribution se fait
+par pseudo **ou e-mail** (le serveur refuse l'escalade : on ne distribue que ce qu'on détient), et la liste des
+titulaires est **relue du serveur** après chaque geste.
+
+**Décision — distinguer l'interrupteur du module et les droits.** Couper un module est une décision globale
+(données conservées, super administrateurs compris) ; il ne donne ni ne retire aucun droit. Accorder un droit
+est l'affaire des rôles. Les deux ne sont pas au même endroit, et le texte de confirmation dit lequel des deux
+gestes on est en train de faire.
+
+**Écrans livrés, et ce qu'ils refusent d'inventer.** Publicités (création, modification, masquer ≠ supprimer,
+`both` pour accueil + profils) · Identité (file par état, ouverture des deux faces, validation, refus **motivé**
+— le motif est exigé côté serveur, donc demandé ici) · Joueurs (recherche ; deux gestes de support seulement :
+révoquer un KYC, débloquer un compte ; ni solde ni Elo ne se modifient) · Tournois (création avec nombre PAIR
+exigé — le serveur le refuse aussi —, annulation **chiffrée** : inscrits, total remboursé) · Comptabilité (aucun
+totaux recalculés : entrées/sorties par activité et par moyen, « soldes dus aux joueurs » affichés **à part**
+parce qu'ils ne viennent pas des transactions ; export CSV par `fetch` + blob, le jeton ne partant pas dans une
+balise `<a>`) · Elo et Badges (lecture seule assumée) · Journal (ajout seul) · Tableau de bord (compose des
+réponses **déjà autorisées**, blocs masqués quand le droit manque — aucun agrégat local).
+
+**Tests — un refus attendu n'est pas un défaut.** Le harnais comptait tout `console.error` du navigateur comme
+une erreur applicative ; or le 403 de `/api/admin/me` pour un joueur sans rôle est **le comportement voulu**
+(l'interface masque l'espace, le serveur refuse quand même). `expectedFailures` déclare ces refus (401 du mot de
+passe erroné, 403 de `/api/admin/me`) et `allowFailure()` permet à un scénario d'en déclarer d'autres le temps
+d'une vérification — S14 le fait pour le 403 d'un module éteint. Nouveau scénario **S14** : un joueur ordinaire
+ne voit aucun bouton et subit le refus **sans message d'erreur** ; le super administrateur ouvre le hub, y trouve
+**une carte par module du catalogue** avec **la description servie par l'API**, ouvre Publicités (lignes =
+bannières de l'API), vérifie un **contrôle par droit** et le rôle protégé en lecture seule, lit le journal
+(l'attribution du rôle y figure) puis coupe et rallume un module.
+
+**Preuves.** `node test_scenarios.js` : **317/317**, exit 0 · `node test_ui_scenarios.js S14` : **11/11**, exit
+0 · campagne complète S1 → S14 + SX : **135/135**, exit 0 · `node --check` sur le script extrait de
+`index.html` : OK · `test_ui_scenarios.js` reconstruit par `node test/ui/build.js` (3 608 lignes), jamais édité
+à la main.
+
+**Fichiers.** `D-aona/d-aona-web/index.html` (CSS `.adm*`, section `#/admin`, état `S.admin`, `adminRefresh`
+appelé depuis `refreshUser()`, dix vues, `App.adminShow`) · `test/ui/parts/_p2.js` (refus attendus),
+`_p12.js` (liste des scénarios), `_p14.js` (S14) · `test_ui_scenarios.js` (généré) · ce journal.
+
+
+
 ## 2026-10-18
 **Modifiés :** `.gitignore`, `plateau_clean.png`, `plateau_clean.webp`, `index.html`, `auth.js`, `check_wallet.js`, `data.js`, `core.js`, `schema.js`, `stores.js`, `demo_seed.js`, `game.js`, `.graphify_labels.json`, `.graphify_labels.json.sig`, `.graphify_root`, `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `stat-index.json`, `graph.html`, `http.js`, `server.js`, `test_scenarios.js`, `test_ui_scenarios.js`, `_check_html.js`, `_dbg_wallet.js`, `_inline.js`, `_layout_fill_report.txt`, `_p10.js`, `_p11.js`, `_p12.js`, `_p13.js`, `_p14.js`, `_p5.js`, `_probe_profil_v3.js`, `_shots_profil_v3.js`, `last_query_stamp`, `desktop-jour__chat.png`, `desktop-jour__friends.png`, `desktop-jour__home.png`, `desktop-jour__match.png`, `desktop-jour__notifications.png`, `desktop-jour__play.png`, `desktop-jour__profile.png`, `desktop-jour__ranks.png`, `desktop-jour__skins.png`, `desktop-jour__wallet.png`, `desktop-nuit__home.png`, `mobile-390__profile.png`, `desktop-1440x900-home.png`, `desktop-1440x900-match-tournois.png`, `desktop-1440x900-match.png`, `desktop-1440x900-ranks.png`, `desktop-1440x900-wallet.png`, `mobile-360x760-home.png`, `mobile-360x760-match.png`, `mobile-390x844-home.png`, `mobile-390x844-match.png`, `captures.md`, `desktop-jour__plateau-ia-coups.png`, `desktop-jour__plateau-ia.png`, `desktop-jour__plateau-tirage.png`, `desktop-jour__tournament.png`, `desktop-nuit__chat.png`, `desktop-nuit__friends.png`, `desktop-nuit__match.png`, `desktop-nuit__notifications.png`, `desktop-nuit__plateau-ia-coups.png`, `desktop-nuit__plateau-ia.png`, `desktop-nuit__plateau-tirage.png`, `desktop-nuit__play.png`, `desktop-nuit__profile.png`, `desktop-nuit__ranks.png`, `desktop-nuit__skins.png`, `desktop-nuit__tournament.png`, `desktop-nuit__wallet.png`, `etat__match-defis.png`, `etat__match-tournois.png`, `etat__profil-public.png`, `etat__ranks-province.png`, `etat__tournoi-detail.png`, `etat__wallet-depot.png`, `etat__wallet-retrait.png`, `mesures.json`, `mesures.txt`, `mobile-360__home.png`, `mobile-360__match.png`, `mobile-360__profile.png`, `mobile-360__tournament.png`, `mobile-390__chat.png`, `mobile-390__friends.png`, `mobile-390__home.png`, `mobile-390__match.png`, `mobile-390__notifications.png`, `mobile-390__plateau-ia-coups.png`, `mobile-390__plateau-ia.png`, `mobile-390__plateau-tirage.png`, `mobile-390__play.png`, `mobile-390__profile-pleine-page.png`, `mobile-390__ranks.png`, `mobile-390__skins.png`, `mobile-390__tournament.png`, `mobile-390__wallet.png`, `vide__chat.png`, `vide__friends.png`, `vide__home.png`, `vide__notifications.png`, `vide__tournament.png`, `vide__wallet.png`
 **Ajoutés :** `d-aona-maison.svg`, `pubs.json`, `013_wallet_labels_accents.sql`, `014_pion_style_shape.sql`, `avatar_74_1791318464699.jpg`, `avatar_75_1791317016506.png`, `avatar_75_1791317966280.png`, `avatar_78_1791319229624.jpg`, `avatar_78_1791398436579.jpg`, `avatar_78_1791405629187.jpg`, `avatar_78_1791640001821.jpg`, `avatar_79_1791318968390.png`, `avatar_80_1791622097779.jpg`, `avatar_83_1791396457814.png`, `avatar_83_1791399687704.png`, `avatar_83_1791402090643.png`, `avatar_83_1791402994110.png`, `avatar_83_1791404326318.png`, `avatar_83_1791405338037.png`, `avatar_83_1791406409109.png`, `avatar_84_1791634248534.jpg`, `avatar_84_1791635782443.jpg`, `avatar_84_1791636106261.jpg`, `avatar_84_1791636471422.jpg`, `avatar_84_1791637928672.jpg`, `avatar_84_1791640320164.jpg`, `avatar_84_1791915602378.jpg`, `avatar_84_1791916642363.jpg`, `avatar_84_1791917383922.jpg`, `avatar_84_1791918986705.jpg`, `avatar_84_1791919499307.jpg`, `avatar_84_1791921567211.jpg`, `avatar_85_1791621749035.png`, `avatar_85_1791919034032.jpg`, `avatar_89_1791634532316.png`, `avatar_89_1791915777224.png`, `avatar_89_1791920585333.png`, `avatar_89_1791920724472.png`, `_chain_mobile.js`, `_dbg_hdr_search.js`, `_dbg_wl_cal.js`, `_dbg_wl_fix.js`, `_dbg_wl_ovf.js`, `_dbg_wl_statut.js`, `_drag_probe.js`, `_shots_panneaux.js`, `_squarify_board.py`, `_wallet_shots.js`, `_wallet_size_probe.js`, `_zoom_probe.js`, `01e4a694f46ddba71bc3bd3b05d5be2ff51e985d64e1a76d9efc9016ad3e68df.json`, `026f63205f526cef6f0b627734aba2423105a620882552cc9b27838bae2294a6.json`, `0ac23a4359e6b80933bb1eea3fbaeebbb23f40aafd59771cf3e5c22859501533.json`, `0b2d86c3e4d81279554a271a2024b96bc622f4a2ed5881d8d14cc3526afbb9c4.json`, `12e2f1a016b063672e02cc0c1d63928c5f415534ad93bbcf44f5d853cfcca4e1.json`, `297ecde5ce902f705a2ef2ab71f98e891f63905ada4d3c60b980e668c928739d.json`, `37e8e74324276c9b235c302b70742d674db47b171c510463bde38e2994328f25.json`, `403b2a1018b6f8c0b8f8fceb589fd5a9462c78698ffa3df6797cb30744a04f1b.json`, `6897cef942cdbaa4715d79a4cd59caf20d1a478a312fdba404133d6becbf7c66.json`, `6a2bb07d75dd14ffd61fe477f144c4b1efe20e47f6494fa7ff2240f8bbb0b35d.json`, `8257c52d9a2c3628b677367c5cca3da709bd5a4c1fac0a0dc988a14596930d14.json`, `8b58551184608d0c42ff3706fc4f36e748feac79b95b147ef252d533ea6f5958.json`, `982b1a408839e7af234c40d4bfe4add56c1f5cdce60139bcf304732f230d5bce.json`, `b711332ffc08d46b8a943a79ed3cbe1f1654545b180f717ce4212560376403cb.json`, `bbe155d5e1964e58ee66e3b2f35789ab6dbb5764993c67e5baa97d832aeeded5.json`, `bc72390acfc77e3a7fc85367c73ba52d27ddcc5dafabd0375e0441e5096e6f6a.json`, `d16006c3ee34bab70270c6e8be85d5555f3cf95e54a406e7dd5207a39f8db5b5.json`, `dec4b2767982d5ceaa87343717ad43d834f92afe3f4b2b356d6cfb40b52c6ebf.json`, `e1d3f64fb2604b2cdc2185297ce0add8cabb3614bb43d85288d92756a277cce1.json`, `accueil-carrousel-et-saison-jour.png`, `accueil-carrousel-fleches-au-survol-jour.png`, `accueil-pleine-page-jour.png`, `classement-proposition-2-jour.png`, `classement-proposition-2-mobile-390-pleine-page.png`, `classement-proposition-2-mobile-390.png`, `classement-proposition-2-nuit.png`, `classement-proposition-2-province.png`, `formes-pion-applique.png`, `formes-pion-boutique-jour.png`, `formes-pion-deux-camps.png`, `formes-pion-mobile-390.png`, `formes-pion-plateau-ia.png`, `formes-pion-triangulaire-choisi.png`, `panneau-amis-jour.png`, `panneau-notifications-jour.png`, `panneau-notifications-mobile-390.png`, `panneau-notifications-nuit.png`

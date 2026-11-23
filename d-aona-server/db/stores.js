@@ -28,12 +28,26 @@ const User = {
     if (!row) return null;
     return { ...row, kyc: !!row.kyc, bonus_used: !!row.bonus_used };
   },
+  /* Recherche par adresse e-mail, insensible à la casse. C'est l'identifiant
+     demandé pour l'attribution des rôles : deux pseudos peuvent se ressembler
+     (« Ifehizoro » et « Ifehizoro7 »), une adresse vérifiée est unique. */
+  getByEmail(email) {
+    const clean = String(email || "").trim();
+    if (!clean) return null;
+    const row = db.prepare("SELECT * FROM users WHERE lower(email) = lower(?)").get(clean);
+    if (!row) return null;
+    return { ...row, kyc: !!row.kyc, bonus_used: !!row.bonus_used };
+  },
   createOrUpdate(pseudo) {
     let user = this.getByPseudo(pseudo);
     if (!user) {
-      const stmt = db.prepare("INSERT INTO users (pseudo, elo, balance) VALUES (?, 1100, 5000)");
+      /* `balance` démarre à ZÉRO : le montant d'ouverture est crédité juste
+         après, par une écriture. Poser 5000 ici créait un solde sans trace
+         comptable — le compte violait l'invariant financier dès sa création. */
+      const stmt = db.prepare("INSERT INTO users (pseudo, elo, balance) VALUES (?, 1100, 0)");
       const info = stmt.run(pseudo);
       user = this.getById(info.lastInsertRowid);
+      Wallet.opening(user.id);
       Skins.ensureDefaults(user.id);
     } else {
       db.prepare("UPDATE users SET last_seen = ? WHERE id = ?").run(now(), user.id);
@@ -86,8 +100,13 @@ const GameRecord = {
      defaut garde les appels historiques (et les lignes anterieurs a la
      migration 015) sur le Fanoron-Tsivy. */
   create(p1Id, p2Id, mode, format, wager, game) {
+    /* `status = 'live'` des la CREATION : sans cela, la colonne prenait son
+       defaut de la migration 018 (`'finished'`), si bien qu'une partie en
+       cours s'affichait « terminee sans vainqueur » dans le back-office — et
+       apparaissait DEUX fois (une fois par la session, une fois par cette
+       ligne). Le cycle est desormais : live -> finished | cancelled. */
     const r = db.prepare(
-      "INSERT INTO games (player1_id, player2_id, mode, format, wager, reason, game) VALUES (?, ?, ?, ?, ?, 'en_cours', ?)"
+      "INSERT INTO games (player1_id, player2_id, mode, format, wager, reason, game, status) VALUES (?, ?, ?, ?, ?, 'en_cours', ?, 'live')"
     ).run(p1Id, p2Id, mode, format, wager, game || "fanoron-tsivy");
     return r.lastInsertRowid;
   },
@@ -97,7 +116,7 @@ const GameRecord = {
        indisponibles » au lieu d'inventer une valeur. */
     db.prepare(
       `UPDATE games SET winner_id = ?, delta1 = ?, delta2 = ?, moves_json = ?, reason = ?,
-              elo1_before = ?, elo1_after = ?, elo2_before = ?, elo2_after = ?
+              elo1_before = ?, elo1_after = ?, elo2_before = ?, elo2_after = ?, status = 'finished'
        WHERE id = ?`
     ).run(
       winnerId, delta1, delta2, JSON.stringify(moves || []), reason,
@@ -180,6 +199,19 @@ const Tournament = {
 };
 
 /* ---------- Wallet ---------- */
+/* Solde offert à la création du compte. Écrit AU GRAND LIVRE (voir
+   `Wallet.opening`) : une colonne posée à la main ferait qu'un compte neuf
+   violerait l'invariant « solde = Σ écritures » dès sa première seconde. */
+const OPENING_BALANCE = 5000;
+/* Bonus de bienvenue du PRD : 1 000 Ar, NON RETIRABLES, une seule fois par
+   compte. Il est crédité au grand livre (comme tout mouvement) ET porté par
+   `bonus_lock` : il se dépense en mises / entrées de tournoi, mais
+   `spendWithdrawable()` ne le touche jamais — il n'est pas retirable.
+   Montant UNIQUE : `Wallet.grantWelcome()` est le seul endroit qui le crédite,
+   donc le dépôt et l'inscription ne peuvent plus diverger (5 000 ici, 1 000
+   là — c'était le défaut mesuré). */
+const WELCOME_BONUS = 1000;
+
 const Wallet = {
   getBalance(userId) {
     const row = db.prepare("SELECT balance, bonus_lock FROM users WHERE id = ?").get(userId);
@@ -195,6 +227,29 @@ const Wallet = {
     if (locked) db.prepare("UPDATE users SET bonus_lock = bonus_lock + ? WHERE id = ?").run(amount, userId);
     this.addTransaction(userId, "in", label, amount);
   },
+  /* Solde d'OUVERTURE : le seul crédit qui n'est pas un dépôt. Il passe par
+     `credit`, donc par une écriture : c'est ce qui rend le grand livre
+     réconciliable dès la création du compte.
+     Libellé volontairement DISTINCT du « Crédit de bienvenue » verrouillé
+     (accordé au premier dépôt) : deux gestes différents, deux lignes
+     différentes — un joueur doit pouvoir lire ce qu'il a reçu et quand. */
+  opening(userId) {
+    this.credit(userId, OPENING_BALANCE, "Solde d'ouverture · " + OPENING_BALANCE + " Ar offerts");
+  },
+  /* BONUS DE BIENVENUE (PRD) — 1 000 Ar non retirables, UNE SEULE FOIS.
+     Idempotent : `bonus_used` est la marque, donc l'inscription, le tournoi et
+     le premier dépôt peuvent tous l'appeler ; le second appel ne crédite rien.
+     Le compte NEUF d'un vrai joueur n'a plus de solde d'ouverture de 5 000 Ar
+     (décision PRD) : il démarre à 0 avec ce seul bonus verrouillé.
+     `Wallet.opening()` reste utilisée par les comptes de DÉMONSTRATION
+     (`User.createOrUpdate`, seed) — leurs soldes ne bougent pas. */
+  grantWelcome(userId) {
+    const u = db.prepare("SELECT bonus_used FROM users WHERE id = ?").get(userId);
+    if (!u || u.bonus_used) return false;
+    db.prepare("UPDATE users SET bonus_used = 1 WHERE id = ?").run(userId);
+    this.credit(userId, WELCOME_BONUS, "Bonus de bienvenue", true);
+    return true;
+  },
   /* Dépense : le montant sort du solde UNE SEULE fois, et la part verrouillée
      (bonus de bienvenue, non retirable) est consommée d'abord. L'ancienne
      version débitait `balance` ici ET dans addTransaction : chaque retrait,
@@ -206,6 +261,20 @@ const Wallet = {
     const fromBonus = Math.min(bal.bonus_lock, amount);
     db.prepare("UPDATE users SET bonus_lock = bonus_lock - ? WHERE id = ?").run(fromBonus, userId);
     this.addTransaction(userId, "out", label, amount);
+  },
+  /* Sortie d'argent RÉEL : ne consomme jamais le bonus verrouillé.
+     `spend()` ci-dessus consomme le bonus en premier — ce qui est juste pour un
+     achat ou une mise (l'argent non retirable se dépense), et FAUX pour un
+     retrait : le joueur retirerait alors de l'argent qu'il n'a pas le droit de
+     retirer, tout en conservant celui qu'il pourrait retirer. Deux intentions,
+     donc deux primitives. Renvoie false si la part libre ne couvre pas le
+     montant — l'appelant décide du message, pas cette fonction. */
+  spendWithdrawable(userId, amount, label, refId = null) {
+    const bal = this.getBalance(userId);
+    if (!bal) return false;
+    if (amount > bal.balance - bal.bonus_lock) return false;
+    this.addTransaction(userId, "out", label, amount, null, refId);
+    return true;
   },
   getTransactions(userId, limit = 50) {
     return db.prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?").all(userId, limit);
@@ -239,6 +308,39 @@ const Wallet = {
     sql += ` ORDER BY datetime(created_at) ${sort}, id ${sort}`;
 
     let rows = db.prepare(sql).all(...args);
+    /* ---------- DEMANDES DE RETRAIT EN COURS, VISIBLES DANS L'HISTORIQUE ----
+       Une demande (pending/approved) n'a AUCUNE écriture au grand livre :
+       `Finance.pay()` ne débite qu'au paiement. Le joueur doit pourtant la voir
+       — sans elle, son « disponible » baisse sans aucune ligne qui l'explique.
+       On la FUSIONNE ici plutôt que d'insérer une transaction `out` : une telle
+       ligne, sans débit, casserait l'invariant `balance = Σ(in) − Σ(out)` du
+       montant exact de la demande. Une seule implémentation ⇒ l'écran Wallet,
+       l'export CSV et les filtres (famille « Retrait », moyen « MVola »…,
+       recherche) la traitent comme n'importe quelle ligne. */
+    if (status !== "success") {
+      const wArgs = [userId];
+      let wSql = "SELECT id, amount, method, status, created_at FROM withdrawals " +
+        "WHERE user_id = ? AND status IN ('pending', 'approved')";
+      if (from) { wSql += " AND date(created_at) >= ?"; wArgs.push(from); }
+      if (to) { wSql += " AND date(created_at) <= ?"; wArgs.push(to); }
+      if (!from && !to && period === "recent") wSql += " AND datetime(created_at) >= datetime('now', '-30 days')";
+      if (!from && !to && period === "old") wSql += " AND datetime(created_at) < datetime('now', '-30 days')";
+      const demandes = db.prepare(wSql).all(...wArgs).map((w) => ({
+        id: "w" + w.id, user_id: userId, dir: "out",
+        label: `Retrait ${w.method} (en attente)`, amount: w.amount,
+        status: "pending", ref_id: "withdrawal:" + w.id, created_at: w.created_at,
+        _sortId: 1e9 + w.id,
+      }));
+      if (demandes.length) {
+        rows = rows.concat(demandes).sort((a, b) => {
+          const d = String(a.created_at || "").localeCompare(String(b.created_at || ""));
+          const ia = a._sortId != null ? a._sortId : (Number(a.id) || 0);
+          const ib = b._sortId != null ? b._sortId : (Number(b.id) || 0);
+          if (d !== 0) return sort === "ASC" ? d : -d;
+          return sort === "ASC" ? ia - ib : ib - ia;
+        });
+      }
+    }
     const kind = opts.kind || "all";
     if (kind !== "all") rows = rows.filter((r) => DATA.txKind(r.label) === kind);
     const method = opts.method || "all";
@@ -249,19 +351,75 @@ const Wallet = {
     const total = rows.length;
     const slice = size > 0 ? rows.slice((page - 1) * size, page * size) : rows;
     return {
-      items: slice.map((r) => ({ ...r, kind: DATA.txKind(r.label), method: DATA.txMethod(r.label) })),
+      /* `_sortId` est un détail de tri interne (demandes de retrait) : il ne
+         sort pas de l'API. */
+      items: slice.map((r) => {
+        const { _sortId, ...rest } = r;
+        return { ...rest, kind: DATA.txKind(r.label), method: DATA.txMethod(r.label) };
+      }),
       total, page, size: size > 0 ? size : total,
     };
   },
-  /* Somme des retraits du JOUR (jour UTC de created_at, celui qui est
-     affiché) : sert au plafond quotidien de 500 000 Ar et au profil.
-     Calculée depuis l'historique — la seule source de vérité — plutôt que lue
-     d'une colonne que personne ne maintenait. */
+  /* Somme des retraits du JOUR : sert au plafond de 500 000 Ar et au profil.
+     Depuis que le retrait est une DEMANDE, la source est la table `withdrawals`
+     — compter les seules écritures comptables laisserait un joueur empiler des
+     demandes en attente sans jamais atteindre le plafond, puisque rien n'est
+     débité avant le paiement. Les mouvements ANTÉRIEURS (libellé « Retrait… »,
+     sans référence `withdrawal:`) restent comptés : effacer l'historique d'un
+     jour remettrait le plafond à zéro au premier déploiement. */
   withdrawnToday(userId) {
-    const row = db.prepare(
-      "SELECT COALESCE(SUM(amount), 0) AS s FROM transactions WHERE user_id = ? AND dir = 'out' AND label LIKE 'Retrait%' AND date(created_at) = date('now')"
+    const fromRequests = db.prepare(
+      "SELECT COALESCE(SUM(amount), 0) AS s FROM withdrawals " +
+      "WHERE user_id = ? AND status IN ('pending', 'approved', 'paid') AND date(created_at) = date('now')"
     ).get(userId);
-    return row ? row.s : 0;
+    const fromLedger = db.prepare(
+      "SELECT COALESCE(SUM(amount), 0) AS s FROM transactions " +
+      "WHERE user_id = ? AND dir = 'out' AND label LIKE 'Retrait%' AND date(created_at) = date('now') " +
+      "AND (ref_id IS NULL OR ref_id NOT LIKE 'withdrawal:%')"
+    ).get(userId);
+    return (fromRequests ? fromRequests.s : 0) + (fromLedger ? fromLedger.s : 0);
+  },
+};
+
+/* ---------- Sanctions de compte ----------
+   La sanction est un ÉVÉNEMENT, l'état courant se DÉDUIT du dernier événement.
+   Une colonne `users.blocked` entretenue à la main dériverait au premier chemin
+   d'écriture oublié ; un journal, non. */
+const Sanction = {
+  /* Dernier événement du joueur, ou null. Sert à la fois à l'état courant et à
+     l'affichage « pourquoi / par qui / quand ». */
+  latest(userId) {
+    return db.prepare(
+      "SELECT * FROM user_sanctions WHERE user_id = ? ORDER BY id DESC LIMIT 1"
+    ).get(userId) || null;
+  },
+  isBlocked(userId) {
+    const last = this.latest(userId);
+    return !!last && last.kind === "block" && !last.lifted_at;
+  },
+  history(userId, limit = 20) {
+    return db.prepare(
+      "SELECT * FROM user_sanctions WHERE user_id = ? ORDER BY id DESC LIMIT ?"
+    ).all(userId, limit);
+  },
+  /* Pose un événement. `block` lève automatiquement une éventuelle suspension
+     précédente encore ouverte : deux lignes `block` actives simultanément
+     rendraient la lecture de l'état ambiguë. */
+  add(userId, kind, reason, actorId = null) {
+    if (kind === "block") {
+      db.prepare(
+        "UPDATE user_sanctions SET lifted_at = datetime('now') WHERE user_id = ? AND kind = 'block' AND lifted_at IS NULL"
+      ).run(userId);
+    }
+    if (kind === "unblock") {
+      db.prepare(
+        "UPDATE user_sanctions SET lifted_at = datetime('now') WHERE user_id = ? AND kind = 'block' AND lifted_at IS NULL"
+      ).run(userId);
+    }
+    const info = db.prepare(
+      "INSERT INTO user_sanctions (user_id, kind, reason, actor_id) VALUES (?, ?, ?, ?)"
+    ).run(userId, kind, reason || null, actorId);
+    return this.latest(userId) && db.prepare("SELECT * FROM user_sanctions WHERE id = ?").get(info.lastInsertRowid);
   },
 };
 
@@ -553,10 +711,14 @@ const Challenge = {
 
 /* ---------- Sessions de jeu ---------- */
 const GameSessionStore = {
-  create(id, p1Id, p2Id, mode, format, wager) {
+  /* `game` et `gameRecordId` (migration 026) : la variante jouée et le lien
+     vers la ligne d'historique `games`. Sans eux, l'écran Parties affichait
+     « variante inconnue » et ne pouvait pas distinguer une session de sa ligne
+     d'historique. Nullables : une session d'avant la migration n'en a pas. */
+  create(id, p1Id, p2Id, mode, format, wager, game = null, gameRecordId = null) {
     db.prepare(
-      "INSERT INTO game_sessions (id, player1_id, player2_id, mode, format, wager, state_json, status) VALUES (?,?,?,?,?,?,?,'playing')"
-    ).run(id, p1Id, p2Id, mode, format, wager, "");
+      "INSERT INTO game_sessions (id, player1_id, player2_id, mode, format, wager, game, game_record_id, state_json, status) VALUES (?,?,?,?,?,?,?,?,?,'playing')"
+    ).run(id, p1Id, p2Id, mode, format, wager, game || null, gameRecordId || null, "");
   },
   get(id) { return db.prepare("SELECT * FROM game_sessions WHERE id = ?").get(id); },
   updateState(id, state) {
@@ -660,5 +822,5 @@ function safeParse(json) {
 module.exports = {
   now, applyInactivityDecay, INACTIVITY,
   User, GameRecord, Tournament, Wallet, Chat, Skins, PionStyle, Challenge, GameSessionStore, Friend, FriendRequest,
-  Notification, TournamentMatch,
+  Notification, TournamentMatch, Sanction,
 };

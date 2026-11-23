@@ -104,3 +104,50 @@ strict et rend un rapport Portee / Objectifs / Preuves / Ecarts / Non-verifie / 
 
 T3b -> T3c -> T3d -> T3e -> T3f -> T4 -> T5 -> (T7 apres confirmation de la
 geometrie Dimy) -> T8 final (compteurs de campagne UI >= reference).
+
+## Refonte Administration (lots A0 -> A11)
+
+Chantier distinct, mene en parallele : porter la maquette HTML autonome de
+l'administration (15 ecrans) sur le socle reel. La maquette n'appelle AUCUNE
+route : chaque route est a ecrire. Contrat et ecarts : `CONTEXTE_PROJET.md`,
+entree du 2026-11-02.
+
+| Lot | Objet | Etat | Preuve |
+|-----|-------|------|--------|
+| A0 | Baseline + sauvegarde verifiee | VERT | `npm test` vert avant, `backups/2026-11-02_21h30m52/` |
+| A1 | Migrations 017 -> 022 (retraits, litiges, catalogue, badges, reglages, droits v2) | VERT | 126 lignes de droits apres bascule, 15 modules dont 5 socles, 602 parties retiquettees `finished` |
+| A2 | Catalogue v2 : 15 modules, 6 actions, 7 roles, drapeau `core`, pont v2 -> v1 | VERT | `npm test` EXIT=0, 319/319, S14 11/11 |
+| A3 | `admin/store.v2.js` + `store.finance.js` : SQL des nouveaux modules par domaine | VERT | litiges, catalogue, parties, classement, reglages, retraits |
+| A4 | Retraits : demande -> revision -> paiement, solde reserve calcule, parcours joueur | VERT | 9 verifications neuves, bonus intact apres paiement |
+| A5 | Routes par domaine (`routes.v2.js`, `routes.finance.js`) | VERT | contrat `(contexte) -> booleen`, aucune SQL dans les routes |
+| A6 | Temps reel : `admin_update` filtre par role (signal, sans charge utile) | VERT | `admin.core.js`, regroupement 350 ms |
+| A7 | Contrat d API v2 fige | VERT | `docs/ADMIN_API.md` |
+| A8 | Front `D-aona/d-aona-web/admin/` (CSS scope `#admin-root`, api, store, ui) | VERT | 7 fichiers, aucune regle hors scope |
+| A9 | Les 15 vues, quatre familles de fichiers | VERT | systeme, moderation, competition, finances |
+| A10 | Bascule : retrait de `.adm*` et des vues v1 (−1 016 lignes), `Admin.go()` | VERT | S14 reecrit, 11/11 |
+| A11 | Campagne UI complete + documentation | VERT | campagne **135/135**, journal, contrat d API |
+
+### Dettes assumees en A1-A2
+
+- `wallet_holds` supprimee du plan : `reserved = bonus_lock + Σ withdrawals
+  pending/approved`. Une table de holds aurait duplique la source de verite.
+- Les chemins HTTP `ads`, `accounting`, `elo`, `badges` sont CONSERVES : renommer
+  une URL est un changement de contrat, traite separement.
+- `ADM_LEGACY` + `admViewId()` ont disparu avec l'ancienne interface (A10).
+- Les droits v1 des modules survivants sont conserves tels quels (ex. le role
+  `tournaments` garde `tournaments.delete`). Les retirer serait une decision
+  d'exploitation, pas une migration.
+
+### Dettes assumees en A3-A11 (detaillees dans `docs/ADMIN_API.md`)
+
+- `admin/index.js` reste le routeur HISTORIQUE : les modules v2 vivent a cote
+  (`routes.v2.js`, `routes.finance.js`). Extraire les routes historiques par
+  domaine est un lot mecanique distinct, a faire quand l'ancien vocabulaire
+  d'URL sera retire.
+- `game_sessions` ne memorise pas la variante jouee : l'ecran Parties affiche
+  « variante inconnue » pour une partie en cours. Exact, mais a combler.
+- Une correction de resultat (`matches.result`) ne recalcule pas l'Elo.
+- `settings.maintenance` est expose mais ne coupe pas encore l'acces joueur ;
+  `registrations_open`, lui, est applique a l'inscription.
+- `admWhen()` n'a plus d'appelant dans `index.html` et peut partir au prochain
+  passage.

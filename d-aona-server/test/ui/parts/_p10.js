@@ -4,6 +4,7 @@
 async function s7_wallet(browser) {
   const A = await ensure(browser, "A");
   let before = 0;
+  let dispoApres = 0;
 
   await step("le bouton de la barre du haut ouvre le wallet", async () => {
     await goScreen(A.page, "home");
@@ -22,14 +23,90 @@ async function s7_wallet(browser) {
     await sleep(1100);
     const m = await modalText(A.page);
     if (!/vérification d'identité|KYC/i.test(m)) return "aucune demande de KYC avant dépôt : « " + m.slice(0, 70) + " »";
-    return (await visible(A.page, "#kyc-upload")) ? true : "bouton de vérification de la CIN absent";
+    /* TROIS emplacements (recto, verso ET selfie) : le selfie est la pièce
+       ajoutée au parcours KYC (caméra frontale). */
+    const slots = await A.page.evaluate(() => {
+      const q = (s) => document.querySelector(s);
+      const send = q("#kyc-send");
+      return {
+        recto: !!q('[data-kyc-input="recto"]'),
+        verso: !!q('[data-kyc-input="verso"]'),
+        visage: !!q('[data-kyc-input="visage"]'),
+        captureUser: (q('[data-kyc-input="visage"]') || {}).getAttribute
+          ? q('[data-kyc-input="visage"]').getAttribute("capture") : null,
+        disabled: !!send && !!send.disabled,
+      };
+    });
+    if (!slots.recto || !slots.verso || !slots.visage) return "les trois emplacements (recto, verso, selfie) ne sont pas proposés";
+    if (slots.captureUser !== "user") return "le selfie n'ouvre pas la caméra FRONTALE (capture=" + slots.captureUser + ")";
+    return slots.disabled ? true : "le bouton d'envoi est déjà actif avant toute photo";
   });
 
-  await step("la vérification d'identité simulée ouvre l'accès au dépôt", async () => {
-    await A.page.click("#kyc-upload");
-    await sleep(3200);
+  await step("une seule face ne suffit pas : l'envoi reste impossible", async () => {
+    await A.page.locator('[data-kyc-input="recto"]').setInputFiles(KYCX.rectoFile());
+    await sleep(1500);
+    const st = await A.page.evaluate(() => {
+      const b = document.getElementById("kyc-send");
+      return { present: !!b, disabled: !!b && !!b.disabled, vignette: !!document.querySelector(".kyc-face.has img") };
+    });
+    if (!st.vignette) return "la vignette du recto ne s'affiche pas après la photo";
+    if (!st.present) return "le bouton d'envoi a disparu du formulaire";
+    return st.disabled ? true : "l'envoi est possible avec le recto seul";
+  });
+
+  await step("les trois pièces envoyées : dossier « en attente », dépôt toujours fermé", async () => {
+    await A.page.locator('[data-kyc-input="verso"]').setInputFiles(KYCX.versoFile());
+    await sleep(1500);
+    /* Le verso seul ne suffit plus : le selfie est la troisième pièce. */
+    const apresVerso = await A.page.evaluate(() => {
+      const b = document.getElementById("kyc-send");
+      return !!b && !!b.disabled;
+    });
+    if (!apresVerso) return "l'envoi est possible sans le selfie";
+    await A.page.locator('[data-kyc-input="visage"]').setInputFiles(KYCX.visageFile());
+    await sleep(1500);
+    const enabled = await A.page.evaluate(() => {
+      const b = document.getElementById("kyc-send");
+      return !!b && !b.disabled;
+    });
+    if (!enabled) return "le bouton d'envoi reste inactif alors que les trois pièces sont prises";
+    await A.page.click("#kyc-send");
+    await sleep(2600);
     const m = await modalText(A.page);
-    if (!/déposer/i.test(m)) return "le formulaire de dépôt n'apparaît pas après vérification : « " + m.slice(0, 70) + " »";
+    if (!/dossier envoyé|en attente/i.test(m)) return "aucune confirmation d'envoi : « " + m.slice(0, 80) + " »";
+    /* Le dépôt ne doit PAS s'ouvrir : un dossier en attente n'ouvre aucune
+       transaction — c'est la décision d'un administrateur qui l'ouvre. */
+    if (await visible(A.page, "#dep-amt")) return "le formulaire de dépôt s'ouvre alors que la revue n'a pas eu lieu";
+    const s = await stateOf(A.page);
+    if (s.kyc) return "l'application se croit vérifiée sans décision de l'administration";
+    return s.kycStatus === "pending" ? true : "l'état local n'est pas « en attente » : " + s.kycStatus;
+  });
+
+  await step("après approbation par l'administration, le dépôt s'ouvre", async () => {
+    const adm = await ensureAdmin(browser);
+    /* On passe par la FILE DE REVUE, comme le ferait l'administrateur : on y
+       retrouve le dossier du compte A, puis on l'approuve. */
+    const queue = await apiFromPage(adm.page, "/api/admin/kyc?status=pending");
+    const cases = (queue.json && queue.json.cases) || [];
+    const mine = await stateOf(A.page);
+    const dossier = cases.find((c) => c.user_id === mine.id);
+    if (!dossier) return "le dossier déposé n'apparaît pas dans la file de revue";
+    if (!dossier.bytes_recto || !dossier.bytes_verso) return "le dossier ne porte pas les DEUX pièces";
+    const ap = await apiFromPage(adm.page, `/api/admin/kyc/${dossier.id}/approve`, "POST", {});
+    if (ap.status !== 200 || !ap.json || ap.json.status !== "verified") {
+      return "approbation impossible : " + JSON.stringify(ap.json);
+    }
+    await A.page.reload({ waitUntil: "domcontentloaded" });
+    await sleep(3000);
+    const s = await stateOf(A.page);
+    if (!s.kyc) return "le KYC approuvé n'est pas relu par l'application après rechargement";
+    await goScreen(A.page, "wallet");
+    await sleep(1400);
+    await A.page.locator("#wallet-root button", { hasText: "Déposer" }).first().click();
+    await sleep(1300);
+    if (!(await visible(A.page, "#dep-amt"))) {
+      return "le formulaire de dépôt ne s'ouvre toujours pas : « " + (await modalText(A.page)).slice(0, 70) + " »";
+    }
     return true;
   });
 
@@ -48,13 +125,18 @@ async function s7_wallet(browser) {
     await sleep(3200);
     const s = await stateOf(A.page);
     if (s.balance !== before + 10000) return `solde ${before} -> ${s.balance} (attendu ${before + 10000})`;
+    /* La barre du haut affiche le solde DISPONIBLE (solde − réservé), comme le
+       Wallet et le Profil : c'est la règle unique de l'écran. Le bonus de
+       bienvenue (1 000 Ar) est verrouillé, il ne s'affiche donc pas ici. */
+    const u = await apiFromPage(A.page, "/api/user");
+    dispoApres = u.json.user.withdrawable;
     const top = (await textOf(A.page, "#tb-balance")) || "";
-    const fmt = new Intl.NumberFormat("fr-FR").format(s.balance).replace(/[\u202f\u00a0]/g, " ");
+    const fmt = new Intl.NumberFormat("fr-FR").format(dispoApres).replace(/[\u202f\u00a0]/g, " ");
     return top.replace(/[\u202f\u00a0]/g, " ").includes(fmt)
-      ? true : "la barre du haut n'affiche pas le nouveau solde : " + top;
+      ? true : "la barre du haut n'affiche pas le disponible (" + dispoApres + ") : " + top;
   });
 
-  await step("le retrait est débloqué et débite le solde", async () => {
+  await step("le retrait est débloqué : la DEMANDE est déposée sans débit", async () => {
     await A.page.locator("#wallet-root button", { hasText: "Retirer" }).first().click();
     await sleep(1100);
     if (!(await visible(A.page, "#wd-amount"))) {
@@ -66,9 +148,22 @@ async function s7_wallet(browser) {
     await A.page.click("#wd-ok");
     await sleep(3200);
     const s = await stateOf(A.page);
-    if (s.balance === before + 10000 - 2000) return true;
-    const t = (await toasts(A.page)).join(" | ");
-    return `solde ${before + 10000} -> ${s.balance} (attendu ${before + 8000})${t ? " — message : " + t : ""}`;
+    /* Depuis la refonte, un retrait est une DEMANDE instruite par la finance :
+       le solde ne bouge PAS, le montant devient RÉSERVÉ. Ce qui doit être vrai
+       ici : la demande existe côté serveur (pending), le solde est intact et le
+       disponible a baissé de 2 000 Ar. */
+    const u = await apiFromPage(A.page, "/api/user");
+    const w = u.json && u.json.withdrawal;
+    if (!w) {
+      const t = (await toasts(A.page)).join(" | ");
+      return "aucune demande de retrait enregistrée" + (t ? " — message : " + t : "");
+    }
+    if (s.balance !== before + 10000) return `le solde a bougé : ${before + 10000} -> ${s.balance}`;
+    if (w.amount !== 2000 || w.status !== "pending")
+      return "demande inattendue : " + JSON.stringify(w);
+    const dispo = u.json.user.withdrawable;
+    if (dispo !== dispoApres - 2000) return `disponible ${dispo} (attendu ${dispoApres - 2000})`;
+    return true;
   });
 
   await step("l'historique des transactions contient le dépôt", async () => {

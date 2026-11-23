@@ -1,0 +1,19 @@
+{
+  "file": "reference/D-aona-Administration.html",
+  "sha256": "38bb34d37374bc830a3bc34b0aefdb189fe117c0fd8119e74d677227d928a8b0",
+  "bytes": 265439,
+  "lockedAt": "2026-11-02",
+  "source": "C:\\Users\\WINDOWS 10\\Downloads\\Nouveau dossier (3)\\D-aona-Administration.html",
+  "readOnly": true,
+  "rule": "La démo est l'ORACLE. Elle ne doit jamais être modifiée : si ce hash change, les tests de comparaison échouent et le golden file doit être régénéré explicitement.",
+  "missingProvidedAssets": [
+    "daona-admin-source.zip (code TypeScript source, règles et tests)",
+    "REFERENCE-DEMO.json (golden file fourni)",
+    "scripts/export-reference.ts (générateur fourni)"
+  ],
+  "replacement": {
+    "generator": "scripts/export-reference.js",
+    "output": "reference/REFERENCE-DEMO.json",
+    "note": "À défaut du générateur TypeScript annoncé, le golden file est produit depuis la démo RÉELLE par instrumentation du navigateur (localStorage daona.admin.v2 après une commande). Aucune valeur n'est saisie à la main."
+  }
+}

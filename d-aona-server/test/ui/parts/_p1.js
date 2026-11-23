@@ -20,6 +20,10 @@ const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 const { chromium } = require("playwright");
 const game = require("./game.js");
+/* Deux images PNG réelles (recto/verso) et l'attribution du rôle
+   d'administration sur la copie jetable : fixtures partagées avec
+   test_scenarios.js. */
+const KYCX = require("./test/kyc_fixtures");
 
 const PORT = Number(process.env.D_AONA_TEST_PORT || 8098);
 const BASE = `http://127.0.0.1:${PORT}`;

@@ -5,6 +5,12 @@ d-aona-server/backups/
 # Fichiers téléversés par les joueurs (photos de profil) = données personnelles.
 # Ne doivent jamais entrer dans l'historique Git.
 d-aona-server/uploads/
+
+# Pièces d'identité (KYC, recto + verso) : données personnelles sensibles.
+# Servies par AUCUN serveur statique — uniquement par la route d'administration
+# authentifiée et auditée. Jamais versionnées, jamais sauvegardées dans un dépôt.
+d-aona-server/private/
+
 # ===== D-aôna — .gitignore =====
 
 # Dépendances
@@ -68,6 +74,11 @@ d-aona-server/test_ui_scenarios.fixed.js
 # Entrée de `_squarify_board.py` : la plaque AVANT mise d'équerre, copie de
 # l'asset versionné (2,3 Mo). Jamais versionnée, mais gardée pour rejouer l'outil.
 d-aona-server/_plateau_source.png
+
+# Captures des audits locales (`audit-*/shots/`) : images de contrôle produites
+# pendant une session, jamais du code ni un asset de l'application. Seuls les
+# rapports écrits (`audit-*/*.md`, `audit-*/*.html`) sont versionnés.
+audit-*/shots/
 
 # Brouillons racine et artefacts d'outillage local (jamais du code de l'app)
 tasks/

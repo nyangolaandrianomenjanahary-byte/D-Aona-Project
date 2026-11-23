@@ -1,0 +1,800 @@
+{
+  "generatedAt": "2026-11-02T20:41:31.343Z",
+  "source": "reference/D-aona-Administration.html",
+  "sha256": "38bb34d37374bc830a3bc34b0aefdb189fe117c0fd8119e74d677227d928a8b0",
+  "demoTitle": "Vue d’ensemble — D-aôna",
+  "persistedBy": "theme.toggle",
+  "pageErrors": [],
+  "seed": {
+    "counts": {
+      "users": 15,
+      "kyc": {
+        "pending": 3,
+        "verified": 10,
+        "rejected": 1,
+        "total": 14
+      },
+      "withdrawals": {
+        "pending": 2,
+        "approved": 0,
+        "paid": 1,
+        "rejected": 0
+      },
+      "disputes": {
+        "open": 1,
+        "investigating": 1
+      },
+      "tournaments": 6,
+      "registrations": 24,
+      "ledgerEntries": 63,
+      "activeHolds": 3,
+      "matches": 56,
+      "campaigns": 2
+    },
+    "totals": {
+      "balance": 491700,
+      "reserved": 28000,
+      "available": 463700,
+      "credits": 563900,
+      "debits": 72200
+    },
+    "wallets": [
+      {
+        "demoId": "u1",
+        "pseudo": "GuideAdmin",
+        "elo": 1100,
+        "wins": 0,
+        "losses": 0,
+        "balance": 150000,
+        "reserved": 5000,
+        "available": 145000,
+        "role": "super_admin",
+        "blocked": false
+      },
+      {
+        "demoId": "u2",
+        "pseudo": "DemoRado",
+        "elo": 1842,
+        "wins": 41,
+        "losses": 18,
+        "balance": 119000,
+        "reserved": 15000,
+        "available": 104000,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u3",
+        "pseudo": "DemoNaivo",
+        "elo": 1715,
+        "wins": 33,
+        "losses": 20,
+        "balance": 71500,
+        "reserved": 0,
+        "available": 71500,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u4",
+        "pseudo": "DemoHery",
+        "elo": 1650,
+        "wins": 28,
+        "losses": 19,
+        "balance": 52000,
+        "reserved": 0,
+        "available": 52000,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u5",
+        "pseudo": "DemoTsiry",
+        "elo": 1520,
+        "wins": 22,
+        "losses": 21,
+        "balance": 31500,
+        "reserved": 8000,
+        "available": 23500,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u6",
+        "pseudo": "DemoLova",
+        "elo": 1435,
+        "wins": 18,
+        "losses": 24,
+        "balance": 18000,
+        "reserved": 0,
+        "available": 18000,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u7",
+        "pseudo": "DemoFara",
+        "elo": 1298,
+        "wins": 14,
+        "losses": 25,
+        "balance": 9500,
+        "reserved": 0,
+        "available": 9500,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u8",
+        "pseudo": "DemoMiora",
+        "elo": 1210,
+        "wins": 9,
+        "losses": 27,
+        "balance": 6400,
+        "reserved": 0,
+        "available": 6400,
+        "role": "observer",
+        "blocked": true
+      },
+      {
+        "demoId": "u9",
+        "pseudo": "DemoSolo",
+        "elo": 1105,
+        "wins": 5,
+        "losses": 31,
+        "balance": 3800,
+        "reserved": 0,
+        "available": 3800,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u10",
+        "pseudo": "AinaRakoto",
+        "elo": 1100,
+        "wins": 0,
+        "losses": 0,
+        "balance": 5000,
+        "reserved": 0,
+        "available": 5000,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u11",
+        "pseudo": "TojoRabe",
+        "elo": 1100,
+        "wins": 0,
+        "losses": 0,
+        "balance": 5000,
+        "reserved": 0,
+        "available": 5000,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u12",
+        "pseudo": "MioraBao",
+        "elo": 1100,
+        "wins": 0,
+        "losses": 0,
+        "balance": 5000,
+        "reserved": 0,
+        "available": 5000,
+        "role": "observer",
+        "blocked": true
+      },
+      {
+        "demoId": "u13",
+        "pseudo": "FaraNirina",
+        "elo": 1100,
+        "wins": 0,
+        "losses": 0,
+        "balance": 5000,
+        "reserved": 0,
+        "available": 5000,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u14",
+        "pseudo": "HeryTiana",
+        "elo": 1100,
+        "wins": 0,
+        "losses": 0,
+        "balance": 5000,
+        "reserved": 0,
+        "available": 5000,
+        "role": "observer",
+        "blocked": false
+      },
+      {
+        "demoId": "u15",
+        "pseudo": "NainaSoa",
+        "elo": 1100,
+        "wins": 0,
+        "losses": 0,
+        "balance": 5000,
+        "reserved": 0,
+        "available": 5000,
+        "role": "observer",
+        "blocked": false
+      }
+    ],
+    "top5": [
+      {
+        "rank": 1,
+        "demoId": "u2",
+        "pseudo": "DemoRado",
+        "elo": 1842,
+        "badge": "Remenabila"
+      },
+      {
+        "rank": 2,
+        "demoId": "u3",
+        "pseudo": "DemoNaivo",
+        "elo": 1715,
+        "badge": "Malaso"
+      },
+      {
+        "rank": 3,
+        "demoId": "u4",
+        "pseudo": "DemoHery",
+        "elo": 1650,
+        "badge": "Dahalo"
+      },
+      {
+        "rank": 4,
+        "demoId": "u5",
+        "pseudo": "DemoTsiry",
+        "elo": 1520,
+        "badge": "Totakely"
+      },
+      {
+        "rank": 5,
+        "demoId": "u6",
+        "pseudo": "DemoLova",
+        "elo": 1435,
+        "badge": "Totakely"
+      }
+    ]
+  },
+  "dashboard": {
+    "players": 15,
+    "gamesToday": 11,
+    "games7d": 56,
+    "openTournaments": 4,
+    "openRegistrations": 12,
+    "pendingDecisions": {
+      "kyc": 3,
+      "withdrawals": 2,
+      "disputes": 2,
+      "total": 7
+    }
+  },
+  "structure": {
+    "modules": [
+      "overview",
+      "users",
+      "kyc",
+      "disputes",
+      "games",
+      "matches",
+      "tournaments",
+      "ranking",
+      "finance",
+      "withdrawals",
+      "campaigns",
+      "roles",
+      "modules",
+      "audit",
+      "settings"
+    ],
+    "groups": [
+      "Pilotage",
+      "Communauté",
+      "Compétition",
+      "Finances",
+      "Configuration"
+    ],
+    "roles": [
+      "super_admin",
+      "admin",
+      "finance",
+      "moderation",
+      "tournaments",
+      "marketing",
+      "observer"
+    ],
+    "actions": [
+      "read",
+      "create",
+      "edit",
+      "review",
+      "export",
+      "delete"
+    ],
+    "defaultPermissions": {
+      "super_admin": {
+        "overview": [
+          "read"
+        ],
+        "users": [
+          "read"
+        ],
+        "kyc": [
+          "read"
+        ],
+        "disputes": [
+          "read"
+        ],
+        "games": [
+          "read"
+        ],
+        "matches": [
+          "read"
+        ],
+        "tournaments": [
+          "read"
+        ],
+        "ranking": [
+          "read"
+        ],
+        "finance": [
+          "read"
+        ],
+        "withdrawals": [
+          "read"
+        ],
+        "campaigns": [
+          "read"
+        ],
+        "roles": [
+          "read"
+        ],
+        "modules": [
+          "read"
+        ],
+        "audit": [
+          "read"
+        ],
+        "settings": [
+          "read"
+        ]
+      },
+      "admin": {
+        "overview": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "users": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "kyc": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "disputes": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "games": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "matches": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "tournaments": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "ranking": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "finance": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "withdrawals": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "campaigns": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "roles": [],
+        "modules": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "audit": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ],
+        "settings": [
+          "read",
+          "create",
+          "edit",
+          "review",
+          "export"
+        ]
+      },
+      "finance": {
+        "overview": [
+          "read",
+          "review"
+        ],
+        "users": [],
+        "kyc": [],
+        "disputes": [],
+        "games": [],
+        "matches": [],
+        "tournaments": [],
+        "ranking": [],
+        "finance": [
+          "read",
+          "export"
+        ],
+        "withdrawals": [
+          "read",
+          "review"
+        ],
+        "campaigns": [],
+        "roles": [],
+        "modules": [],
+        "audit": [],
+        "settings": []
+      },
+      "moderation": {
+        "overview": [
+          "read"
+        ],
+        "users": [
+          "read",
+          "review",
+          "edit"
+        ],
+        "kyc": [
+          "read",
+          "review",
+          "edit"
+        ],
+        "disputes": [
+          "read",
+          "review",
+          "edit"
+        ],
+        "games": [],
+        "matches": [
+          "read",
+          "review",
+          "edit"
+        ],
+        "tournaments": [],
+        "ranking": [],
+        "finance": [],
+        "withdrawals": [],
+        "campaigns": [],
+        "roles": [],
+        "modules": [],
+        "audit": [],
+        "settings": []
+      },
+      "tournaments": {
+        "overview": [
+          "read"
+        ],
+        "users": [],
+        "kyc": [],
+        "disputes": [],
+        "games": [
+          "read"
+        ],
+        "matches": [
+          "read",
+          "create",
+          "edit",
+          "review"
+        ],
+        "tournaments": [
+          "read",
+          "create",
+          "edit",
+          "review"
+        ],
+        "ranking": [
+          "read"
+        ],
+        "finance": [],
+        "withdrawals": [],
+        "campaigns": [],
+        "roles": [],
+        "modules": [],
+        "audit": [],
+        "settings": []
+      },
+      "marketing": {
+        "overview": [
+          "read"
+        ],
+        "users": [],
+        "kyc": [],
+        "disputes": [],
+        "games": [],
+        "matches": [],
+        "tournaments": [],
+        "ranking": [],
+        "finance": [],
+        "withdrawals": [],
+        "campaigns": [
+          "read",
+          "create",
+          "edit",
+          "delete"
+        ],
+        "roles": [],
+        "modules": [],
+        "audit": [],
+        "settings": []
+      },
+      "observer": {
+        "overview": [
+          "read"
+        ],
+        "users": [
+          "read"
+        ],
+        "kyc": [
+          "read"
+        ],
+        "disputes": [
+          "read"
+        ],
+        "games": [
+          "read"
+        ],
+        "matches": [
+          "read"
+        ],
+        "tournaments": [
+          "read"
+        ],
+        "ranking": [
+          "read"
+        ],
+        "finance": [
+          "read"
+        ],
+        "withdrawals": [
+          "read"
+        ],
+        "campaigns": [
+          "read"
+        ],
+        "roles": [
+          "read"
+        ],
+        "modules": [
+          "read"
+        ],
+        "audit": [
+          "read"
+        ],
+        "settings": [
+          "read"
+        ]
+      }
+    },
+    "badgeRules": [
+      {
+        "id": "b1",
+        "name": "Remenabila",
+        "minRank": 1,
+        "maxRank": 1
+      },
+      {
+        "id": "b2",
+        "name": "Malaso",
+        "minRank": 2,
+        "maxRank": 2
+      },
+      {
+        "id": "b3",
+        "name": "Dahalo",
+        "minRank": 3,
+        "maxRank": 3
+      },
+      {
+        "id": "b4",
+        "name": "Totakely",
+        "minRank": 4,
+        "maxRank": 25
+      },
+      {
+        "id": "b5",
+        "name": "Akofa",
+        "minRank": 26,
+        "maxRank": 50
+      },
+      {
+        "id": "b6",
+        "name": "Vary masaka",
+        "minRank": 51,
+        "maxRank": null
+      }
+    ]
+  },
+  "commands": {
+    "kyc.review": [
+      "kyc",
+      "review"
+    ],
+    "kyc.open": [
+      "kyc",
+      "read"
+    ],
+    "user.sanction": [
+      "users",
+      "edit"
+    ],
+    "user.role": [
+      "roles",
+      "edit"
+    ],
+    "withdrawal.review": [
+      "withdrawals",
+      "review"
+    ],
+    "withdrawal.pay": [
+      "withdrawals",
+      "review"
+    ],
+    "tournament.create": [
+      "tournaments",
+      "create"
+    ],
+    "tournament.edit": [
+      "tournaments",
+      "edit"
+    ],
+    "tournament.transition": [
+      "tournaments",
+      "edit"
+    ],
+    "tournament.enroll": [
+      "tournaments",
+      "edit"
+    ],
+    "tournament.withdraw": [
+      "tournaments",
+      "edit"
+    ],
+    "tournament.start": [
+      "tournaments",
+      "review"
+    ],
+    "match.result": [
+      "matches",
+      "review"
+    ],
+    "dispute.open": [
+      "disputes",
+      "create"
+    ],
+    "dispute.resolve": [
+      "disputes",
+      "review"
+    ],
+    "game.save": [
+      "games",
+      "edit"
+    ],
+    "game.status": [
+      "games",
+      "edit"
+    ],
+    "campaign.save": [
+      "campaigns",
+      "edit"
+    ],
+    "campaign.pause": [
+      "campaigns",
+      "edit"
+    ],
+    "campaign.delete": [
+      "campaigns",
+      "delete"
+    ],
+    "roles.save": [
+      "roles",
+      "edit"
+    ],
+    "module.toggle": [
+      "modules",
+      "edit"
+    ],
+    "settings.save": [
+      "settings",
+      "edit"
+    ],
+    "badges.save": [
+      "ranking",
+      "edit"
+    ],
+    "theme.toggle": [
+      "overview",
+      "read"
+    ]
+  },
+  "invariants": [
+    "balance = somme des écritures du joueur",
+    "available = balance - réserves actives",
+    "crédits - débits = somme des soldes",
+    "une seule inscription ACTIVE par (joueur, tournoi)",
+    "référence comptable unique",
+    "paiement de retrait = débit + levée de réserve dans la même transaction",
+    "dotation = somme des frais non remboursés",
+    "Elo zero-sum (K=32) appliqué une seule fois",
+    "litige ouvert bloque la validation du résultat",
+    "capacité de tournoi = puissance de 2",
+    "badges continus, sans trou ni chevauchement",
+    "dernier super administrateur protégé",
+    "commande refusée sans effet de bord"
+  ],
+  "meta": {
+    "schemaVersion": 2,
+    "revision": 1,
+    "settings": {
+      "platformName": "D-aôna",
+      "contact": "admin@daona.mg",
+      "timezone": "Indian/Antananarivo",
+      "registrationsOpen": true,
+      "maintenance": false,
+      "theme": "dark"
+    },
+    "auditEntries": 4
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "d-aona-root",
+  "private": true,
+  "version": "1.0.0",
+  "description": "D-aôna — racine : scripts de vérification et de comparaison avec la démo de référence",
+  "scripts": {
+    "ref": "node scripts/export-reference.js",
+    "seed:oracle": "node d-aona-server/seed_oracle.js --db=d-aona-server/_oracle.db --force",
+    "actual": "node scripts/export-actual.js --db=d-aona-server/_oracle.db",
+    "compare": "node scripts/compare.js",
+    "scenarios": "node scripts/scenarios.js",
+    "invariants": "node scripts/invariants.js",
+    "audit:wallet": "node scripts/wallet-audit.js",
+    "permissions": "node scripts/permissions.js",
+    "visual": "node scripts/visual.js",
+    "verify:seed": "npm run seed:oracle && npm run actual && npm run compare",
+    "verify:server": "npm --prefix d-aona-server test",
+    "verify": "npm run verify:server && npm run verify:seed && npm run scenarios && npm run invariants && npm run permissions && npm run audit:wallet"
+  }
+}

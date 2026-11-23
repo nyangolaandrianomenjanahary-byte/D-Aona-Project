@@ -1,14 +1,23 @@
 /* =========================================================================
    S3 — ENTRAÎNEMENT CONTRE L'IA : assistant, plateau, tirage au sort, coups
    ========================================================================= */
-async function wizard(page, { mode = "ai", fmt = "blitz" }) {
+async function wizard(page, { mode = "ai", fmt = "blitz", variant = "fanoron-tsivy" }) {
   /* UN CHOIX VAUT « SUIVANT » : depuis le lot « onglet Jeux », la flèche « Suivant »
      n'existe plus et le CTA (lancement) n'apparaît qu'à l'étape 4. On clique donc la
-     tuile du jeu, puis le mode, puis le format — le geste réel d'un joueur. */
+     tuile du jeu, puis le PLATEAU, puis le mode, puis le format — le geste réel d'un
+     joueur. Le plateau est une étape à part entière : depuis le lot « trois
+     plateaux », taper la tuile du jeu ouvre la sous-vue des variantes DANS l'étape 1
+     et c'est la variante qui fait passer à l'étape 2 (les tuiles de mode n'existent
+     qu'à `playStep === 2`). Les deux joueurs d'une partie classée doivent choisir le
+     MÊME plateau : il est donc nommé explicitement, jamais pris « au hasard ». */
   await goScreen(page, "play");
   const game = page.locator("#play-root .pg-opt[data-game]");
   if (!(await game.count())) return "aucune tuile de jeu à l'étape 1 de l'assistant";
-  await game.first().click();          /* étape 1 → 2 */
+  await game.first().click();          /* étape 1 → sous-vue des plateaux */
+  await sleep(400);
+  const plat = page.locator(`#play-root .pg-opt[data-variant="${variant}"]`);
+  if (!(await plat.count())) return `aucun plateau « ${variant} » à l'étape 1`;
+  await plat.first().click();          /* étape 1 (plateau) → 2 */
   await sleep(400);
   const opt = page.locator(`#play-root .pg-opt[data-mode="${mode}"]`);
   if (!(await opt.count())) return `aucune option de mode « ${mode} » à l'étape 2`;

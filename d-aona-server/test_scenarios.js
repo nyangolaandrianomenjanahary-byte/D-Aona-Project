@@ -35,6 +35,9 @@ const { DatabaseSync } = require("node:sqlite");
 const WebSocket = require("ws");
 const { legalMoves, GameSession } = require("./game");
 const DATA = require("./data");
+/* Images KYC réelles + attribution du rôle d'administration sur la copie
+   jetable : deux besoins partagés avec test_ui_scenarios.js. */
+const KYCX = require("./test/kyc_fixtures");
 
 const PORT = 8099;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -68,6 +71,16 @@ async function api(p, { method = "GET", body = null, token = null } = {}) {
   /* Les en-têtes sont conservés : le test du cache (Cache-Control) se juge là. */
   return { status: res.status, json, headers: Object.fromEntries(res.headers) };
 }
+/* ---------- Vérification d'identité d'un compte de test ----------
+   Même parcours qu'un vrai joueur : dossier recto + verso (deux images PNG
+   réelles), puis approbation par le compte ADMINISTRATEUR — jamais par le
+   compte lui-même, la règle d'auto-validation l'interdisant. */
+async function verifyKyc(token) {
+  const sub = await api("/api/kyc/submit", { method: "POST", token, body: { recto: KYCX.recto(), verso: KYCX.verso() } });
+  if (sub.status !== 200) return sub;
+  return api(`/api/admin/kyc/${sub.json.caseId}/approve`, { method: "POST", token: users.Admin.token, body: {} });
+}
+
 /* ---------- Client WebSocket : boîte aux lettres + attente par prédicat ---------- */
 function wsClient(token) {
   const socket = new WebSocket(WS_URL);
@@ -180,7 +193,10 @@ const users = {};   // nom court -> { pseudo, token, id }
 
 async function phaseComptes() {
   section("1. Comptes, session et référentiels");
-  for (const n of ["Ari", "Bema", "Cora", "Doda", "Efa"]) {
+  /* « Admin » n'est pas un joueur de la campagne : c'est le compte qui portera
+     le rôle d'administration (file KYC). Il est inscrit comme tout le monde —
+     aucun compte privilégié n'est fabriqué en base à la main. */
+  for (const n of ["Ari", "Bema", "Cora", "Doda", "Efa", "Admin"]) {
     const pseudo = PREFIX + n;
     const r = await api("/api/auth/register", { method: "POST", body: { pseudo, password: PWD, province: "Antananarivo" } });
     const u = r.json && r.json.user;
@@ -194,13 +210,37 @@ async function phaseComptes() {
   const me = await api("/api/user", { token: users.Ari.token });
   check("GET /api/user avec jeton -> profil du bon compte",
     me.status === 200 && me.json.user.pseudo === users.Ari.pseudo, me.json && me.json.user && me.json.user.pseudo);
-  check("profil neuf : crédit de bienvenue de 5 000 Ar, rien de verrouillé, aucune transaction",
-    me.json.user.balance === 5000 && me.json.user.bonus_lock === 0 &&
-    Array.isArray(me.json.transactions) && me.json.transactions.length === 0,
-    `solde ${me.json.user.balance}, verrouillé ${me.json.user.bonus_lock}`);
+  /* Règle PRD : un compte NEUF démarre à 0 et reçoit le seul BONUS DE
+     BIENVENUE de 1 000 Ar, NON RETIRABLE (`bonus_lock`). Il est écrit au grand
+     livre (une ligne « Bonus de bienvenue »), donc l'invariant « solde =
+     Σ écritures » tient dès la première seconde. */
+  check("profil neuf : bonus de 1 000 Ar, verrouillé, UNE écriture « Bonus de bienvenue »",
+    me.json.user.balance === 1000 && me.json.user.bonus_lock === 1000 &&
+    Array.isArray(me.json.transactions) && me.json.transactions.length === 1 &&
+    /bienvenue/i.test(me.json.transactions[0].label || ""),
+    `solde ${me.json.user.balance}, verrouillé ${me.json.user.bonus_lock}, écritures ${(me.json.transactions || []).length}`);
   check("profil : place au classement et badge renvoyés", !!me.json.user.rank && !!me.json.user.badge);
   check("profil : aucun secret exposé",
     !("password_hash" in me.json.user) && !("password" in me.json.user));
+
+  /* ---------- Profil déclaré (migration 030) : cinq champs obligatoires ----------
+     Le serveur borne la FORME (le KYC juge la conformité au CIN). Un profil n'est
+     « complet » qu'avec la photo : ces contrôles portent donc sur les champs et
+     sur l'état calculé, pas sur une supposition du client. */
+  const profBioVide = await api("/api/user/profile", { method: "POST", token: users.Ari.token, body: { bio: "" } });
+  check("profil : une bio vide est refusée (400)", profBioVide.status === 400, JSON.stringify(profBioVide.json));
+  const profNomCourt = await api("/api/user/profile", { method: "POST", token: users.Ari.token, body: { first_name: "X" } });
+  check("profil : un prénom d'une lettre est refusé (400)", profNomCourt.status === 400, JSON.stringify(profNomCourt.json));
+  const profDateFuture = await api("/api/user/profile", { method: "POST", token: users.Ari.token, body: { birth_date: "2099-01-01" } });
+  check("profil : une date de naissance future est refusée (400)", profDateFuture.status === 400, JSON.stringify(profDateFuture.json));
+  const profOk = await api("/api/user/profile", { method: "POST", token: users.Ari.token,
+    body: { first_name: "Ari", last_name: "Rakoto", birth_date: "1996-04-12", bio: "Joueur de Fanorona.", phone: "0341234567" } });
+  check("profil : les cinq champs sont enregistrés (profil encore incomplet SANS photo)",
+    profOk.status === 200 && profOk.json.user.first_name === "Ari" &&
+    profOk.json.user.last_name === "Rakoto" && profOk.json.user.birth_date === "1996-04-12" &&
+    profOk.json.user.bio === "Joueur de Fanorona." && profOk.json.user.phone === "0341234567" &&
+    profOk.json.user.profile_complete === false,
+    JSON.stringify(profOk.json.user && { first: profOk.json.user.first_name, complete: profOk.json.user.profile_complete }));
 
   const bad = await api("/api/auth/login", { method: "POST", body: { pseudo: users.Ari.pseudo, password: "Mauvais!2026xyz" } });
   check("connexion avec un mauvais mot de passe -> refus", bad.status === 401 || bad.status === 429, `code ${bad.status}`);
@@ -268,7 +308,10 @@ async function phaseReferentiels() {
     mine.status === 200 && Array.isArray(mine.json.tournaments) && mine.json.tournaments.length === 0);
 
   const tr = await api("/api/transactions", { token: users.Ari.token });
-  check("GET /api/transactions -> vide pour un compte neuf", tr.status === 200 && tr.json.transactions.length === 0);
+  check("GET /api/transactions -> une seule ligne, le bonus de bienvenue",
+    tr.status === 200 && tr.json.transactions.length === 1 &&
+    /bienvenue/i.test(tr.json.transactions[0].label || ""),
+    JSON.stringify((tr.json.transactions || []).map((t) => t.label)));
 }
 /* =========================================================
    PHASE 3 — Amis : demandes, acceptation, refus, retrait
@@ -412,36 +455,46 @@ async function phasePortefeuille() {
   const A = users.Ari.token, E = users.Efa.token;
 
   const before = await api("/api/user", { token: A });
-  check("solde d'ouverture : 5 000 Ar offerts, rien de verrouillé",
-    before.json.user.balance === 5000 && before.json.user.bonus_lock === 0,
+  check("bonus de bienvenue : 1 000 Ar, verrouillés (non retirables)",
+    before.json.user.balance === 1000 && before.json.user.bonus_lock === 1000,
     JSON.stringify({ balance: before.json.user.balance, lock: before.json.user.bonus_lock }));
 
   const dep1 = await api("/api/deposit", { method: "POST", body: { amount: 10000, operator: "MVola" }, token: A });
-  check("dépôt de 10 000 Ar -> crédité, bonus de bienvenue verrouillé de 5 000 Ar",
-    dep1.status === 200 && dep1.json.balance === 20000 && dep1.json.bonusLock === 5000, JSON.stringify(dep1.json));
+  check("dépôt de 10 000 Ar -> crédité, SANS second bonus (déjà reçu à l'inscription)",
+    dep1.status === 200 && dep1.json.balance === 11000 && dep1.json.bonusLock === 1000, JSON.stringify(dep1.json));
 
   const dep2 = await api("/api/deposit", { method: "POST", body: { amount: 2000, operator: "Orange Money" }, token: A });
   check("2e dépôt : PAS de nouveau bonus de bienvenue (une seule fois par compte)",
-    dep2.status === 200 && dep2.json.balance === 22000 && dep2.json.bonusLock === 5000, JSON.stringify(dep2.json));
+    dep2.status === 200 && dep2.json.balance === 13000 && dep2.json.bonusLock === 1000, JSON.stringify(dep2.json));
 
   const low = await api("/api/withdraw", { method: "POST", body: { amount: 500 }, token: A });
   check("retrait sous le minimum de 1 000 Ar -> refusé", low.status === 400, `code ${low.status}`);
 
-  const bonusOnly = await api("/api/withdraw", { method: "POST", body: { amount: 22000 }, token: A });
-  check("impossible de retirer le montant total : les 5 000 Ar de bonus sont verrouillés",
+  const bonusOnly = await api("/api/withdraw", { method: "POST", body: { amount: 13000 }, token: A });
+  check("impossible de retirer le montant total : les 1 000 Ar de bonus sont verrouillés",
     bonusOnly.status === 400, `code ${bonusOnly.status} ${bonusOnly.json && bonusOnly.json.error}`);
 
-  const ok = await api("/api/withdraw", { method: "POST", body: { amount: 17000, operator: "MVola" }, token: A });
-  check("retrait du solde disponible (17 000 Ar) accepté",
-    ok.status === 200 && ok.json.balance === 5000 && ok.json.bonusLock === 0, JSON.stringify(ok.json));
+  /* Depuis la refonte, un retrait est une DEMANDE : rien n'est débité, le
+     montant devient RÉSERVÉ. Solde 13 000, demandé 12 000 (le disponible),
+     réservé = 1 000 de bonus + 12 000 = 13 000, disponible 0. */
+  const ok = await api("/api/withdraw", { method: "POST", body: { amount: 12000, method: "MVola", phone: "0341234567" }, token: A });
+  check("demande de retrait du disponible (12 000 Ar) acceptée, SANS débit",
+    ok.status === 200 && ok.json.request && ok.json.request.status === "pending" &&
+    ok.json.request.method === "MVola" && ok.json.request.phone === "0341234567" &&
+    ok.json.balance === 13000 && ok.json.reserved === 13000 && ok.json.withdrawable === 0,
+    JSON.stringify(ok.json));
+
+  const again = await api("/api/withdraw", { method: "POST", body: { amount: 1000, operator: "MVola" }, token: A });
+  check("une seconde demande est refusée tant que la première est en cours (409)",
+    again.status === 409 && again.json.code === "DEMANDE_EN_COURS", JSON.stringify(again.json));
 
   const tx = await api("/api/transactions", { token: A });
   const labels = tx.json.transactions.map((t) => t.label);
   check("historique : un seul « Crédit de bienvenue »",
     labels.filter((l) => /bienvenue/i.test(l)).length === 1, JSON.stringify(labels));
-  check("historique : dépôts et retrait présents",
+  check("historique : la DEMANDE de retrait est visible, marquée « en attente »",
     labels.some((l) => /Dépôt MVola/i.test(l)) && labels.some((l) => /Orange Money/i.test(l)) &&
-    labels.some((l) => /Retrait MVola/i.test(l)), JSON.stringify(labels));
+    labels.some((l) => /Retrait MVola \(en attente\)/i.test(l)), JSON.stringify(labels));
   check("historique : chaque ligne porte une date", tx.json.transactions.every((t) => !!t.created_at));
 
   /* Historique PAGINÉ et FILTRÉ côté serveur — l'écran Wallet s'appuie dessus
@@ -451,9 +504,12 @@ async function phasePortefeuille() {
     page1.status === 200 && page1.json.transactions.length === 2 && page1.json.total === 4,
     JSON.stringify(page1.json));
 
-  const byKind = await api("/api/transactions?kind=withdraw", { token: A });
-  check("filtre par famille : seuls les retraits, chacun étiqueté",
-    byKind.json.total === 1 && byKind.json.transactions.every((t) => t.kind === "withdraw"),
+  /* Aucun mouvement de retrait n'existe encore (la demande n'est pas payée) :
+     c'est précisément ce que la refonte garantit. On vérifie donc la famille
+     des dépôts, et l'absence de retrait est déjà couverte plus haut. */
+  const byKind = await api("/api/transactions?kind=deposit", { token: A });
+  check("filtre par famille : seuls les dépôts, chacun étiqueté",
+    byKind.json.total === 2 && byKind.json.transactions.every((t) => t.kind === "deposit"),
     JSON.stringify(byKind.json));
 
   const byQ = await api("/api/transactions?q=orange", { token: A });
@@ -464,7 +520,7 @@ async function phasePortefeuille() {
   const csvRes = await fetch(BASE + "/api/transactions/export", { headers: { Authorization: "Bearer " + A } });
   const csvText = await csvRes.text();
   check("export CSV : en-tête français et une ligne par mouvement",
-    csvRes.status === 200 && /"Opération";"Type";"Moyen"/.test(csvText) && /"Retrait MVola"/.test(csvText) && csvText.split("\r\n").length === 5,
+    csvRes.status === 200 && /"Opération";"Type";"Moyen"/.test(csvText) && /"Dépôt MVola"/.test(csvText) && csvText.split("\r\n").length === 5,
     "code " + csvRes.status + " · " + csvText.slice(0, 80));
 
   const cap = await api("/api/withdraw", { method: "POST", body: { amount: 500001, operator: "MVola" }, token: A });
@@ -472,18 +528,372 @@ async function phasePortefeuille() {
     cap.status === 400 && /Plafond/i.test(cap.json.error || ""), JSON.stringify(cap.json));
 
   const meCap = await api("/api/user", { token: A });
-  check("le profil expose le total retiré du jour (17 000 Ar)",
-    meCap.json.user.withdrawn_today === 17000, JSON.stringify(meCap.json.user.withdrawn_today));
+  check("le profil expose le total retiré du jour (12 000 Ar, demande en cours comprise)",
+    meCap.json.user.withdrawn_today === 12000, JSON.stringify(meCap.json.user.withdrawn_today));
 
-  const kyc = await api("/api/kyc/verify", { method: "POST", token: A });
-  check("vérification KYC persistée", kyc.status === 200 && kyc.json.kyc === true);
+  /* ---------- KYC v2 : dossier recto + verso, revue manuelle ----------
+     L'ancienne route « /api/kyc/verify » mettait kyc = 1 sans recevoir d'image :
+     elle répond désormais 410. Le parcours réel est vérifié ici de bout en bout,
+     refus compris. */
+  const legacy = await api("/api/kyc/verify", { method: "POST", token: A });
+  check("vérification immédiate supprimée (410 KYC_SUBMIT_REQUIRED)",
+    legacy.status === 410 && legacy.json.code === "KYC_SUBMIT_REQUIRED", `code ${legacy.status}`);
+
+  const sansVerso = await api("/api/kyc/submit", { method: "POST", token: A, body: { recto: KYCX.recto() } });
+  check("dossier sans verso -> 400 VERSO_REQUIRED",
+    sansVerso.status === 400 && sansVerso.json.code === "VERSO_REQUIRED", JSON.stringify(sansVerso.json));
+
+  const memesFaces = await api("/api/kyc/submit", { method: "POST", token: A, body: { recto: KYCX.recto(), verso: KYCX.recto() } });
+  check("recto et verso identiques -> 400 MEME_IMAGE",
+    memesFaces.status === 400 && memesFaces.json.code === "MEME_IMAGE", JSON.stringify(memesFaces.json));
+
+  const fauxPng = await api("/api/kyc/submit", { method: "POST", token: A,
+    body: { recto: "data:image/png;base64," + Buffer.from("<html>pas une image</html>").toString("base64"), verso: KYCX.verso() } });
+  check("fichier HTML renommé .png -> 400 CONTENU_INVALIDE",
+    fauxPng.status === 400 && fauxPng.json.code === "CONTENU_INVALIDE", JSON.stringify(fauxPng.json));
+
+  const dossier = await api("/api/kyc/submit", { method: "POST", token: A,
+    body: { recto: KYCX.recto(), verso: KYCX.verso() } });
+  check("dossier complet accepté -> en attente de revue",
+    dossier.status === 200 && dossier.json.kyc_status === "pending" && !!dossier.json.caseId, JSON.stringify(dossier.json));
+
+  const enAttente = await api("/api/user", { token: A });
+  check("un dossier en attente n'ouvre PAS les transactions (kyc reste faux)",
+    enAttente.json.user.kyc === false && enAttente.json.user.kyc_status === "pending",
+    JSON.stringify({ kyc: enAttente.json.user.kyc, statut: enAttente.json.user.kyc_status }));
+
+  /* Un joueur sans rôle ne voit pas la file de revue (refus générique : ne rien
+     révéler de l'existence du dossier d'autrui). */
+  const sansRole = await api("/api/admin/kyc", { token: E });
+  check("file de revue KYC fermée à un joueur sans rôle (403)", sansRole.status === 403, `code ${sansRole.status}`);
+
+  const sansRoleKyc = await api(`/api/admin/kyc/${dossier.json.caseId}/approve`, { method: "POST", token: A, body: {} });
+  check("revue KYC refusée à un joueur sans rôle (403)", sansRoleKyc.status === 403, JSON.stringify(sansRoleKyc.json));
+
+  /* L'administrateur est un AUTRE compte : on ne valide pas son propre dossier. */
+  const autoAdmin = await api("/api/kyc/submit", { method: "POST", token: users.Admin.token,
+    body: { recto: KYCX.recto(), verso: KYCX.verso() } });
+  check("le compte administrateur peut déposer son propre dossier", autoAdmin.status === 200, JSON.stringify(autoAdmin.json));
+  const autoAdminApprove = await api(`/api/admin/kyc/${autoAdmin.json.caseId}/approve`,
+    { method: "POST", token: users.Admin.token, body: {} });
+  check("un administrateur ne peut pas valider SA propre identité (403 SELF_APPROVAL)",
+    autoAdminApprove.status === 403, JSON.stringify(autoAdminApprove.json));
+
+  /* Un nouvel envoi REMPLACE le dossier ouvert (un seul dossier ouvert/joueur) :
+     deux envois de plus, puis le quatrième de la journée est refusé. */
+  const r1 = await api("/api/kyc/submit", { method: "POST", token: users.Admin.token,
+    body: { recto: KYCX.verso(), verso: KYCX.recto() } });
+  const r2 = await api("/api/kyc/submit", { method: "POST", token: users.Admin.token,
+    body: { recto: KYCX.recto(), verso: KYCX.verso() } });
+  const r4 = await api("/api/kyc/submit", { method: "POST", token: users.Admin.token,
+    body: { recto: KYCX.recto(), verso: KYCX.verso() } });
+  check("un nouvel envoi remplace le dossier en cours (toujours un seul ouvert)",
+    r1.status === 200 && r2.status === 200 && r1.json.caseId !== r2.json.caseId, JSON.stringify([r1.json, r2.json]));
+  check("4e envoi en 24 h -> 429 TROP_DE_SOUMISSIONS",
+    r4.status === 429 && r4.json.code === "TROP_DE_SOUMISSIONS", JSON.stringify(r4.json));
+
+  const appro = await api(`/api/admin/kyc/${dossier.json.caseId}/approve`,
+    { method: "POST", token: users.Admin.token, body: {} });
+  check("approbation par un administrateur -> dossier vérifié",
+    appro.status === 200 && appro.json.status === "verified", JSON.stringify(appro.json));
   const after = await api("/api/user", { token: A });
-  check("KYC visible dans le profil", after.json.user.kyc === true);
+  check("KYC visible dans le profil après approbation",
+    after.json.user.kyc === true && after.json.user.kyc_status === "verified",
+    JSON.stringify({ kyc: after.json.user.kyc, statut: after.json.user.kyc_status }));
+
+  /* La pièce n'est lisible que par la route d'administration auditée, jamais par
+     le serveur de fichiers : `private/kyc` n'est pas servi. */
+  const fuite = await fetch(BASE + "/private/kyc/1/recto.png");
+  check("les pièces d'identité ne sont pas servies par le serveur statique (404)",
+    fuite.status === 404, "code " + fuite.status);
 
   /* Efa sert de compte sans KYC pour les scénarios suivants : on ne lui laisse
      qu'un solde faible (retrait autorisé sans KYC par le serveur — voir note). */
   const w = await api("/api/withdraw", { method: "POST", body: { amount: 4000, operator: "MVola" }, token: E });
   note("retrait sans KYC : le serveur l'accepte (code " + w.status + ") alors que le PRD exige un KYC pour toute transaction réelle.");
+}
+
+/* =========================================================
+   PHASE 5bis — Espace d'administration : droits, modules, pubs, comptabilité
+   ---------------------------------------------------------
+   Ce que cette phase prouve, et qui ne se voit pas à l'œil :
+     · un joueur SANS rôle n'entre pas (401/403), et un rôle ne donne que ce
+       qu'il doit donner (observateur : lecture, pas d'écriture) ;
+     · le module éteint refuse TOUT LE MONDE, super-administrateur compris ;
+     · une bannière désactivée disparaît de l'API publique sans être supprimée ;
+     · la comptabilité ne calcule rien d'inventé : elle relit `transactions` ;
+     · toute action sensible laisse une trace dans `admin_audit`.
+   ========================================================= */
+async function phaseAdministration() {
+  section("5bis. Espace d'administration");
+  const ADM = users.Admin.token, A = users.Ari.token, E = users.Efa.token;
+
+  const me = await api("/api/admin/me", { token: ADM });
+  check("/api/admin/me expose le rôle et les permissions du super administrateur",
+    me.status === 200 && me.json.roles.includes("super_admin") && me.json.permissions.includes("kyc.review"),
+    JSON.stringify({ roles: me.json && me.json.roles, n: me.json && me.json.permissions && me.json.permissions.length }));
+
+  const noRole = await api("/api/admin/me", { token: A });
+  check("/api/admin/me refusé sans rôle (403)", noRole.status === 403, `code ${noRole.status}`);
+
+  const anon = await api("/api/admin/me");
+  check("/api/admin/me refuse aussi sans session (401)", anon.status === 401, `code ${anon.status}`);
+
+  /* ---------- Publicités ---------- */
+  const pubs = await api("/api/admin/ads", { token: ADM });
+  check("les bannières existantes sont reprises (au moins 2, dont Yas)",
+    pubs.status === 200 && pubs.json.ads.length >= 2 && pubs.json.ads.some((a) => /yas/i.test(a.slug || a.image)),
+    JSON.stringify(pubs.json && pubs.json.ads && pubs.json.ads.map((a) => a.slug)));
+
+  const created = await api("/api/admin/ads", { method: "POST", token: ADM,
+    body: { titre: "Campagne scénarios", image: "assets/ad/d-aona-maison.svg", lien: "https://example.mg", ordre: 9 } });
+  check("création d'une bannière par l'administration",
+    created.status === 200 && !!created.json.ad && created.json.ad.actif === true, JSON.stringify(created.json));
+
+  const activeAfterCreate = await api("/api/ads/active", { token: A });
+  check("la nouvelle bannière apparaît dans le carrousel public",
+    activeAfterCreate.status === 200 && activeAfterCreate.json.pubs.some((p) => p.id === created.json.ad.id),
+    JSON.stringify(activeAfterCreate.json.pubs && activeAfterCreate.json.pubs.map((p) => p.id)));
+
+  const off = await api(`/api/admin/ads/${created.json.ad.id}`, { method: "POST", token: ADM, body: { actif: false } });
+  const activeAfterOff = await api("/api/ads/active", { token: A });
+  check("désactiver une bannière la retire du carrousel SANS la supprimer",
+    off.status === 200 && off.json.ad.actif === false &&
+    !activeAfterOff.json.pubs.some((p) => p.id === created.json.ad.id), JSON.stringify(activeAfterOff.json.pubs));
+
+  const badImage = await api("/api/admin/ads", { method: "POST", token: ADM,
+    body: { titre: "Injection", image: "../../etc/passwd" } });
+  check("chemin d'image hors de assets/ refusé (400)", badImage.status === 400, JSON.stringify(badImage.json));
+
+  const del = await api(`/api/admin/ads/${created.json.ad.id}`, { method: "DELETE", token: ADM });
+  check("suppression d'une bannière par l'administration", del.status === 200 && del.json.ok === true, JSON.stringify(del.json));
+
+  /* ---------- Comptabilité ---------- */
+  const acc = await api("/api/admin/accounting", { token: ADM });
+  check("comptabilité : totaux cohérents avec les transactions de la campagne",
+    acc.status === 200 && acc.json.totals.out.amount > 0 && acc.json.players.total > 0 &&
+    Array.isArray(acc.json.byKind) && acc.json.byKind.some((k) => k.key === "deposit"),
+    JSON.stringify({ totals: acc.json && acc.json.totals, players: acc.json && acc.json.players }));
+
+  const csv = await fetch(BASE + "/api/admin/accounting?format=csv", { headers: { Authorization: "Bearer " + ADM } });
+  /* Les OCTETS, pas le texte : `Response.text()` retire le BOM en décodant, or
+     c'est justement le BOM qui fait ouvrir le fichier correctement par Excel. */
+  const csvBuf = Buffer.from(await csv.arrayBuffer());
+  const csvText = csvBuf.toString("utf8");
+  check("export CSV de la comptabilité : type CSV, BOM UTF-8 et en-tête français",
+    csv.status === 200 && /text\/csv/.test(csv.headers.get("content-type") || "") &&
+    csvBuf[0] === 0xef && csvBuf[1] === 0xbb && csvBuf[2] === 0xbf &&
+    /"Date";"Heure";"Opération";"Type";"Moyen";"Statut"/.test(csvText),
+    "code " + csv.status + " · " + csvText.slice(0, 60));
+
+  const csvNoAuth = await fetch(BASE + "/api/admin/accounting?format=csv");
+  check("export CSV sans session -> 401", csvNoAuth.status === 401, "code " + csvNoAuth.status);
+
+  /* ---------- Joueurs, Elo, badges (lecture) ---------- */
+  const search = await api(`/api/admin/users?q=${users.Ari.pseudo}`, { token: ADM });
+  check("recherche d'un joueur par pseudo depuis le back-office",
+    search.status === 200 && search.json.users.length === 1 && search.json.users[0].kyc_status === "verified",
+    JSON.stringify(search.json.users && search.json.users.map((u) => [u.pseudo, u.kyc_status])));
+
+  const elo = await api("/api/admin/elo", { token: ADM });
+  const badges = await api("/api/admin/badges", { token: ADM });
+  check("Elo et badges : instantanés en lecture seule, cohérents",
+    elo.status === 200 && elo.json.stats.players > 0 && elo.json.bands.length === 4 &&
+    badges.status === 200 && badges.json.badges.length === 6,
+    JSON.stringify({ joueurs: elo.json && elo.json.stats && elo.json.stats.players,
+      badges: badges.json && badges.json.badges && badges.json.badges.length }));
+
+  /* ---------- Rôles, modules, attributions ---------- */
+  const roles = await api("/api/admin/roles", { token: ADM });
+  check("catalogue des rôles livré avec leurs droits",
+    roles.status === 200 && roles.json.roles.length === 7 &&
+    roles.json.roles.find((r) => r.id === "super_admin").protected === true &&
+    roles.json.roles.find((r) => r.id === "marketing").rights.campaigns.delete === true,
+    JSON.stringify(roles.json.roles && roles.json.roles.map((r) => r.id)));
+
+  const protect = await api("/api/admin/roles/super_admin", { method: "POST", token: ADM,
+    body: { changes: [{ module: "campaigns", action: "delete", allowed: false }] } });
+  check("le rôle protégé n'est pas modifiable (409 ROLE_PROTEGE)",
+    protect.status === 409 && protect.json.code === "ROLE_PROTEGE", JSON.stringify(protect.json));
+
+  const grant = await api("/api/admin/assignments", { method: "POST", token: ADM,
+    body: { pseudo: users.Efa.pseudo, role: "observer" } });
+  check("attribution du rôle « observateur » à un joueur", grant.status === 200 && grant.json.roles.includes("observer"),
+    JSON.stringify(grant.json));
+
+  const viewerRead = await api("/api/admin/ads", { token: E });
+  const viewerWrite = await api("/api/admin/ads", { method: "POST", token: E,
+    body: { titre: "Observateur", image: "assets/ad/d-aona-maison.svg" } });
+  check("un observateur LIT mais n'ÉCRIT pas (403 sur la création)",
+    viewerRead.status === 200 && viewerWrite.status === 403,
+    JSON.stringify({ lecture: viewerRead.status, ecriture: viewerWrite.status }));
+
+  const revoke = await api("/api/admin/assignments", { method: "POST", token: ADM,
+    body: { pseudo: users.Efa.pseudo, role: "observer", action: "revoke" } });
+  const afterRevoke = await api("/api/admin/ads", { token: E });
+  check("le rôle retiré ferme immédiatement l'accès (403)",
+    revoke.status === 200 && afterRevoke.status === 403, `code ${afterRevoke.status}`);
+
+  const offModule = await api("/api/admin/modules/campaigns", { method: "POST", token: ADM, body: { enabled: false } });
+  const modClosed = await api("/api/admin/ads", { token: ADM });
+  check("module « publicités » éteint : refus pour TOUT LE MONDE, super-admin compris",
+    offModule.status === 200 && modClosed.status === 403 && modClosed.json.code === "MODULE_DESACTIVE",
+    JSON.stringify(modClosed.json));
+  await api("/api/admin/modules/campaigns", { method: "POST", token: ADM, body: { enabled: true } });
+  const modBack = await api("/api/admin/ads", { token: ADM });
+  check("module rallumé : l'accès revient", modBack.status === 200, `code ${modBack.status}`);
+
+  /* Les modules SOCLES portent la capacité de se gouverner : les éteindre
+     laisserait le back-office sans moyen de se rallumer. Le refus est un 409
+     explicite, pas un 403 (ce n'est pas un droit qui manque). */
+  const coreOff = await api("/api/admin/modules/roles", { method: "POST", token: ADM, body: { enabled: false } });
+  check("un module socle refuse d'être éteint (409 MODULE_SOCLE)",
+    coreOff.status === 409 && coreOff.json.code === "MODULE_SOCLE", JSON.stringify(coreOff.json));
+  const coreStill = await api("/api/admin/roles", { token: ADM });
+  check("le module socle reste allumé après le refus", coreStill.status === 200, `code ${coreStill.status}`);
+
+  /* ---------- Retraits : demande -> instruction -> paiement ----------
+     Le parcours complet, dans l'ordre où un opérateur le vit. Ce que cette
+     série prouve et qui ne se voit pas à l'œil : le refus exige un motif, le
+     paiement exige une référence de transfert, et le BONUS n'est jamais
+     consommé par un retrait (il n'est pas retirable). */
+  const wq = await api("/api/admin/withdrawals?status=pending", { token: ADM });
+  const wPending = (wq.json && wq.json.withdrawals || [])[0];
+  check("le back-office voit la demande de retrait en attente",
+    wq.status === 200 && !!wPending && wPending.amount === 12000 && wPending.method === "MVola" &&
+    wPending.phone === "0341234567" && !!wPending.pseudo,
+    JSON.stringify(wq.json && wq.json.withdrawals));
+
+  const wNoReason = wPending ? await api(`/api/admin/withdrawals/${wPending.id}/review`,
+    { method: "POST", token: ADM, body: { decision: "reject" } }) : { status: 0, json: {} };
+  check("un refus de retrait sans motif est refusé (400 MOTIF_MANQUANT)",
+    wNoReason.status === 400 && wNoReason.json.code === "MOTIF_MANQUANT", JSON.stringify(wNoReason.json));
+
+  const wApprove = wPending ? await api(`/api/admin/withdrawals/${wPending.id}/review`,
+    { method: "POST", token: ADM, body: { decision: "approve" } }) : { status: 0, json: {} };
+  check("une demande peut être approuvée",
+    wApprove.status === 200 && wApprove.json.request && wApprove.json.request.status === "approved",
+    JSON.stringify(wApprove.json));
+
+  const wNoRef = wPending ? await api(`/api/admin/withdrawals/${wPending.id}/pay`,
+    { method: "POST", token: ADM, body: {} }) : { status: 0, json: {} };
+  check("un paiement sans référence de transfert est refusé (400 REFERENCE_MANQUANTE)",
+    wNoRef.status === 400 && wNoRef.json.code === "REFERENCE_MANQUANTE", JSON.stringify(wNoRef.json));
+
+  const wPay = wPending ? await api(`/api/admin/withdrawals/${wPending.id}/pay`,
+    { method: "POST", token: ADM, body: { reference: "PAIEMENT-ADM-001" } }) : { status: 0, json: {} };
+  check("le paiement clôt la demande avec sa référence",
+    wPay.status === 200 && wPay.json.request && wPay.json.request.status === "paid" &&
+    wPay.json.request.reference === "PAIEMENT-ADM-001", JSON.stringify(wPay.json));
+
+  const afterPay = await api("/api/user", { token: A });
+  check("après paiement : 12 000 Ar débités, bonus de 1 000 Ar INTACT",
+    afterPay.json.user.balance === 1000 && afterPay.json.user.bonus_lock === 1000 &&
+    afterPay.json.user.reserved === 1000 && afterPay.json.user.withdrawable === 0,
+    JSON.stringify(afterPay.json.user));
+
+  const wTx = await api("/api/transactions", { token: A });
+  check("le grand livre porte le paiement et sa référence",
+    wTx.json.transactions.some((t) => /Retrait MVola · PAIEMENT-ADM-001/.test(t.label || "")),
+    JSON.stringify(wTx.json.transactions.slice(0, 3)));
+
+  const wPaidTwice = wPending ? await api(`/api/admin/withdrawals/${wPending.id}/review`,
+    { method: "POST", token: ADM, body: { decision: "reject", reason: "déjà payée" } }) : { status: 0, json: {} };
+  check("une demande payée ne peut plus être instruite (409 ETAT_INVALIDE)",
+    wPaidTwice.status === 409 && wPaidTwice.json.code === "ETAT_INVALIDE", JSON.stringify(wPaidTwice.json));
+
+  /* ---------- Règles métier de la RÉFÉRENCE (§2 du cahier des charges) ----------
+     Chacune de ces règles est mesurée, pas supposée : elles viennent du
+     golden file `reference/REFERENCE-DEMO.json` et du plan de comparaison. */
+  const rolesApi = await api("/api/admin/roles", { token: ADM });
+  const matrix = rolesApi.json.roles || [];
+  const allowedCount = (id) => {
+    const r = matrix.find((x) => x.id === id);
+    if (!r) return -1;
+    return Object.values(r.rights || {})
+      .reduce((s, acts) => s + Object.values(acts || {}).filter(Boolean).length, 0);
+  };
+  check("matrice de permissions : 15 modules × 6 actions × 7 rôles = 630 lignes",
+    matrix.length === 7 && allowedCount("super_admin") === 90 && allowedCount("admin") === 70 &&
+    allowedCount("observer") === 15 && allowedCount("finance") === 6 && allowedCount("tournaments") === 11,
+    `super=${allowedCount("super_admin")} admin=${allowedCount("admin")} obs=${allowedCount("observer")} ` +
+    `fin=${allowedCount("finance")} tour=${allowedCount("tournaments")}`);
+
+  const adminRole = matrix.find((r) => r.id === "admin") || { rights: {} };
+  const adminOnRoles = Object.values(adminRole.rights.roles || {}).filter(Boolean).length;
+  check("l'administrateur n'a AUCUN droit sur les rôles (comme la référence)",
+    adminOnRoles === 0, adminOnRoles + " droit(s) sur roles");
+
+  /* Capacité d'un bracket : PUISSANCE DE 2, pas seulement « pair ». */
+  const cap6 = await api("/api/admin/tournaments", { method: "POST", token: ADM,
+    body: { name: "Capacité invalide", format: "rapide", entry: 0, maxPlayers: 6,
+      startsAt: new Date(Date.now() + 6 * 3600000).toISOString() } });
+  check("capacité de tournoi hors puissance de 2 refusée (6)",
+    cap6.status === 400 && /puissance de 2/i.test(cap6.json.error || ""), JSON.stringify(cap6.json));
+
+  /* Barème de badges : partition 1 -> ∞, sans trou ni chevauchement. */
+  const gapBadges = await api("/api/admin/badges", { method: "POST", token: ADM,
+    body: { badges: [{ name: "Rang A", minRank: 1, maxRank: 2 }, { name: "Rang B", minRank: 5, maxRank: null }] } });
+  check("badges : un TROU dans le barème est refusé (400 INTERVALLE_INVALIDE)",
+    gapBadges.status === 400 && gapBadges.json.code === "INTERVALLE_INVALIDE", JSON.stringify(gapBadges.json));
+
+  /* Un litige OUVERT interdit de valider le résultat (scénario S6 de l'oracle). */
+  const finishedList = await api("/api/admin/matches?status=finished&limit=5", { token: ADM });
+  const targetMatch = ((finishedList.json && finishedList.json.matches) || [])
+    .find((m) => typeof m.id === "number");
+  if (targetMatch) {
+    const opened = await api("/api/admin/disputes", { method: "POST", token: ADM,
+      body: { matchId: targetMatch.id, category: "Résultat contesté",
+        reason: "Contestation de contrôle : vérification du classement." } });
+    check("un litige peut être ouvert sur une partie terminée", opened.status === 200, JSON.stringify(opened.json));
+    const blocked = await api(`/api/admin/matches/${targetMatch.id}/result`, { method: "POST", token: ADM,
+      body: { decision: "confirm", reason: "Tentative de validation sous litige." } });
+    check("un litige OUVERT bloque la validation du résultat (409 LITIGE_OUVERT)",
+      blocked.status === 409 && blocked.json.code === "LITIGE_OUVERT", JSON.stringify(blocked.json));
+  }
+
+  /* Ouverture d'une pièce d'identité : lecture autorisée, mais JOURNALISÉE. */
+  const kycAny = await api("/api/admin/kyc?status=verified&limit=1", { token: ADM });
+  const anyCase = ((kycAny.json && kycAny.json.cases) || [])[0];
+  if (anyCase) {
+    const op = await api(`/api/admin/kyc/${anyCase.id}/open`, { method: "POST", token: ADM, body: {} });
+    check("l'ouverture d'un dossier d'identité est acceptée",
+      op.status === 200 && op.json.ok === true, JSON.stringify(op.json));
+    const aud = await api("/api/admin/audit?limit=200", { token: ADM });
+    check("le journal porte l'action kyc.open (ouverture tracée)",
+      (aud.json.entries || []).some((e) => e.action === "kyc.open"),
+      JSON.stringify((aud.json.entries || []).slice(0, 5).map((e) => e.action)));
+  }
+
+  /* ---------- Tournois ---------- */
+  const tCreate = await api("/api/admin/tournaments", { method: "POST", token: ADM,
+    body: { name: "Tournoi administration", format: "blitz", entry: 1000, maxPlayers: 4,
+      startsAt: new Date(Date.now() + 3 * 3600000).toISOString() } });
+  check("création d'un tournoi depuis le back-office",
+    tCreate.status === 200 && tCreate.json.tournament && tCreate.json.tournament.status === "inscriptions",
+    JSON.stringify(tCreate.json));
+
+  const tId = tCreate.json.tournament && tCreate.json.tournament.id;
+  const tOdd = await api("/api/admin/tournaments", { method: "POST", token: ADM,
+    body: { name: "Bracket impair", format: "blitz", entry: 0, maxPlayers: 3,
+      startsAt: new Date(Date.now() + 3 * 3600000).toISOString() } });
+  check("bracket impair refusé (400) — le bracket exige un nombre pair",
+    tOdd.status === 400, JSON.stringify(tOdd.json));
+
+  const tCancel = await api(`/api/admin/tournaments/${tId}`, { method: "POST", token: ADM, body: { action: "cancel" } });
+  const listAfter = await api("/api/admin/tournaments", { token: ADM });
+  check("annulation d'un tournoi (aucun inscrit à rembourser)",
+    tCancel.status === 200 && tCancel.json.status === "annule" &&
+    listAfter.json.tournaments.find((t) => t.id === tId).status === "annule",
+    JSON.stringify(tCancel.json));
+
+  /* ---------- Journal ---------- */
+  const audit = await api("/api/admin/audit?limit=200", { token: ADM });
+  const actions = (audit.json && audit.json.entries || []).map((e) => e.action);
+  check("le journal d'administration trace les actions ET les refus",
+    audit.status === 200 && actions.includes("campaigns.create") && actions.includes("acces.refuse") &&
+    actions.includes("roles.grant"),
+    JSON.stringify(actions.slice(0, 12)));
 }
 // ZONE_PHASES
 /* =========================================================
@@ -529,7 +939,11 @@ async function phaseTournois() {
   const ghostJoin = await api("/api/tournaments/join", { method: "POST", body: { tournamentId: 987654 }, token: A });
   check("inscription à un tournoi inexistant -> 404", ghostJoin.status === 404, `code ${ghostJoin.status}`);
 
-  /* 6.2 Inscription du 1er joueur (Ari : solde 5000, KYC fait) */
+  /* 6.2 Inscription du 1er joueur (Ari : KYC fait). Son solde libre est à 0
+     après le paiement de son retrait (seul le bonus de 1 000 Ar reste,
+     verrouillé) : on le réalimente comme le ferait un joueur avant de
+     s'inscrire — le montant du dépôt n'est pas l'objet de ce test. */
+  await api("/api/deposit", { method: "POST", body: { amount: 10000, operator: "MVola" }, token: A });
   const beforeAri = await api("/api/user", { token: A });
   const join1 = await api("/api/tournaments/join", { method: "POST", body: { tournamentId: TID }, token: A });
   check("inscription payante acceptée", join1.status === 200, JSON.stringify(join1.json));
@@ -551,13 +965,13 @@ async function phaseTournois() {
     regs1.json.meRegistered === true && regs1.json.registrations.some((r) => r.pseudo === users.Ari.pseudo));
 
   /* 6.3 Les 3 autres joueurs complètent le tournoi */
-  await api("/api/kyc/verify", { method: "POST", token: D });
+  await verifyKyc(D);
   const joinDoda = await api("/api/tournaments/join", { method: "POST", body: { tournamentId: TID }, token: D });
   check("inscription acceptée après vérification KYC", joinDoda.status === 200, JSON.stringify(joinDoda.json));
 
   for (const [who, label] of [[B, users.Bema.pseudo], [C, users.Cora.pseudo]]) {
     await api("/api/deposit", { method: "POST", body: { amount: 6000, operator: "MVola" }, token: who });
-    await api("/api/kyc/verify", { method: "POST", token: who });
+    await verifyKyc(who);
     const r = await api("/api/tournaments/join", { method: "POST", body: { tournamentId: TID }, token: who });
     check(`inscription de ${label}`, r.status === 200, `code ${r.status} ${r.json && r.json.error}`);
   }
@@ -1546,11 +1960,19 @@ async function main() {
     console.log("Serveur de test prêt sur " + BASE + "\n");
 
     await phaseComptes();
+    /* Rôle d'administration, attribué APRÈS l'inscription du compte hôte et
+       APRÈS le démarrage : `admin_grant.js` ne connaît que la base, il lui faut
+       donc le pseudo déjà créé. C'est le MÊME chemin que celui de l'exploitant
+       (aucun lien d'invitation n'existe), et il écrit dans admin_audit. */
+    const grant = KYCX.grantAdmin(dbPath, users.Admin && users.Admin.pseudo);
+    check("rôle super_admin attribué par le script hôte (admin_grant.js)", grant.ok, grant.out.slice(0, 120));
     await phaseReferentiels();
+
     phaseMoteur();
     await phaseAmis();
     await phaseMessagerie();
     await phasePortefeuille();
+    await phaseAdministration();
     await phaseTournois();
     await phaseSkins();
     await phasePionStyle();

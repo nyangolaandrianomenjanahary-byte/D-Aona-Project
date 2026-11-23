@@ -24,4 +24,10 @@ const db = new DatabaseSync(DB_PATH);
    nouvelles tables (auth_credentials, sessions) seraient décoratives. */
 db.exec("PRAGMA foreign_keys = ON;");
 
+/* Un script d'exploitation (admin_grant.js) peut tourner pendant que le serveur
+   écrit : sans attente, SQLite rend la main immédiatement par « database is
+   locked ». 5 s suffisent largement pour une écriture d'administration, et le
+   serveur continue de servir ses lectures pendant ce temps. */
+db.exec("PRAGMA busy_timeout = 5000;");
+
 module.exports = { db, DB_PATH };

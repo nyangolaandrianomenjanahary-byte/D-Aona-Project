@@ -1,0 +1,39 @@
+-- =========================================================
+-- 024 — Reconstruction de la matrice de permissions (grille 15 × 6)
+-- ---------------------------------------------------------
+-- Constat. La v2 livrée en 022 déclarait 34 permissions « utiles » : un module
+-- n'exposait que les actions qui avaient un sens pour lui (`kyc` n'avait pas
+-- `delete`, `withdrawals` n'avait pas `create`…). C'était un modèle propre,
+-- mais INCOMPARABLE à la maquette de référence, qui travaille sur le produit
+-- cartésien 15 modules × 6 actions et dont les défauts accordent des
+-- combinaisons que la v2 n'avait pas prévues :
+--
+--   · `admin` : read/create/edit/review/export sur 14 modules (aucun sur `roles`) ;
+--   · `finance` : `review` sur `overview` ;
+--   · `moderation` : `edit` sur `disputes` et `matches` ;
+--   · `tournaments` : `create` et `edit` sur `matches`.
+--
+-- Décision — la grille complète (90 permissions) et les défauts de la démo.
+-- Le plan de comparaison exige 630 assertions rôle × module × action : elles
+-- n'existent que si les 90 permissions existent. L'oracle gagne sur l'élégance.
+--
+-- CE QUE CETTE MIGRATION DÉTRUIT VOLONTAIREMENT : les lignes `admin_grants`
+-- écrites depuis 022, qui portaient les anciens défauts (par exemple
+-- `admin.roles.read = 1`, que la démo refuse). Un droit modifié à la main entre
+-- 022 et 024 est donc perdu. C'est acceptable ici et seulement ici :
+--   · 022 et 024 sont livrées dans le MÊME chantier, avant toute exploitation ;
+--   · la table est entièrement reconstruite à partir d'un oracle vérifié
+--     (`REFERENCE-DEMO.json → structure.defaultPermissions`) ;
+--   · conserver un mélange des deux modèles produirait un état que personne ne
+--     saurait lire.
+-- Passé cette migration, l'invariant « on n'écrase jamais un droit existant »
+-- reprend ses droits : `ensureSeed()` n'écrit qu'en INSERT OR IGNORE.
+--
+-- La suppression est complète plutôt que sélective : `ensureSeed()` recrée
+-- 7 rôles × 15 modules × 6 actions = 630 lignes au démarrage suivant, avec les
+-- défauts du fichier `permissions.js`. Écrire ces 630 lignes ici figerait les
+-- défauts dans une migration immuable — précisément ce que 016 avait réussi à
+-- éviter.
+-- =========================================================
+
+DELETE FROM admin_grants;

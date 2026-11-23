@@ -1081,6 +1081,10 @@ html[data-theme="night"] #modal .rp-btn-ghost:hover { background: rgba(43, 163, 
 .pg-arrow:hover { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .2); }
 .pg-arrow:active { transform: scale(.94); }
 .pg-arrow[disabled] { opacity: .35; cursor: default; pointer-events: none; }
+/* Flèche de RETOUR en haut à gauche : même affordance, format de barre haute
+   (52 px de haut écraseraient l'en-tête de l'assistant). */
+.pg-arrow--top { width: 38px; height: 38px; flex: none; }
+.pg-top .pg-count { flex: 1 1 auto; text-align: center; }
 .pg-cta {
   height: 52px; min-width: 210px; border: none; border-radius: var(--r-sm); font-family: inherit;
   background: #31e0a0; color: #052018; font-size: var(--fs-5); font-weight: 700; cursor: pointer;
@@ -2676,6 +2680,43 @@ html[data-theme="night"] .tx-ic.k-other { color: #a4b1ab; background: rgba(255, 
 .kyc-card.ok { border-color: rgba(29, 158, 117, .4); background: linear-gradient(160deg, rgba(29,158,117,.08), transparent 55%), var(--panel); }
 .kyc-step { display: flex; gap: 10px; align-items: center; padding: var(--sp-2) 0; font-size: var(--fs-4); color: var(--muted); }
 .kyc-step .n { width: 22px; height: 22px; border-radius: 50%; background: var(--panel-3); display: grid; place-items: center; font-size: var(--fs-2); font-weight: 700; color: var(--text); flex: none; }
+.kyc-card.attente { border-color: rgba(229, 158, 39, .55); }
+.kyc-card.refus { border-color: rgba(220, 80, 80, .5); background: linear-gradient(160deg, rgba(220,80,80,.07), transparent 55%), var(--panel); }
+/* Deux emplacements recto/verso : la vignette est le retour visuel immédiat
+   (« la photo est prise »), l'étiquette dit l'action restante. */
+.kyc-faces { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-top: var(--sp-3); }
+.kyc-face { position: relative; display: grid; place-items: center; gap: 4px; min-height: 112px; padding: var(--sp-3) var(--sp-2); cursor: pointer;
+  border: 1.5px dashed rgba(255,255,255,.22); border-radius: var(--r-md); background: var(--panel-3); color: var(--muted); text-align: center; overflow: hidden; }
+.kyc-face.has { border-style: solid; border-color: rgba(29, 158, 117, .55); color: var(--text); }
+.kyc-face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .38; }
+.kyc-face > * { position: relative; }
+.kyc-face__ico { font-size: 20px; }
+.kyc-face__lbl { font-weight: 700; font-size: var(--fs-3); }
+.kyc-face__act { font-size: var(--fs-1); text-transform: uppercase; letter-spacing: .5px; }
+.kyc-face:focus-within { outline: 2px solid var(--brand-2); outline-offset: 2px; }
+/* --- Trois pièces (recto, verso, selfie) : le selfie ajoute un emplacement.
+   `auto-fit` laisse la grille passer de 3 colonnes (desktop) à 1 (téléphone)
+   sans media query supplémentaire. --- */
+.kyc-faces { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.kyc-face-wrap { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.kyc-face-wrap .kyc-face { width: 100%; }
+.kyc-face__tools { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.kyc-face__tool { appearance: none; border: .5px solid var(--line); background: var(--panel-2); color: var(--muted);
+  border-radius: var(--r-pill); padding: 3px 10px; font: inherit; font-size: var(--fs-1); font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.kyc-face__tool:hover { color: var(--text-strong); border-color: var(--brand-2); }
+.kyc-face__tool.danger { color: var(--red); border-color: rgba(220,80,80,.45); }
+.kyc-face__hint { font-size: var(--fs-1); color: var(--muted); text-align: center; line-height: 1.35; }
+/* Aperçu de la caméra frontale : miroir (comme tout selfie), même cadrage que
+   la vignette obtenue après capture. */
+.kyc-cam { display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: var(--sp-3); }
+.kyc-cam[hidden] { display: none; }
+.kyc-cam video { width: 100%; max-width: 340px; aspect-ratio: 3 / 4; object-fit: cover;
+  border-radius: var(--r-md); background: #000; transform: scaleX(-1); }
+.kyc-cam-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.kyc-note { display: flex; gap: 8px; align-items: flex-start; margin: var(--sp-2) 0; padding: 10px 12px; border-radius: var(--r-md);
+  font-size: var(--fs-3); background: rgba(229,158,39,.10); border: .5px solid rgba(229,158,39,.35); }
+.kyc-note.refus { background: rgba(220,80,80,.10); border-color: rgba(220,80,80,.4); }
 
 .switch { position: relative; width: 38px; height: 21px; border-radius: var(--r-pill); background: var(--panel-3); border: .5px solid var(--line); cursor: pointer; transition: background .2s; flex: none; }
 .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: var(--muted); transition: left var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out); }
@@ -3166,6 +3207,35 @@ body.is-fill #skins-root .side-stack { padding-bottom: var(--sp-7); }
 /* Zone de touche portée à 44 px autour du ✕ (visuel inchangé) : la cible
    mesurait 26 px, sous le minimum tactile. */
 .pf3-ad-close::after { content: ""; position: absolute; inset: -9px; }
+/* --- Profil : engrenage, bandeau « à compléter », édition, recadrage photo --- */
+.profile-card { position: relative; }
+.pf-gear {
+  position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; display: grid; place-items: center;
+  border-radius: 50%; border: .5px solid var(--line); background: var(--panel-2); color: var(--muted);
+  cursor: pointer; z-index: 2;
+}
+.pf-gear:hover { color: var(--text-strong); border-color: var(--brand-2); }
+.pf-gear svg { width: 18px; height: 18px; }
+.pf-incomplete {
+  display: flex; align-items: center; gap: 6px; margin: 8px 0 2px; padding: 8px 12px; width: 100%;
+  border-radius: var(--r-md); border: .5px dashed rgba(229,158,39,.55); background: rgba(229,158,39,.10);
+  color: var(--text); font: inherit; font-size: var(--fs-2); text-align: left; cursor: pointer;
+}
+.pf-incomplete:hover { border-style: solid; }
+.pf-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+@media (max-width: 480px) { .pf-edit-grid { grid-template-columns: 1fr; } }
+.req { color: var(--red); font-weight: 700; }
+.pf-edit-photo { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+#pf-bio { width: 100%; resize: vertical; }
+/* Recadrage : le carré est rogné en CERCLE par le masque — c'est l'aperçu exact
+   de ce que verront les autres joueurs. */
+.av-crop-stage { position: relative; width: min(300px, 82vw); aspect-ratio: 1; margin: 10px auto; }
+#av-crop-canvas { width: 100%; height: 100%; display: block; border-radius: var(--r-md); cursor: grab; touch-action: none; }
+.av-crop-mask {
+  position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 2000px rgba(6, 8, 12, .55), inset 0 0 0 2px rgba(255, 255, 255, .78);
+}
+#av-zoom { width: 100%; }
 
 /* Sélecteur de période rond (maquette) : D aujourd'hui, S 7 j, M 30 j, A tout. */
 .pf3-range { display: flex; gap: 5px; }
@@ -3902,11 +3972,18 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
    peut donc plus apparaître, ni en vol ni à l'arrêt. */
 .coin-air {
   position: relative; display: block; width: clamp(112px, 26vw, 184px); aspect-ratio: 1;
+  /* VRAI FLIP : les deux faces sont deux plans d'un même objet 3D. `preserve-3d`
+     est ce qui permet au dos de disparaître quand il passe derrière. */
+  transform-style: preserve-3d;
 }
 .coin-air i {
   position: absolute; inset: 0; display: block;
-  -webkit-backface-visibility: visible; backface-visibility: visible;
+  /* Chaque plan ne montre QUE sa face avant : la pièce en vol laisse donc voir
+     la face réellement tournée vers l'œil, sans miroir. */
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
 }
+/* Le dos est le même plan, retourné une fois : c'est la géométrie d'une pièce. */
+.coin-air .coin-back { transform: rotateX(180deg); }
 .coin-toss-stage { position: relative; display: grid; place-items: center; height: clamp(150px, 32vw, 226px); }
 /* ATTENTION — `filter` est une propriété « de groupe » : posée sur l'élément qui porte
    `transform-style: preserve-3d` (ou sur un de ses ancêtres), elle force l'aplatissement
@@ -3914,15 +3991,13 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
    `.coin-air` : sinon `backface-visibility` cesse d'agir et la pièce montrait la face
    arrière EN MIROIR — le verdict disait FACE, la pièce montrait le « 50 » retourné. */
 .coin-air img { width: 100%; height: 100%; display: block; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .52)); }
-/* Le vol lui-même : un arc et 3 tours SUR PLACE (rotation 2D en Z). La rotation
-   2D ne peut rien inverser, contrairement à `rotateY` : la face visible reste
-   lisible à chaque instant, et c'est l'OPACITÉ ci-dessous qui décide laquelle
-   des deux faces on voit à cet instant. */
-.coin-air.on { animation: coinHurl 2s cubic-bezier(.2,.62,.26,1) both; }
-/* Un cran par demi-tour : PILE (0-16,67 %), FACE (16,67-33,3 %), PILE, FACE,
-   PILE, FACE. `steps(1, end)` tient chaque valeur jusqu'au cran suivant. */
-.coin-air.on .coin-front { animation: coinAltFront 2s steps(1, end) both; }
-.coin-air.on .coin-back { animation: coinAltBack 2s steps(1, end) both; }
+/* Le vol lui-même : un VRAI lancer de pièce — la pièce monte, tourne sur l'axe
+   HORIZONTAL (`rotateX`, donc de bas en haut et non de gauche à droite), puis
+   retombe. Quatre tours complets (1440°) pour que chaque face passe plusieurs
+   fois devant l'œil, comme une pièce qu'on lance. `perspective()` est porté par
+   la transformation elle-même : sans lui, `rotateX` se lirait comme un simple
+   écrasement vertical. */
+.coin-air.on { animation: coinFlipX 2s cubic-bezier(.24,.62,.3,1) both; }
 /* --- L'ARRIVÉE NE DÉPEND PAS DE L'ANIMATION ---------------------------------
    Dès que le vol est fini, `.landed` coupe TOUT : l'arc du conteneur, la
    rotation, ET l'alternance des deux faces (`i`). C'est ensuite `display` seul
@@ -3939,25 +4014,20 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
 .coin-air.landed .coin-back { display: none; }
 .coin-air.landed.face .coin-front { display: none; }
 .coin-air.landed.face .coin-back { display: block; }
-/* L'arc du vol : 3 tours sur place en rotation 2D (voir `.coin-air.on`). */
-@keyframes coinHurl {
-  0%   { transform: translateY(-56px) scale(.78) rotate(0deg); opacity: .55; }
-  45%  { transform: translateY(-104px) scale(1) rotate(540deg); opacity: 1; }
-  100% { transform: translateY(0) scale(1) rotate(1080deg); opacity: 1; }
-}
-/* L'alternance des faces, un cran par demi-tour (16,67 % × 6 = 100 %).
-   `.coin-front` = PILE : il ouvre, puis alterne ; `.coin-back` = FACE : il prend
-   le relais à chaque cran impair. Les deux se retrouvent invisibles au dernier
-   cran — c'est `.landed` qui remet, en une image, le côté tiré. */
-@keyframes coinAltFront {
-  0% { opacity: 1; }   16.67% { opacity: 0; }  33.33% { opacity: 1; }
-  50% { opacity: 0; }  66.67% { opacity: 1; }  83.33% { opacity: 0; }
-  100% { opacity: 0; }
-}
-@keyframes coinAltBack {
-  0% { opacity: 0; }   16.67% { opacity: 1; }  33.33% { opacity: 0; }
-  50% { opacity: 1; }  66.67% { opacity: 0; }  83.33% { opacity: 1; }
-  100% { opacity: 1; }
+/* Le lancer : montée, QUATRE tours sur l'axe horizontal, descente. La pièce
+   s'éloigne légèrement en montant (scale) et revient à sa taille à l'arrivée.
+   `perspective()` dans la transformation donne la profondeur — sans elle,
+   `rotateX` n'est qu'un aplatissement.
+   AUCUNE opacité animée ici : `opacity` est une propriété « de groupe », elle
+   aplatirait la 3D et les deux faces se dessineraient en miroir (défaut déjà
+   mesuré sur ce composant). La profondeur vient de `perspective()` et de
+   `backface-visibility`, pas d'un fondu. */
+@keyframes coinFlipX {
+  0%   { transform: perspective(900px) translateY(-36px) rotateX(0deg) scale(.82); }
+  40%  { transform: perspective(900px) translateY(-128px) rotateX(720deg) scale(1); }
+  72%  { transform: perspective(900px) translateY(-92px) rotateX(1080deg) scale(1); }
+  92%  { transform: perspective(900px) translateY(-10px) rotateX(1360deg) scale(1.02); }
+  100% { transform: perspective(900px) translateY(0) rotateX(1440deg) scale(1); }
 }
 /* --- Le verdict, puis les DEUX attributions ---------------------------------
    Le texte est écrit par le JS AVANT l'affichage : seules les APPARITIONS sont
@@ -4209,6 +4279,12 @@ textarea:is(:-webkit-autofill, :autofill, :-moz-autofill) {
   #tb-kyc { font-size: 0; padding: 6px var(--sp-2); }
   #tb-kyc.ok::after { content: "✓"; font-size: var(--fs-3); }
   #tb-kyc:not(.ok)::after { content: "KYC"; font-size: var(--fs-1); letter-spacing: .5px; }
+  /* Dossier envoyé : l'attente se voit (sablier ambre) sans crier. Refus :
+     la pastille reste lisible mais ne montre plus « KYC » neutre. */
+  #tb-kyc.attente { border-color: rgba(229, 158, 39, .55); color: var(--amber); }
+  #tb-kyc.attente::after { content: "⏳"; font-size: var(--fs-3); }
+  #tb-kyc.refus { border-color: rgba(220, 80, 80, .5); color: #e08a8a; }
+  #tb-kyc.refus::after { content: "!"; font-size: var(--fs-2); font-weight: 700; }
   .logo-tag { display: none; }
   /* Recherche du header : la pastille reste au gabarit des icônes (34 px) et,
      une fois ouverte, la barre RECOUVRE la ligne au lieu de la pousser — la
@@ -5419,6 +5495,43 @@ body.vm-open { overflow: hidden; }
 /* Aides au déplacement : une pastille discrète au centre de chaque arrivée
    légale (même vert que le plateau Tsivy), sans masquer le treillis. */
 .fp-board .cell.fp-hint { background: radial-gradient(circle at 50% 50%, rgba(49, 224, 160, .55) 0 16%, rgba(49, 224, 160, 0) 22%); }
+
+/* =========================================================================
+   §16 — LA BARRE D'ONGLETS NE MASQUE PLUS RIEN (ni contenu, ni champ)
+   -------------------------------------------------------------------------
+   Trois défauts mesurés, une seule cause : la réserve du bas ne tenait compte
+   ni de l'encoche (`safe-area-inset-bottom`), ni du clavier virtuel.
+     1. la réserve du bas est désormais DÉRIVÉE de la barre + l'encoche ;
+     2. le clavier ouvert (`--kb-inset`, posé par `visualViewport`) fait
+        descendre la barre hors de l'écran : elle ne recouvre plus le champ en
+        cours de saisie, et remonte dès que le clavier se referme ;
+     3. l'écran Administration n'avait AUCUN conteneur défilant en plein
+        écran : son bas de page était inatteignable (corrigé ici aussi).
+   ========================================================================= */
+:root { --safe-bottom: env(safe-area-inset-bottom, 0px); --kb-inset: 0px; }
+body { padding-bottom: calc(var(--tabbar-h) + var(--tabbar-offset) + var(--safe-bottom) + 10px); }
+#screens { padding-bottom: calc(var(--tabbar-h) + var(--tabbar-offset) + var(--safe-bottom) + 44px); }
+.lgtab {
+  bottom: calc(var(--tabbar-offset) + var(--safe-bottom));
+  transition: transform .22s var(--ease-out), opacity .22s var(--ease-out);
+}
+/* Clavier ouvert : la barre s'efface au lieu de recouvrir le champ. */
+html.kb-open .lgtab { transform: translateX(-50%) translateY(calc(100% + 40px)); opacity: 0; pointer-events: none; }
+html.kb-open .modal { padding-bottom: calc(var(--sp-4) + var(--kb-inset) * .1 + env(safe-area-inset-bottom, 0px)); }
+/* Plein écran : même réserve, pour que la dernière carte d'une colonne
+   défilante ne finisse pas sous la barre. */
+@media (min-width: 1081px) {
+  body.is-fill #screens { padding-bottom: calc(var(--tabbar-h) + var(--tabbar-offset) + 20px); }
+  body.is-fill #admin-root {
+    overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--sp-4);
+    scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+  }
+}
+/* iOS : le défilement des colonnes garde son élan, et le bas de chaque zone
+   défilante respire au-dessus de la barre. */
+#friends-root, #notifications-root, #tournament-root, #admin-root { scroll-padding-bottom: var(--reserve-basse); }
 </style>
 <script>
 /* Applique le thème sauvegardé AVANT le premier rendu (évite le flash) */
@@ -6016,6 +6129,21 @@ body.vm-open { overflow: hidden; }
 
   <section class="screen" id="screen-tournament">
     <div id="tournament-root"></div>
+  </section>
+
+  <!-- Administration — gestionnaire de modules (réservé aux porteurs d'un rôle).
+       Le serveur refuse de toute façon chaque route : cet écran ne fait que
+       rendre visible ce que les droits autorisent. -->
+  <section class="screen" id="screen-admin">
+    <div class="page-head">
+      <div>
+        <div class="wl-eyebrow">Espace réservé</div>
+        <h1>Administration</h1>
+        <div class="sub">Modules activés, droits par action et journal des décisions.</div>
+      </div>
+      <a class="btn mini-btn" href="#/profile">← Profil</a>
+    </div>
+    <div id="admin-root"></div>
   </section>
 
 </main>
@@ -7865,7 +7993,13 @@ const App = (() => {
   /* ------------------ ÉTAT ------------------ */
   const DEFAULT_STATE = () => ({
     id: null, pseudo: "Joueur", elo: 1100, wins: 0, losses: 0,
-    balance: 0, bonusLock: 0, kyc: false, bonusUsed: false, withdrawnToday: 0, avatar: null,
+    balance: 0, bonusLock: 0, reserved: 0, kyc: false, kycStatus: "none", kycReason: null,
+    bonusUsed: false, withdrawnToday: 0, avatar: null,
+    /* Profil déclaré (migration 030) : les cinq champs obligatoires du PRD.
+       `profileComplete` est calculé par le SERVEUR (selfPayload) : l'interface
+       n'a pas à réimplémenter la règle. */
+    phone: null, firstName: null, lastName: null, birthDate: null, bio: null,
+    profileComplete: false,
     games: [], tournaments: [], myRegs: {}, leaderboard: [],
     skins: {
       owned: ["pions-clair-classique", "pions-sombre-classique"],
@@ -7884,6 +8018,10 @@ const App = (() => {
        plateau. Les deux voyagent ensemble : la reprise ne devine jamais le
        jeu, elle lit l'identifiant que le serveur a publié. */
     currentSession: null, currentGame: null, playerNum: 1, matchmaking: false, formats: FORMATS,
+    /* Espace d'administration : `me` est la réponse de /api/admin/me (rôles,
+       permissions, modules). Null = aucune permission ou pas encore interrogé —
+       les deux cas cachent le bouton, ce qui est le comportement voulu. */
+    admin: { me: null, modules: [], loaded: false, view: "modules" },
   });
 
   let S = DEFAULT_STATE();
@@ -8378,7 +8516,7 @@ const App = (() => {
      solde disponible, ligne du bonus, retiré du jour. */
   function wlMetaRefresh() {
     const c = document.getElementById("wl-balance");
-    if (c) c.textContent = fmtNum(Math.max(0, S.balance - S.bonusLock));
+    if (c) c.textContent = fmtNum(dispoAr());
     const b = document.getElementById("wl-bonus-line");
     if (b) b.innerHTML = S.bonusLock ? `<div class="small amber" style="margin-top:6px;">dont ${fmtAr(S.bonusLock)} de bonus (non retirable)</div>` : "";
     const t = document.getElementById("wl-today");
@@ -8526,7 +8664,27 @@ const App = (() => {
      de reprise : c'est ce qui permet à « Reprendre » de retrouver une partie
      de Dimy/Telo exactement comme une partie de Tsivy. `quitterLive` reste
      réservé aux sorties EXPLICITES (flèche de sortie, abandon, pastilles). */
-  function go(r) { if (r !== "play") { _pgLastStep = 0; _pgLastPlateau = null; playPlateau = false; detacherLive(); } arreterPub(); location.hash = "#/" + r; }
+  function go(r) {
+    if (r !== "play") {
+      _pgLastStep = 0; _pgLastPlateau = null; playPlateau = false;
+      detacherLive();
+      /* On quitte le parcours : le contexte « défier depuis un profil » ne doit
+         pas survivre à un aller-retour par un autre onglet. */
+      defiDirect = null;
+    }
+    arreterPub(); location.hash = "#/" + r;
+  }
+
+  /* Remise à zéro de l'assistant Jeux : c'est le geste d'un clic sur l'onglet
+     « Jeux » (retour au point de départ), pas un changement d'écran subi. */
+  function resetPlayWizard() {
+    playStep = 1;
+    playPlateau = false;
+    _pgLastStep = 0;
+    _pgLastPlateau = null;
+    defiDirect = null;
+    _defiIntent = false;
+  }
 
   /* ------------------ THÈME (nuit / jour) ------------------ */
   const THEMES = ["night", "light"];
@@ -8689,9 +8847,22 @@ const App = (() => {
       const d = await API.request("/api/user");
       const u = d.user;
       S.id = u.id; S.pseudo = u.pseudo; S.elo = u.elo; S.wins = u.wins; S.losses = u.losses;
-      S.balance = u.balance; S.bonusLock = u.bonus_lock; S.kyc = !!u.kyc;
+      S.balance = u.balance; S.bonusLock = u.bonus_lock; S.reserved = u.reserved || 0;
+      /* L'état du dossier d'identité vient du SERVEUR (none/pending/verified/
+         rejected) : le client ne le devine pas et ne peut pas le forcer. */
+      applyKycState(u);
       S.bonusUsed = !!u.bonus_used; S.withdrawnToday = u.withdrawn_today || 0;
       S.avatar = u.avatar || null;
+      /* Profil déclaré : le serveur dit aussi si les cinq champs sont réunis. */
+      S.phone = u.phone || null;
+      S.firstName = u.first_name || null; S.lastName = u.last_name || null;
+      S.birthDate = u.birth_date || null; S.bio = u.bio || null;
+      S.profileComplete = !!u.profile_complete;
+      /* Les droits d'administration ne sont PAS dans /api/user : ils vivent
+         dans admin_grants. On les demande ici pour que le bouton du Profil soit
+         correct dès le premier rendu (et pas seulement après une visite de
+         l'écran Administration). Refus silencieux : 403 = pas administrateur. */
+      await adminRefresh();
       updateTopbar();
       /* Connecté : le bandeau « Reprendre » peut enfin se prononcer — y compris
          pour une partie d'entraînement restaurée depuis l'appareil, qui
@@ -8834,14 +9005,47 @@ const App = (() => {
     btn.setAttribute("data-count", n > 0 ? n : "");
     btn.title = n > 0 ? `${n} nouvelle${n > 1 ? "s" : ""} demande${n > 1 ? "s" : ""} d'ami` : "Amis — rechercher et ajouter";
   }
+  /* =========================================================
+     LE PORTEFEUILLE AFFICHÉ A UNE SEULE FORMULE
+     ---------------------------------------------------------
+     « Disponible » = solde − réservé (bonus non retirable + demandes de retrait
+     en cours). Le header, l'onglet Wallet et l'onglet Profil ne lisaient pas la
+     même chose : le header affichait le solde BRUT, les deux autres le NET —
+     d'où un portefeuille qui « différait » d'un écran à l'autre dès qu'un bonus
+     ou une demande était en cours. Une seule fonction, donc plus d'écart
+     possible ; `scripts/wallet-audit.js` vérifie la même formule côté base. */
+  function dispoAr() { return Math.max(0, (S.balance || 0) - (S.reserved || S.bonusLock || 0)); }
+
   function updateTopbar() {
-    document.getElementById("tb-balance").textContent = fmtNum(S.balance);   // l'unité « Ar » est portée par l'icône de la pastille
+    const dispo = dispoAr();
+    const tb = document.getElementById("tb-balance");
+    if (tb) {
+      tb.textContent = fmtNum(dispo);
+      const chip = tb.closest(".wallet-chip") || tb.parentElement;
+      if (chip) {
+        const locked = (S.balance || 0) - dispo;
+        chip.title = "Solde disponible : " + fmtAr(dispo) +
+          (locked > 0 ? " — dont " + fmtAr(locked) + " réservés (bonus non retirable ou retrait en cours)" : "");
+      }
+    }
     const tbAv = document.getElementById("tb-avatar");
     tbAv.innerHTML = avatarInnerHtml(S);
     tbAv.classList.toggle("has-photo", !!S.avatar);
+    /* Pastille KYC : QUATRE états distincts, jamais confondus. Une pastille qui
+       afficherait « à vérifier » à un joueur dont le dossier est en cours
+       d'examen l'inviterait à renvoyer des photos pour rien. */
     const kyc = document.getElementById("tb-kyc");
-    kyc.textContent = S.kyc ? "✓ KYC vérifié" : "KYC à vérifier";
-    kyc.classList.toggle("ok", S.kyc);
+    const st = kycState();
+    const kycLabel = {
+      none: "KYC à vérifier", pending: "KYC en cours de vérification",
+      verified: "✓ KYC vérifié", rejected: "KYC refusé — à reprendre",
+    }[st] || "KYC à vérifier";
+    kyc.textContent = kycLabel;
+    kyc.setAttribute("aria-label", kycLabel);
+    kyc.title = kycLabel;
+    kyc.classList.toggle("ok", st === "verified");
+    kyc.classList.toggle("attente", st === "pending");
+    kyc.classList.toggle("refus", st === "rejected");
   }
 
   /* ------------------ BANNIÈRE « REPRENDRE LA PARTIE » ------------------ */
@@ -9041,7 +9245,10 @@ const App = (() => {
       API.setToken(d.token);
       S.id = d.user.id; S.pseudo = d.user.pseudo; S.elo = d.user.elo; S.wins = d.user.wins;
       S.losses = d.user.losses; S.balance = d.user.balance; S.bonusLock = d.user.bonus_lock;
-      S.kyc = !!d.user.kyc; S.bonusUsed = !!d.user.bonus_used;
+      S.reserved = d.user.reserved || 0;
+      S.kyc = !!d.user.kyc; S.kycStatus = d.user.kyc_status || (d.user.kyc ? "verified" : "none");
+      S.kycReason = d.user.kyc_reason || null;
+      S.bonusUsed = !!d.user.bonus_used;
       if (extra.province) S.province = extra.province;
       if (extra.phone) S.phone = extra.phone;
       /* Se souvenir de moi (connexion) : mémorise / oublie le pseudo */
@@ -9338,31 +9545,280 @@ const App = (() => {
     } catch (e) { /* pas de session */ }
   }
 
-  /* ------------------ KYC ------------------ */
-  function kycRequired(after) {
-    if (S.kyc) { after(); return; }
+  /* ------------------ KYC : dossier recto + verso ------------------
+     Ce que le client NE fait plus : décider. L'ancien écran affichait 1,9 s de
+     « vérification » puis mettait `kyc = true` en local, et le serveur recevait
+     un POST sans aucune image. Ici, le client :
+       1. photographie DEUX faces, les réduit (voir `resizeContain`), les envoie ;
+       2. attend la revue d'un administrateur — `S.kyc` ne passe à true que
+          lorsque le SERVEUR répond `kyc: true` (après approbation).
+     Quatre états, jamais confondus :
+       none      → rien envoyé            (les deux emplacements sont libres)
+       pending   → dossier en examen      (aucun renvoi possible : anti-noyage)
+       rejected  → refusé, motif affiché  (« Reprendre »)
+       verified  → validé                 (dépôts, retraits, mises, tournois)
+     ========================================================================= */
+  const KYC_RESIZE_MAX = 1600;      // côté le plus long, en pixels
+  const KYC_JPEG_QUALITY = 0.82;    // ~200-500 Ko pour une CIN photographiée
+
+  /* Brouillon des TROIS pièces (dataURL). Vidé APRÈS un envoi réussi : entre
+     deux tentatives, le joueur n'a pas à reprendre une photo qu'il a déjà
+     prise. `visage` = selfie à la caméra FRONTALE (pièce prévue par
+     `kyc.js` : colonnes `face_*` de `kyc_cases`). */
+  let kycDraft = { recto: null, verso: null, visage: null };
+  /* Flux de la caméra frontale (aperçu live). Arrêté dès qu'on quitte
+     l'écran KYC ou qu'on relance le rendu — un flux laissé ouvert garde la
+     diode allumée, ce qui est intrusif et vide la batterie. */
+  let kycCam = null;
+  function stopKycCam() {
+    if (!kycCam) return;
+    try { kycCam.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    kycCam = null;
+  }
+
+  /* L'état se lit au SERVEUR, avec `S.kyc` (booléen validé) qui prime : un
+     dossier « en cours » n'ouvre AUCUNE transaction. */
+  function kycState() { return S.kyc ? "verified" : (S.kycStatus || "none"); }
+
+  function applyKycState(u) {
+    S.kyc = !!u.kyc;
+    S.kycStatus = u.kyc_status || (u.kyc ? "verified" : "none");
+    S.kycReason = u.kyc_reason || null;
+  }
+
+  /* Redimensionnement « CONTAIN » : le document ENTIER tient dans l'image.
+     `cropImageToSquare` (photo de profil) recadre au centre — appliqué à une
+     CIN, il couperait le numéro du document et rendrait le dossier invérifiable. */
+  function resizeContain(img, maxSide = KYC_RESIZE_MAX) {
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    if (!w || !h) throw new Error("Image invalide");
+    const k = Math.min(1, maxSide / Math.max(w, h));
+    const cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(h * k));
+    const canvas = document.createElement("canvas");
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext("2d");
+    /* Fond blanc : une PNG transparente ré-encodée en JPEG donnerait du noir. */
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(img, 0, 0, cw, ch);
+    /* Le ré-encodage supprime les métadonnées EXIF — dont la position GPS, qui
+       n'a rien à faire dans un dossier d'identité. */
+    return canvas.toDataURL("image/jpeg", KYC_JPEG_QUALITY);
+  }
+
+  async function processKycFile(file) {
+    if (!file || !/^image\//.test(file.type)) throw new Error("Choisissez une photo (PNG, JPG, WebP…)");
+    if (file.size > 15 * 1024 * 1024) throw new Error("Photo trop lourde (max 15 Mo)");
+    const dataUrl = await readFileAsDataURL(file);
+    const img = await loadImage(dataUrl);
+    return resizeContain(img);
+  }
+
+  /* Un emplacement = un `<label>` qui contient son `<input type="file">` : le
+     sélecteur natif s'ouvre au clic, l'élément reste dans le DOM (donc
+     utilisable par un test), et rien n'est créé à la volée au moment du geste.
+     `capture` : « environment » pour une pièce posée sur la table, « user »
+     pour le SELFIE (caméra FRONTALE) — c'est le chemin qui fonctionne sur
+     Android et iOS sans permission supplémentaire. Un second sélecteur, SANS
+     `capture` (« Importer »), couvre les appareils sans application photo :
+     le joueur garde toujours un moyen de fournir la pièce. */
+  function kycFaceHtml(face, label) {
+    const shot = kycDraft[face];
+    const capture = face === "visage" ? "user" : "environment";
+    const hint = face === "visage"
+      ? "Visage entier, de face, sans lunettes de soleil"
+      : "Document entier, sans reflet";
+    return `
+      <div class="kyc-face-wrap" data-kyc-wrap="${face}">
+        <label class="kyc-face${shot ? " has" : ""}" data-kyc-face="${face}">
+          ${shot ? `<img src="${shot}" alt="">` : ""}
+          <span class="kyc-face__ico" aria-hidden="true">${shot ? "✓" : (face === "visage" ? "🤳" : "📄")}</span>
+          <span class="kyc-face__lbl">${label}</span>
+          <span class="kyc-face__act">${shot ? "Reprendre" : "Photographier"}</span>
+          <input type="file" accept="image/*" capture="${capture}" hidden data-kyc-input="${face}"
+                 aria-label="${label} — photographier">
+        </label>
+        <div class="kyc-face__tools">
+          <button type="button" class="kyc-face__tool" data-kyc-import="${face}">Importer</button>
+          ${face === "visage" ? `<button type="button" class="kyc-face__tool" data-kyc-cam-start="${face}">Caméra</button>` : ""}
+          ${shot ? `<button type="button" class="kyc-face__tool danger" data-kyc-del="${face}">Supprimer</button>` : ""}
+        </div>
+        <input type="file" accept="image/*" hidden id="kyc-import-${face}" data-kyc-import-input="${face}"
+               aria-label="${label} — importer une photo">
+        <span class="kyc-face__hint">${hint}</span>
+      </div>`;
+  }
+
+  /* --- Caméra frontale : aperçu live + capture -----------------------------
+     `getUserMedia` demande la permission (une fois par origine et par
+     appareil). Refus explicite (`NotAllowedError`) → message dédié, et les
+     DEUX autres chemins restent disponibles : « Photographier » (appareil
+     photo natif, `capture="user"`) et « Importer ». Aucun joueur ne reste
+     bloqué parce qu'il a refusé la permission. */
+  async function startKycCam() {
+    const box = document.getElementById("kyc-cam-box");
+    const video = document.getElementById("kyc-cam-video");
+    if (!box || !video) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast("Cet appareil n'expose pas de caméra au navigateur — utilisez « Photographier » ou « Importer ».", "warn", 7000);
+      return;
+    }
+    try {
+      stopKycCam();
+      kycCam = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 1280 } },
+        audio: false,
+      });
+      video.srcObject = kycCam;
+      box.hidden = false;
+      try { await video.play(); } catch (e) { /* autoplay refusé : le cadre reste, la capture est possible */ }
+    } catch (e) {
+      stopKycCam();
+      const denied = e && (e.name === "NotAllowedError" || e.name === "SecurityError" || e.name === "PermissionDeniedError");
+      toast(denied
+        ? "Caméra refusée. Autorisez la caméra dans votre navigateur, ou utilisez « Photographier » / « Importer »."
+        : "Caméra indisponible sur cet appareil — utilisez « Photographier » ou « Importer ».", "warn", 8000);
+    }
+  }
+  function captureKycCam() {
+    const v = document.getElementById("kyc-cam-video");
+    if (!v || !v.videoWidth) { toast("La caméra n'est pas encore prête.", "warn"); return null; }
+    const k = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(v.videoWidth * k);
+    c.height = Math.round(v.videoHeight * k);
+    const ctx = c.getContext("2d");
+    /* Miroir : la photo correspond exactement à ce que le joueur voyait. */
+    ctx.translate(c.width, 0); ctx.scale(-1, 1);
+    ctx.drawImage(v, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", KYC_JPEG_QUALITY);
+  }
+
+  function openKycModal(after) {
+    stopKycCam();                    // un nouveau rendu remplace l'aperçu : on coupe le flux
+    const st = kycState();
+    const pendingNote = st === "pending"
+      ? `<div class="kyc-note"><span aria-hidden="true">⏳</span><div><b>Dossier en cours d'examen.</b><br>
+           L'équipe vérifie vos pièces — réponse sous 24 h. Un nouvel envoi redevient possible après la décision.</div></div>`
+      : "";
+    const rejectNote = st === "rejected"
+      ? `<div class="kyc-note refus"><span aria-hidden="true">⚠️</span><div><b>Dossier refusé.</b><br>
+           ${escHtml(S.kycReason || "Photo illisible ou document incomplet.")}<br>Reprenez les pièces signalées.</div></div>`
+      : "";
+    const ready = !!(kycDraft.recto && kycDraft.verso && kycDraft.visage);
     showModal(`
       <h2>Vérification d'identité (KYC)</h2>
-      <p class="m-sub">Obligatoire pour les mises et transactions.</p>
-      <div class="panel pad-lg" style="border-style:dashed; text-align:center;">
-        <div style="font-size:36px;">🪪</div>
-        <p class="small muted" style="margin:8px 0 14px;">Photographiez votre <b>Carte d'identité</b> (recto).<br>Vérification sous 24 h.</p>
-        <button class="btn primary block" id="kyc-upload">📷 Prendre la CIN en photo (simulation locale)</button>
-      </div>
-      <div class="m-foot"><button class="btn ghost" id="kyc-cancel">Plus tard</button></div>
+      <p class="m-sub">Recto, verso <b>et</b> un selfie. Obligatoire pour les dépôts, retraits, mises et tournois payants.</p>
+      ${pendingNote}${rejectNote}
+      ${st === "pending" ? "" : `
+        <div class="kyc-faces">
+          ${kycFaceHtml("recto", "Recto")}
+          ${kycFaceHtml("verso", "Verso")}
+          ${kycFaceHtml("visage", "Selfie")}
+        </div>
+        <div class="kyc-cam" id="kyc-cam-box" hidden>
+          <video id="kyc-cam-video" playsinline muted autoplay aria-label="Aperçu de la caméra frontale"></video>
+          <div class="kyc-cam-actions">
+            <button type="button" class="btn ghost mini-btn" id="kyc-cam-cancel">Fermer la caméra</button>
+            <button type="button" class="btn primary mini-btn" id="kyc-cam-shot">Capturer</button>
+          </div>
+        </div>
+        <p class="small muted" style="margin:10px 0 0;">Trois pièces sont nécessaires : les deux faces du CIN et votre visage. Numéro lisible, sans reflet, document entier.</p>
+        <button class="btn primary block" id="kyc-send" style="margin-top:12px;"${ready ? "" : " disabled"}>Envoyer mon dossier</button>`}
+      <div class="m-foot"><button class="btn ghost" id="kyc-cancel">${st === "pending" ? "Fermer" : "Plus tard"}</button></div>
     `);
-    document.getElementById("kyc-cancel").onclick = closeModal;
-    document.getElementById("kyc-upload").onclick = () => {
-      showModal(`<h2>Analyse du document…</h2><div class="mm-spinner"><div class="mm-orbit"><i></i><i></i><i></i></div><p class="muted small">Vérification en cours…</p></div>`, "", true);
-      setTimeout(async () => {
-        try { await API.request("/api/kyc/verify", "POST", {}); }
-        catch (e) { console.error("kyc persist", e); }
-        S.kyc = true; updateTopbar(); closeModal();
-        toast("🎉 Identité vérifiée — transactions débloquées.");
-        after();
-      }, 1900);
+    document.getElementById("kyc-cancel").onclick = () => { stopKycCam(); closeModal(); };
+    /* Les DEUX sélecteurs d'un emplacement (natif `capture` et « Importer »)
+       alimentent le même brouillon. Les attributs sont distincts
+       (`data-kyc-input` / `data-kyc-import-input`) pour qu'un test puisse
+       cibler l'emplacement natif sans ambiguïté. */
+    document.querySelectorAll("[data-kyc-input],[data-kyc-import-input]").forEach((inp) => {
+      inp.onchange = async () => {
+        const face = inp.dataset.kycInput || inp.dataset.kycImportInput;
+        const f = inp.files && inp.files[0];
+        if (!f) return;
+        try {
+          kycDraft[face] = await processKycFile(f);
+          openKycModal(after);            // re-rendu : vignette + bouton d'envoi
+        } catch (e) {
+          toast(e.message || "Photo illisible", "error");
+        }
+      };
+    });
+    document.querySelectorAll("[data-kyc-import]").forEach((b) => b.onclick = () => {
+      stopKycCam();
+      const i = document.getElementById("kyc-import-" + b.dataset.kycImport);
+      if (i) i.click();
+    });
+    /* « Supprimer » : reprendre la photo avant validation, sans avoir à envoyer
+       un dossier incomplet. */
+    document.querySelectorAll("[data-kyc-del]").forEach((b) => b.onclick = () => {
+      kycDraft[b.dataset.kycDel] = null;
+      openKycModal(after);
+    });
+    document.querySelectorAll("[data-kyc-cam-start]").forEach((b) => b.onclick = () => startKycCam());
+    const camCancel = document.getElementById("kyc-cam-cancel");
+    if (camCancel) camCancel.onclick = () => {
+      stopKycCam();
+      const box = document.getElementById("kyc-cam-box");
+      if (box) box.hidden = true;
     };
+    const camShot = document.getElementById("kyc-cam-shot");
+    if (camShot) camShot.onclick = () => {
+      const shot = captureKycCam();
+      if (!shot) return;
+      kycDraft.visage = shot;
+      stopKycCam();
+      openKycModal(after);
+    };
+    const send = document.getElementById("kyc-send");
+    if (send) send.onclick = () => sendKyc(after);
   }
+
+  function kycRequired(after) {
+    if (S.kyc) { if (after) after(); return; }
+    /* Le joueur doit SAVOIR pourquoi le paiement ne s'ouvre pas. Sans ce
+       message, cliquer « Déposer » faisait apparaître un formulaire d'un autre
+       genre, ce qui se lit comme une panne (constat de terrain). */
+    toast("Vérification d'identité requise pour déposer ou retirer.", "warn", 5200);
+    openKycModal(after);
+  }
+
+  /* Envoi du dossier. Aucun état local n'est « optimiste » : tant que le serveur
+     n'a pas accepté les deux images, rien ne change — et `S.kyc` ne passera à
+     true qu'après l'approbation d'un administrateur, jamais ici. */
+  async function sendKyc(after) {
+    if (!kycDraft.recto || !kycDraft.verso) { toast("Ajoutez le recto ET le verso.", "warn"); return; }
+    if (!kycDraft.visage) { toast("Ajoutez le selfie (caméra frontale).", "warn"); return; }
+    stopKycCam();
+    const payload = { recto: kycDraft.recto, verso: kycDraft.verso, visage: kycDraft.visage };
+    showModal(`<h2>Envoi du dossier…</h2><div class="mm-spinner"><div class="mm-orbit"><i></i><i></i><i></i></div><p class="muted small">Transmission sécurisée…</p></div>`, "", true);
+    try {
+      const r = await API.request("/api/kyc/submit", "POST", payload);
+      kycDraft = { recto: null, verso: null, visage: null };   // le dossier est parti : brouillon vidé
+      S.kycStatus = r.kyc_status || "pending";
+      S.kycReason = null;
+      updateTopbar();
+      showModal(`
+        <h2>Dossier envoyé ✅</h2>
+        <p class="m-sub">Un administrateur vérifie vos trois photos. Réponse sous 24 h.</p>
+        <div class="kyc-note"><span aria-hidden="true">⏳</span><div><b>En attente de validation.</b><br>
+          Dépôts, retraits, mises et tournois payants s'ouvriront dès la validation.</div></div>
+        <div class="m-foot"><button class="btn primary block" id="kyc-ok">J'ai compris</button></div>
+      `);
+      document.getElementById("kyc-ok").onclick = closeModal;
+    } catch (e) {
+      /* Le refus du serveur est la seule vérité : on l'affiche tel quel. */
+      const code = (e.body && e.body.code) || "";
+      if (code === "VERSO_REQUIRED") kycDraft.verso = null;
+      if (code === "VISAGE_REQUIRED") kycDraft.visage = null;
+      /* Deux pièces identiques : c'est le selfie qui reprend une photo de la
+         carte (le contrôle du serveur le nomme), sinon c'est le verso. */
+      if (code === "MEME_IMAGE") { if (kycDraft.visage) kycDraft.visage = null; else kycDraft.verso = null; }
+      toast(e.message || "Envoi impossible", "error", 5200);
+      openKycModal(after);
+    }
+  }
+
 
   /* ------------------ DÉPÔT / RETRAIT ------------------ */
   const OPERATORS = [
@@ -9435,15 +9891,16 @@ const App = (() => {
 
   function withdrawFlow() {
     kycRequired(() => {
-      const available = Math.max(0, S.balance - S.bonusLock);
-      const max = Math.min(500000 - S.withdrawnToday, available);
+      const available = dispoAr();
+      const max = Math.min(500000 - (S.withdrawnToday || 0), available);
       showModal(`
         <h2>Retirer mes gains</h2>
         <p class="m-sub">À tout moment. Min. 1 000 Ar · max. 500 000 Ar/jour.</p>
         <label class="f-label">Opérateur de destination</label>
         ${OPERATORS.map((o) => `<button class="op-card ${o.id === depOp ? "on" : ""}" data-op="${o.id}" aria-pressed="${o.id === depOp}"><span class="op-dot" style="background:${o.color}">${o.txt}</span><span><b>${o.name}</b><span>${o.sub}</span></span><span class="op-check" aria-hidden="true">✓</span></button>`).join("")}
         <label class="f-label" for="wd-phone">Numéro destinataire</label>
-        <input type="tel" id="wd-phone" value="034 12 345 67">
+        <input type="tel" id="wd-phone" value="${escHtml(S.phone || "")}" placeholder="034 12 345 67" inputmode="tel" autocomplete="tel">
+        <p class="small muted" style="margin:6px 0 0;">C'est le numéro qui recevra l'argent — il part chez l'opérateur avec la demande.</p>
         <label class="f-label" for="wd-amount">Montant (disponible : ${fmtAr(Math.max(0, available))})</label>
         <input type="number" id="wd-amount" min="1000" max="${max}" value="1000">
         <div class="m-foot"><button class="btn ghost" id="wd-cancel">Annuler</button><button class="btn primary" id="wd-ok">Valider le retrait</button></div>
@@ -9461,11 +9918,18 @@ const App = (() => {
         const amount = parseInt(document.getElementById("wd-amount").value) || 0;
         if (amount < 1000) return toast("Retrait minimum : 1 000 Ar.", "warn");
         if (amount > available) return toast("Solde insuffisant (bonus non retirable exclu).", "error");
+        /* Le NUMÉRO part avec la demande : la table `withdrawals.phone` est ce
+           que l'opérateur relit pour payer. Il était auparavant saisi puis
+           jeté — le serveur recevait `operator` là où il attendait `method`,
+           et aucun numéro : toute demande partait en « MVola » sans
+           destinataire. */
+        const phone = normPhone(document.getElementById("wd-phone").value);
+        if (!isPhone(phone)) return toast("Numéro de téléphone invalide (ex. 034 12 345 67).", "warn");
         try {
           const op = OPERATORS.find((o) => o.id === depOp);
-          await API.request("/api/withdraw", "POST", { amount, operator: op.name });
+          await API.request("/api/withdraw", "POST", { amount, method: op.name, phone });
           closeModal();
-          toast(`Retrait de ${fmtAr(amount)} en cours de traitement vers ${op.name}…`);
+          toast(`Retrait de ${fmtAr(amount)} en attente — disponible réservé vers ${op.name}.`, "ok", 5200);
           await refreshUser();
           if (currentRoute() === "wallet") { wl.page = 1; renderWallet(); }
         } catch (e) { toast(e.message, "error"); }
@@ -9477,12 +9941,15 @@ const App = (() => {
   /* =========================================================================
      CARROUSEL PUBLICITAIRE DE L'ACCUEIL (retour terrain n° 4)
      -------------------------------------------------------------------------
-     Le contenu vient d'un fichier CONFIGURABLE (`assets/ad/pubs.json`) : c'est la
-     seule source, donc l'équipe change les publicités sans toucher au code de
-     l'écran. Les bannières hors de leur fenêtre de dates ne sont pas affichées, et
-     s'il n'en reste AUCUNE, le bloc n'est pas rendu du tout (pas d'espace vide).
-     `pubsActives` est la règle de dates, isolée et PURE : elle décide seule, la
-     même pour l'affichage et pour la vérification.
+     Deux sources, dans cet ordre :
+       1. `/api/ads/active` — la table `ads`, alimentée par le module Publicités
+          du back-office (dates, ordre, activation, sans redéploiement) ;
+       2. `assets/ad/pubs.json` — le fichier historique, conservé en REPLI pour
+          un déploiement sans back-office ou une table vide.
+     Dans les deux cas, les bannières hors de leur fenêtre de dates ne sont pas
+     affichées et, s'il n'en reste AUCUNE, le bloc n'est pas rendu du tout (pas
+     d'espace vide). `pubsActives` est la règle de dates, isolée et PURE : elle
+     décide seule, la même pour l'affichage et pour la vérification.
      ========================================================================= */
   const PUBS_URL = "assets/ad/pubs.json";
   let publisChargees = false;      // une seule lecture par session
@@ -9504,6 +9971,14 @@ const App = (() => {
   async function chargerPublis() {
     if (publisChargees) return;
     publisChargees = true;
+    /* 1. Le back-office. Un tableau VIDE est une réponse valide (« plus aucune
+       bannière ») : on ne retombe donc PAS sur le fichier dans ce cas, sinon une
+       campagne arrêtée par l'équipe réapparaîtrait depuis pubs.json. Seule une
+       ERREUR (serveur sans module, réseau) déclenche le repli. */
+    try {
+      const d = await API.request("/api/ads/active");
+      if (d && Array.isArray(d.pubs)) { publis = pubsActives(d.pubs); return; }
+    } catch (e) { /* repli ci-dessous */ }
     try {
       const r = await fetch(PUBS_URL, { cache: "no-store" });
       const d = await r.json();
@@ -9617,7 +10092,7 @@ const App = (() => {
         <div class="dash-stats">
           <div class="dash-stat"><div class="v">${parties}</div><div class="k">Parties jouées</div></div>
           <div class="dash-stat"><div class="v pos">${S.wins}</div><div class="k">Victoires</div></div>
-          <div class="dash-stat"><div class="v money amber">${fmtAr(S.balance)}</div><div class="k">Solde wallet</div></div>
+          <div class="dash-stat"><div class="v money amber">${fmtAr(dispoAr())}</div><div class="k">Solde wallet</div></div>
         </div>
       </div>`;
   }
@@ -9738,7 +10213,12 @@ const App = (() => {
     const accLast = (t) => { const p = t.split(" "); const l = p.pop(); return p.join(" ") + ' <span class="pg-acc">' + l + "</span>"; };
     /* Le mode courant est toujours un mode TENU : une tuile desactivee ne peut
        pas devenir l'etat de l'assistant (le recapitulatif et le CTA en dependent). */
-    const curMode = modes.find((m) => m.id === playCfg.mode && m.dispo) || modes.find((m) => m.dispo) || modes[0];
+    /* Parcours « défier depuis un profil » : le mode est DÉJÀ « défi ». L'étape
+       02 — Mode n'a donc rien à demander : elle est RETIRÉE (l'utilisateur
+       choisit le jeu, puis le récapitulatif porte l'adversaire et la mise). */
+    const skipMode = !!defiDirect;
+    const curMode = (skipMode ? modes.find((m) => m.id === "defi" && m.dispo) : null)
+      || modes.find((m) => m.id === playCfg.mode && m.dispo) || modes.find((m) => m.dispo) || modes[0];
 
     /* --- Métadonnées des 4 étapes (eyebrow / titre / sous-titre / icône) --- */
     const META = [
@@ -9748,6 +10228,40 @@ const App = (() => {
       { eb: "Étape 04 — Lancement", title: "Prêt à jouer", sub: "Vérifiez le récapitulatif, puis entrez dans l'arène.", ic: PG_ICO.bolt },
     ];
     const meta = META[playStep - 1];
+
+    /* Configuration du DÉFI (adversaire + mise) — UNE seule implémentation :
+       elle vit à l'étape 02 dans le parcours normal, et dans le RÉCAPITULATIF
+       quand on arrive depuis un profil (l'étape « Mode » est alors retirée :
+       le mode est déjà « défi »). */
+    const defiConfigHtml = () => `
+        <div class="pg-defi" id="defi-config">
+          <div class="pd-field">
+            <label for="defi-friend">Adversaire <span class="lg-only">(joueur défié)</span></label>
+            ${defiDirect
+              ? `<div class="pg-select" style="display:flex;align-items:center;">${escHtml(playCfg.friend)}</div>`
+              : `<select class="pg-select" id="defi-friend">
+                  ${friends.map((f) => `<option ${playCfg.friend === f.pseudo ? "selected" : ""}>${escHtml(f.pseudo)}</option>`).join("")}
+                </select>`}
+          </div>
+          <div class="pd-field">
+            <label>Mise du défi <span class="lg-only">(chaque joueur dépose le même montant)</span></label>
+            <div class="pg-chips">
+              ${[500, 1000, 2000].map((w) => `<button class="pg-chip ${!wagerPerso && playCfg.wager === w ? "on" : ""}" data-wager="${w}">${fmtAr(w)}</button>`).join("")}
+              <button class="pg-chip ${wagerPerso ? "on" : ""} ${playCfg.wager && ![500, 1000, 2000].includes(playCfg.wager) ? "on" : ""}" data-wager-perso="1" title="Saisir un autre montant (chaque joueur dépose le même)">Montant personnalisé</button>
+            </div>
+            ${wagerPerso || (playCfg.wager && ![500, 1000, 2000].includes(playCfg.wager)) ? `
+            <div class="pg-mise-perso">
+              <input type="text" inputmode="numeric" pattern="[0-9 ]*" id="wager-perso" value="${escHtml(wagerSaisie || (playCfg.wager ? String(playCfg.wager) : ""))}"
+                     placeholder="Montant en Ar" aria-label="Montant personnalisé de la mise, en Ariary" maxlength="9"
+                     aria-describedby="wager-perso-aide${wagerErr ? " wager-perso-err" : ""}">
+              <button class="btn primary mini-btn" id="wager-perso-ok">Valider</button>
+              <button class="btn ghost mini-btn" id="wager-perso-non">Annuler</button>
+            </div>
+            <p class="pg-note" id="wager-perso-aide">Entier entre ${fmtAr(MISE_MIN)} et ${fmtAr(MISE_MAX)} · chaque joueur dépose la même mise · solde : ${fmtAr(S.balance)}</p>
+            ${wagerErr ? `<p class="pg-note neg" id="wager-perso-err" role="alert">${escHtml(wagerErr)}</p>` : ""}` : ""}
+          </div>
+          <p class="pg-note">Commission : 10 % du pot.</p>
+        </div>`;
 
     /* --- Contenu de l'étape courante --- */
     let opts = "";
@@ -9788,32 +10302,7 @@ const App = (() => {
           ${playCfg.mode === m.id ? '<span class="po-tag">Sélectionné</span>'
             : m.dispo ? "" : '<span class="po-tag muted">Bientôt</span>'}
         </div>`).join("")}</div>
-        <div class="pg-defi ${playCfg.mode === "defi" ? "" : "hidden"}" id="defi-config">
-          <div class="pd-field">
-            <label for="defi-friend">Adversaire <span class="lg-only">(joueurs connectés)</span></label>
-            <select class="pg-select" id="defi-friend">
-              ${friends.map((f) => `<option ${playCfg.friend === f.pseudo ? "selected" : ""}>${escHtml(f.pseudo)}</option>`).join("")}
-            </select>
-          </div>
-          <div class="pd-field">
-            <label>Mise du défi <span class="lg-only">(chaque joueur dépose le même montant)</span></label>
-            <div class="pg-chips">
-              ${[500, 1000, 2000].map((w) => `<button class="pg-chip ${!wagerPerso && playCfg.wager === w ? "on" : ""}" data-wager="${w}">${fmtAr(w)}</button>`).join("")}
-              <button class="pg-chip ${wagerPerso ? "on" : ""} ${playCfg.wager && ![500, 1000, 2000].includes(playCfg.wager) ? "on" : ""}" data-wager-perso="1" title="Saisir un autre montant (chaque joueur dépose le même)">Montant personnalisé</button>
-            </div>
-            ${wagerPerso || (playCfg.wager && ![500, 1000, 2000].includes(playCfg.wager)) ? `
-            <div class="pg-mise-perso">
-              <input type="text" inputmode="numeric" pattern="[0-9 ]*" id="wager-perso" value="${escHtml(wagerSaisie || (playCfg.wager ? String(playCfg.wager) : ""))}"
-                     placeholder="Montant en Ar" aria-label="Montant personnalisé de la mise, en Ariary" maxlength="9"
-                     aria-describedby="wager-perso-aide${wagerErr ? " wager-perso-err" : ""}">
-              <button class="btn primary mini-btn" id="wager-perso-ok">Valider</button>
-              <button class="btn ghost mini-btn" id="wager-perso-non">Annuler</button>
-            </div>
-            <p class="pg-note" id="wager-perso-aide">Entier entre ${fmtAr(MISE_MIN)} et ${fmtAr(MISE_MAX)} · chaque joueur dépose la même mise · solde : ${fmtAr(S.balance)}</p>
-            ${wagerErr ? `<p class="pg-note neg" id="wager-perso-err" role="alert">${escHtml(wagerErr)}</p>` : ""}` : ""}
-          </div>
-          <p class="pg-note">Commission : 10 % du pot.</p>
-        </div>`;
+        ${playCfg.mode === "defi" ? defiConfigHtml() : ""}`;
     } else if (playStep === 3) {
       opts = `<div class="pg-fmts">${FORMATS.map((f) => `
         <div class="pg-fmt ${playCfg.format === f.id ? "on" : ""} ${fmtAllowed(f) ? "" : "off"}" data-fmt="${f.id}" role="button" tabindex="0" aria-disabled="${fmtAllowed(f) ? "false" : "true"}" title="${fmtAllowed(f) ? f.desc : "Format Pro : tournois long format et défis sérieux"}">
@@ -9841,7 +10330,8 @@ const App = (() => {
                 "Recherche d'un vrai adversaire (Elo " + S.elo + " ±200)"}
             </p>
           </div>
-        </div>`;
+        </div>
+        ${defiDirect ? defiConfigHtml() : ""}`;
     }
 
     /* Plus de bouton « Suivant » : sélectionner un choix fait avancer l'assistant.
@@ -9860,10 +10350,21 @@ const App = (() => {
     const keepScroll = prevBody ? prevBody.scrollTop : 0;
 
     /* --- Assemblage de la scène (structure des maquettes onboarding) --- */
+    /* Parcours direct (défi depuis un profil) : TROIS étapes affichées, l'étape
+       02 — Mode étant retirée. La numérotation INTERNE reste 1..4 pour ne pas
+       déplacer tout l'assistant ; seuls le compteur et les pastilles changent. */
+    const shownStep = skipMode && playStep > 2 ? playStep - 1 : playStep;
+    const totalSteps = skipMode ? 3 : 4;
     document.getElementById("play-root").innerHTML = `
       <div class="pg-shell" data-step="${playStep}">
         <div class="pg-top">
-          <span class="pg-count"><b>0${playStep}</b> / 04</span>
+          <!-- RETOUR EN HAUT À GAUCHE (et non plus en bas) : c'est là qu'on le
+               cherche, et c'est la même place dans les trois variantes. Il est
+               désactivé sur la première étape, où il n'y a rien à remonter. -->
+          <button class="pg-arrow pg-arrow--top" id="pg-prev" ${playStep > 1 || playPlateau ? "" : "disabled"} aria-label="${playPlateau ? "Revenir au choix du jeu" : "Retour"}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <span class="pg-count"><b>0${shownStep}</b> / 0${totalSteps}</span>
           <button class="pg-skip" id="pg-rules">Règles du Fanorona</button>
         </div>
         <div class="pg-body">
@@ -9881,12 +10382,9 @@ const App = (() => {
         </div>
         <div class="pg-bottom">
           <div class="pg-dots">
-            ${[1, 2, 3, 4].map((i) => `<button class="pg-dot ${playStep === i ? "active" : ""}" data-goto="${i}" ${i <= playStep ? "" : "disabled"} aria-label="Étape ${i}"></button>`).join("")}
+            ${(skipMode ? [1, 3, 4] : [1, 2, 3, 4]).map((i) => `<button class="pg-dot ${playStep === i ? "active" : ""}" data-goto="${i}" ${i <= playStep ? "" : "disabled"} aria-label="Étape ${skipMode && i > 2 ? i - 1 : i}"></button>`).join("")}
           </div>
           <div class="pg-nav">
-            <button class="pg-arrow" id="pg-prev" ${playStep > 1 || playPlateau ? "" : "disabled"} aria-label="${playPlateau ? "Revenir au choix du jeu" : "Retour"}">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
-            </button>
             ${playStep === 4 ? `<button class="pg-cta" id="pg-cta">${ctaLabel}</button>` : ""}
           </div>
         </div>
@@ -9910,7 +10408,11 @@ const App = (() => {
     /* --- Bindings --- */
     /* Navigation : UN CHOIX VAUT « SUIVANT ». `advance()` est le seul chemin vers
        l'étape suivante — la flèche « Suivant » a été retirée du bandeau bas. */
-    const advance = () => { playStep = Math.min(4, playStep + 1); renderPlay(); };
+    const advance = () => {
+      /* Parcours direct : de l'étape 01 (jeu) on saute l'étape 02 (mode). */
+      playStep = Math.min(4, (skipMode && playStep === 1) ? 3 : playStep + 1);
+      renderPlay();
+    };
 
     /* Tuile actionnable : clic souris ET clavier. Les tuiles de l'assistant sont des
        <div role="button"> : elles ne s'activent pas nativement au clavier, d'où le
@@ -10105,7 +10607,7 @@ const App = (() => {
          (même modale que l'assistant) et l'abandon (sortie locale, ou
          `resign` en ligne). L'écran de variante ne décide ni l'une ni l'autre. */
       onRules: () => showModal(VariantMatch.rulesHtml(live.game), "lg"),
-      onResign: () => (live.remote ? confirmerAbandon(live) : quitterPartieLocale()),
+      onResign: () => (live.remote ? confirmerAbandon(live) : abandonnerPartieLocale(live)),
       /* L'apparence des pions du COMPTE : les variantes portent la même que le
          plateau Tsivy. Celle de l'adversaire, en ligne, ne vient que de l'état
          du serveur (voir `VariantMatch`) — jamais de ce client. */
@@ -10145,6 +10647,8 @@ const App = (() => {
        En local, sortir CONSERVE la partie (bandeau « Reprendre ») : rien ne
        justifie de jeter un entraînement pour avoir ouvert l'assistant. */
     if (exit) exit.onclick = () => (live.remote ? confirmerAbandon(live) : quitterPartieLocale());
+    /* « Abandonner » (partie locale) : la partie se TERMINE, elle n'est pas
+       conservée. Voir `abandonnerPartieLocale`. */
     /* « Nouvelle partie » remonte un plateau neuf : l'état est recréé par le
        moteur, rien n'est remis à zéro à la main côté écran. Sans objet en
        ligne (la partie appartient aux deux joueurs). */
@@ -10194,6 +10698,27 @@ const App = (() => {
     playStep = 4;
     renderPlay();
     toast("Partie conservée — « Reprendre » vous y ramène.", "ok");
+  }
+
+  /* ABANDON d'une partie de variante EN ENTRAÎNEMENT (Fanoron-Telo, Fanoron-Dimy).
+     Même effet que `Fanorona.resign()` sur le plateau du Fanorona 9 : la partie
+     se TERMINE immédiatement (victoire de l'adversaire), la copie locale est
+     effacée et le bandeau « Reprendre » disparaît. L'ancien code appelait
+     `quitterPartieLocale()`, qui CONSERVE la partie : le plateau restait
+     jouable et « Reprendre » continuait de la proposer — c'était exactement
+     l'écart signalé entre le Fanorona 3 et le Fanorona 9. */
+  function abandonnerPartieLocale(live) {
+    if (!live) return quitterLive();
+    /* L'état est marqué TERMINÉ avant le démontage : le contrôleur de variante
+       s'arrête sur une partie finie et n'écrit pas de copie reprenable. */
+    live.state = Object.assign({}, live.state || {}, { over: true, winner: 2, reason: "abandon" });
+    if (typeof VariantMatch !== "undefined") VariantMatch.sync(live.state);
+    quitterLive(false);          // démonte le plateau, oublie la partie, efface la copie
+    playPlateau = false;
+    playStep = 4;
+    renderPlay();
+    updateResumeBanner();
+    toast("Partie abandonnée — votre adversaire gagne.", "warn", 4200);
   }
 
   /* Sortie de la partie embarquée : le contrôleur est démonté (minuteur de
@@ -10280,7 +10805,23 @@ const App = (() => {
         <button class="btn danger" id="live-resign">Abandonner</button>
       </div>`, "", true);
     const b = document.getElementById("live-resign");
-    if (b) b.onclick = () => { closeModal(); API.send({ type: "resign", sessionId: live.sessionId }); };
+    if (b) b.onclick = () => {
+      closeModal();
+      API.send({ type: "resign", sessionId: live.sessionId });
+      /* Fermeture IMMÉDIATE de l'écran : la partie est perdue, donc « Reprendre »
+         ne doit plus la proposer — même si `game_end` tarde (réseau, tunnel).
+         Le serveur reste seul juge du résultat : c'est lui qui clôt la ligne et
+         crédite le vainqueur ; le client ne fait que cesser de la proposer. */
+      S.currentSession = null;
+      S.currentGame = null;
+      if (playLive && playLive.remote && playLive.sessionId === live.sessionId) {
+        playLive = null;
+        playPlateau = false;
+        playStep = 4;
+        renderPlay();
+      }
+      updateResumeBanner();
+    };
   }
 
   /* Le HUD « moi » du plateau est rempli en UN SEUL endroit : les trois flux qui
@@ -11484,11 +12025,29 @@ const App = (() => {
     `, "", false);
   }
 
+  /* Parcours « Défier depuis un profil / une liste d'amis » : le mode est déjà
+     « défi », donc l'étape 02 — Mode est RETIRÉE (décision produit : pas de fil
+     d'Ariane « Mode/Défis » quand on envoie déjà un défi). Le joueur choisit le
+     JEU, puis le récapitulatif porte l'adversaire et la mise, et un seul clic
+     envoie le défi. `defiDirect` porte ce contexte le temps du parcours. */
+  let defiDirect = null;
+  /* Intention de navigation posée par `challengeUser` : c'est la SEULE façon
+     d'armer le parcours direct. Toute autre entrée dans « Jeux » (onglet, lien,
+     historique) consomme/annule l'intention et repart sur l'assistant normal —
+     sans quoi un défi lancé une fois laissait l'étape « Mode » supprimée pour
+     toutes les parties suivantes. */
+  let _defiIntent = false;
   function challengeUser(pseudo) {
     playCfg.mode = "defi"; playCfg.friend = pseudo; playCfg.wager = 500;
-    playStep = 2;
+    defiDirect = { pseudo };
+    _defiIntent = true;
+    playPlateau = false;
+    playStep = 1;
+    const dejaSurPlay = currentRoute() === "play";
     go("play");
-    toast("Configuré pour défier " + pseudo + " (mise minimale 500 Ar)");
+    /* Déjà sur #/play : `go` ne déclenche aucun `hashchange`, on rend ici. */
+    if (dejaSurPlay) { _defiIntent = false; renderPlay(); }
+    toast("Défi à " + pseudo + " : choisissez le jeu.", "ok", 4200);
   }
   function openChat(pseudo) {
     chatWith = pseudo;
@@ -11828,7 +12387,7 @@ const App = (() => {
     /* Le panneau calendrier vit hors du panneau historique : il se referme si
        la barre est reconstruite (Réinitialiser, autre écran, retour wallet). */
     wlCalFermer();
-    const available = Math.max(0, S.balance - S.bonusLock);
+    const available = dispoAr();
     document.getElementById("wallet-root").innerHTML = `
       <svg width="0" height="0" style="position:absolute" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
         <symbol id="wls-arr-d" viewBox="0 0 24 24"><path d="M12 4v15m-6-6 6 6 6-6"/></symbol>
@@ -11883,7 +12442,7 @@ const App = (() => {
             <div class="small muted">Retiré aujourd'hui : <b class="mono" id="wl-today">${fmtAr(S.withdrawnToday || 0)}</b> / 500 000 Ar.</div>
             <div class="small muted">KYC (photo CIN) obligatoire avant toute transaction réelle.</div>
           </div>
-          ${S.kyc ? "" : `<button class="wl-link" style="margin-top:6px;" onclick="App.kycRequired(()=>{})"><span aria-hidden="true">🪪</span>Vérifier mon identité</button>`}
+          ${S.kyc ? "" : `<button class="wl-link" style="margin-top:6px;" onclick="App.kycRequired(()=>{})"><span aria-hidden="true">🪪</span>${kycState() === "pending" ? "Dossier d'identité en cours d'examen" : kycState() === "rejected" ? "Reprendre mon dossier d'identité" : "Vérifier mon identité"}</button>`}
         </div>
         <div class="panel wl-history">
           <div class="wl-head">
@@ -12094,7 +12653,7 @@ const App = (() => {
      n'affiche pas la marque d'un opérateur. La tuile « Fonds » lance le dépôt ;
      retrait et historique complet restent à un clic sous la carte. */
   function profileWalletCardHtml() {
-    const available = Math.max(0, S.balance - S.bonusLock);
+    const available = dispoAr();
     return `
           <div>
             <div class="pf3-wallet-row">
@@ -12108,6 +12667,7 @@ const App = (() => {
             <div class="pf3-wallet-links">
               <button class="btn ghost mini-btn" type="button" onclick="App.withdrawFlow()">↗ Retirer</button>
               <button class="btn ghost mini-btn" type="button" onclick="App.go('wallet')">Historique complet</button>
+              ${adminLinkHtml()}
             </div>
           </div>`;
   }
@@ -12212,14 +12772,12 @@ const App = (() => {
      Le WebP est servi avec son VRAI type (`image/webp`, table MIME de server.js)
      plutôt que renommé `.jpg` : tous les navigateurs qui exécutent
      l'application décodent le WebP, et le repli couvre les autres. L'annonce est
-     cliquable (le visuel porte son adresse) et le ✕ reste mémorisé sur
-     l'appareil ; `#pf3-ad` et `#pf3-ad-close` sont inchangés
-     (_probe_profil_v3.js surveille la fermeture). */
+     cliquable (le visuel porte son adresse).
+     Le bouton ✕ a été RETIRÉ (décision produit) : dans l'onglet Profil, la
+     publicité ne peut plus être désactivée. Plus de mémoire locale
+     `daona_ad_closed` non plus — la bannière est toujours rendue. */
   const AD_VISUEL = "assets/ad/yas-nperf-2025";
   function adBannerHtml() {
-    let closed = false;
-    try { closed = localStorage.getItem("daona_ad_closed") === "1"; } catch (e) {}
-    if (closed) return "";
     return `
           <div class="pf3-ad" id="pf3-ad" role="complementary" aria-label="Espace publicitaire">
             <a class="pf3-ad-link" href="https://www.yas.mg" target="_blank" rel="noopener noreferrer"
@@ -12229,7 +12787,6 @@ const App = (() => {
                    onerror="if (this.dataset.repli) return; this.dataset.repli = '1'; this.src = '${AD_VISUEL}.svg';">
             </a>
             <span class="pf3-ad-eyebrow">Publicité</span>
-            <button type="button" class="pf3-ad-close" id="pf3-ad-close" aria-label="Fermer la bannière" title="Fermer">✕</button>
           </div>`;
   }
 
@@ -12493,20 +13050,192 @@ const App = (() => {
     }, 130);
   }
 
-  /* ------------------ PROFIL ------------------ */
-  /* Taille de la photo de profil : elle ne vit que dans la carte d'identité. On
-     met donc à jour l'avatar et l'état des pastilles SUR PLACE (aucun re-rendu
-     du Profil, donc aucun retour en haut de page). */
-  function applyAvatarSize() {
-    const size = parseInt(localStorage.getItem("daona_avatar_size") || "84", 10) || 84;
-    const av = document.getElementById("profile-avatar");
-    if (av) {
-      av.style.width = size + "px";
-      av.style.height = size + "px";
-      av.style.fontSize = Math.round(size / 3) + "px";
-    }
-    document.querySelectorAll("#profile-root [data-avsize]").forEach((c) => c.classList.toggle("on", Number(c.dataset.avsize) === size));
+  /* ------------------ MODIFIER MON PROFIL (5 champs + photo) ------------------
+     Les cinq champs du PRD sont OBLIGATOIRES : nom et prénom conformes au CIN,
+     date de naissance, téléphone associé, photo et bio. Le serveur borne la
+     forme (`POST /api/user/profile`), le KYC reste le juge de la conformité.
+     Un profil incomplet est SIGNALÉ (bandeau + champs marqués) mais ne bloque
+     aucune action : décision produit, le KYC couvre déjà la sécurité de
+     l'argent. */
+  function openProfileEdit() {
+    const v = (x) => escHtml(x || "");
+    const today = new Date().toISOString().slice(0, 10);
+    showModal(`
+      <h2>Modifier mon profil</h2>
+      <p class="m-sub">Ces informations doivent être conformes à votre carte d'identité.</p>
+      <div class="pf-edit-grid">
+        <div><label class="f-label" for="pf-first">Prénom <span class="req">*</span></label>
+          <input id="pf-first" type="text" maxlength="60" autocomplete="given-name" value="${v(S.firstName)}" placeholder="Comme sur le CIN"></div>
+        <div><label class="f-label" for="pf-last">Nom <span class="req">*</span></label>
+          <input id="pf-last" type="text" maxlength="60" autocomplete="family-name" value="${v(S.lastName)}" placeholder="Comme sur le CIN"></div>
+      </div>
+      <label class="f-label" for="pf-birth">Date de naissance <span class="req">*</span> <span class="muted small">(celle du CIN)</span></label>
+      <input id="pf-birth" type="date" max="${today}" value="${v(S.birthDate)}">
+      <label class="f-label" for="pf-phone">Numéro de téléphone associé <span class="req">*</span></label>
+      <input id="pf-phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" value="${v(S.phone)}" placeholder="034 12 345 67">
+      <label class="f-label" for="pf-bio">Bio <span class="req">*</span> <span class="muted small">(160 caractères)</span></label>
+      <textarea id="pf-bio" rows="3" maxlength="160" placeholder="Quelques mots sur vous, votre style de jeu…">${v(S.bio)}</textarea>
+      <div class="pf-edit-photo">
+        <span class="big-avatar" style="width:64px;height:64px;font-size:22px;">
+          ${S.avatar ? `<img src="${escHtml(S.avatar)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : escHtml(S.pseudo.slice(0, 2).toUpperCase())}
+        </span>
+        <div>
+          <button type="button" class="btn ghost mini-btn" id="pf-edit-photo">Photo de profil <span class="req">*</span></button>
+          <p class="small muted" style="margin:4px 0 0;">Recadrez et zoomez avant de valider.</p>
+        </div>
+        <input type="file" id="pf-edit-photo-input" accept="image/*" hidden>
+      </div>
+      <p class="small" id="pf-edit-err" role="alert" style="color:var(--red);min-height:16px;margin:6px 0 0;"></p>
+      <div class="m-foot">
+        <button class="btn ghost" onclick="App.closeModal()">Annuler</button>
+        <button class="btn primary" id="pf-edit-save">Enregistrer</button>
+      </div>
+    `, "lg");
+
+    const inPhoto = document.getElementById("pf-edit-photo-input");
+    document.getElementById("pf-edit-photo").onclick = () => inPhoto.click();
+    inPhoto.onchange = () => {
+      const f = inPhoto.files && inPhoto.files[0];
+      inPhoto.value = "";
+      if (f) openAvatarCropper(f, () => openProfileEdit());
+    };
+
+    document.getElementById("pf-edit-save").onclick = async () => {
+      const err = document.getElementById("pf-edit-err");
+      const firstName = document.getElementById("pf-first").value.trim();
+      const lastName = document.getElementById("pf-last").value.trim();
+      const birth = document.getElementById("pf-birth").value;
+      const phone = normPhone(document.getElementById("pf-phone").value);
+      const bio = document.getElementById("pf-bio").value.trim();
+      /* Les cinq champs sont obligatoires — la photo est déjà enregistrée par
+         son propre appel, elle n'est donc pas renvoyée ici. */
+      if (!firstName || !lastName || !birth || !phone || !bio) {
+        err.textContent = "Les cinq champs sont obligatoires.";
+        return;
+      }
+      if (!isPhone(phone)) { err.textContent = "Numéro invalide (ex. 034 12 345 67)."; return; }
+      if (!S.avatar) { err.textContent = "Ajoutez une photo de profil (bouton « Photo de profil »)."; return; }
+      err.textContent = "";
+      try {
+        await API.request("/api/user/profile", "POST", {
+          first_name: firstName, last_name: lastName, birth_date: birth, phone, bio,
+        });
+        await refreshUser();
+        closeModal();
+        toast("Profil enregistré.");
+        if (currentRoute() === "profile") renderProfile();
+      } catch (e) {
+        err.textContent = e.message || "Enregistrement impossible.";
+      }
+    };
   }
+
+  /* --- Recadrage de la photo de profil (zone déplaçable + zoom, aperçu rond) --
+     Remplace le recadrage carré CENTRÉ automatique : le joueur choisit lui-même
+     ce qui reste dans le cercle. La sortie fait 512 × 512, envoyée à
+     `POST /api/user/avatar` (plafond serveur : 2 Mo). */
+  let avCrop = null;
+  const AV_STAGE = 300;
+  function openAvatarCropper(file, after) {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) return toast("Choisissez une image (JPG, PNG, WebP…).", "warn");
+    if (file.size > 15 * 1024 * 1024) return toast("Photo trop lourde (max 15 Mo).", "warn");
+    readFileAsDataURL(file)
+      .then((url) => loadImage(url))
+      .then((img) => {
+        avCrop = { img, zoom: 1, x: 0, y: 0 };
+        showModal(`
+          <h2>Recadrer ma photo</h2>
+          <p class="m-sub">Glissez l'image pour la déplacer, zoomez avec le curseur. Le cercle est ce que verront les autres joueurs.</p>
+          <div class="av-crop-stage">
+            <canvas id="av-crop-canvas" width="${AV_STAGE}" height="${AV_STAGE}" aria-label="Zone de recadrage de la photo"></canvas>
+            <span class="av-crop-mask" aria-hidden="true"></span>
+          </div>
+          <label class="f-label" for="av-zoom">Zoom</label>
+          <input type="range" id="av-zoom" min="1" max="3" step="0.02" value="1">
+          <div class="m-foot">
+            <button class="btn ghost" id="av-crop-cancel">Annuler</button>
+            <button class="btn primary" id="av-crop-ok">Valider ma photo</button>
+          </div>
+        `, "lg");
+        const cv = document.getElementById("av-crop-canvas");
+        const zoom = document.getElementById("av-zoom");
+        avCropPaint();
+        zoom.oninput = () => { avCrop.zoom = parseFloat(zoom.value) || 1; avCropPaint(); };
+        let drag = null;
+        cv.onpointerdown = (e) => {
+          drag = { x: e.clientX, y: e.clientY, ox: avCrop.x, oy: avCrop.y };
+          try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+          cv.style.cursor = "grabbing";
+        };
+        cv.onpointermove = (e) => {
+          if (!drag) return;
+          /* Le canvas est dessiné en 300 px mais affiché à la largeur du cadre :
+             le geste (en pixels CSS) est ramené à l'échelle du canevas. */
+          const k = AV_STAGE / (cv.getBoundingClientRect().width || AV_STAGE);
+          avCrop.x = drag.ox + (e.clientX - drag.x) * k;
+          avCrop.y = drag.oy + (e.clientY - drag.y) * k;
+          avCropPaint();
+        };
+        const stop = () => { drag = null; cv.style.cursor = "grab"; };
+        cv.onpointerup = stop;
+        cv.onpointercancel = stop;
+        document.getElementById("av-crop-cancel").onclick = () => {
+          avCrop = null;
+          closeModal();
+          if (after) after();
+        };
+        document.getElementById("av-crop-ok").onclick = () => uploadCroppedAvatar(after);
+      })
+      .catch(() => toast("Image illisible.", "error"));
+  }
+  function avCropMetrics() {
+    const { img, zoom } = avCrop;
+    const base = Math.max(AV_STAGE / img.naturalWidth, AV_STAGE / img.naturalHeight);
+    const scale = base * zoom;
+    return { w: img.naturalWidth * scale, h: img.naturalHeight * scale };
+  }
+
+  function avCropPaint() {
+    const cv = document.getElementById("av-crop-canvas");
+    if (!cv || !avCrop) return;
+    const { w, h } = avCropMetrics();
+    /* Clamp : l'image couvre TOUJOURS le carré — aucun bord vide dans le cercle. */
+    avCrop.x = Math.min(0, Math.max(AV_STAGE - w, avCrop.x));
+    avCrop.y = Math.min(0, Math.max(AV_STAGE - h, avCrop.y));
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = "#0b1016";
+    ctx.fillRect(0, 0, AV_STAGE, AV_STAGE);
+    ctx.drawImage(avCrop.img, avCrop.x, avCrop.y, w, h);
+  }
+  async function uploadCroppedAvatar(after) {
+    const cv = document.getElementById("av-crop-canvas");
+    if (!cv || !avCrop) return;
+    const out = document.createElement("canvas");
+    out.width = 512; out.height = 512;
+    out.getContext("2d").drawImage(cv, 0, 0, AV_STAGE, AV_STAGE, 0, 0, 512, 512);
+    const dataUrl = out.toDataURL("image/jpeg", 0.9);
+    try {
+      const d = await API.request("/api/user/avatar", "POST", { avatar: dataUrl });
+      S.avatar = d.avatar; avCrop = null;
+      /* La photo vient d'une SEULE source d'état : on la propage là où elle est
+         déjà affichée (header, accueil, classement) au lieu d'espérer que chaque
+         écran pense à recharger. */
+      const meRow = (S.leaderboard || []).find((p) => p.me);
+      if (meRow) meRow.avatar = d.avatar;
+      updateTopbar();
+      toast("Photo de profil mise à jour ✓");
+      /* La fenêtre de recadrage se ferme AVANT l'écran suivant : `after` peut
+         rouvrir l'édition du profil (showModal remplace alors le contenu). */
+      closeModal();
+      if (after) after();
+      if (currentRoute() === "home") renderHome();
+      if (currentRoute() === "ranks") renderRanks();
+    } catch (e) {
+      toast(e.message || "Photo refusée par le serveur.", "error", 5200);
+    }
+  }
+
   function renderProfile() {
     const me = S.leaderboard.find((p) => p.me);
     const myBadge = me?.badge;
@@ -12514,15 +13243,19 @@ const App = (() => {
       <div class="profile-layout">
         <div class="side-stack">
           <div class="panel profile-card">
-            ${(() => { const avSize = parseInt(localStorage.getItem("daona_avatar_size") || "84"); return `
-            <div class="big-avatar" id="profile-avatar" style="position:relative; cursor:pointer; width:${avSize}px; height:${avSize}px; font-size:${Math.round(avSize/3)}px;" title="Cliquer pour changer la photo">
+            <!-- Engrenage : ouvre l'écran de modification du profil (cinq champs
+                 obligatoires + photo recadrable). En haut à droite de la carte,
+                 comme sur une fiche d'identité. -->
+            <button type="button" class="pf-gear" id="pf-gear" title="Modifier mon profil" aria-label="Modifier mon profil">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.24.6.82 1 1.47 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>
+            </button>
+            <div class="big-avatar" id="profile-avatar" style="position:relative; cursor:pointer; width:84px; height:84px; font-size:28px;" title="Changer ma photo (recadrage)">
               ${S.avatar ? `<img src="${escHtml(S.avatar)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : escHtml(S.pseudo.slice(0, 2).toUpperCase())}
               <input type="file" id="avatar-input" accept="image/*" aria-label="Choisir une photo de profil" style="display:none;">
             </div>
-            <div style="display:flex; gap:6px; justify-content:center; align-items:center; margin: 2px 0 var(--sp-2);" title="Taille de la photo">
-              <span class="small muted">Taille photo :</span>
-              ${[[64, "S"], [84, "M"], [110, "L"]].map(([sz, lab]) => `<button class="chip ${avSize === sz ? "on" : ""}" data-avsize="${sz}" style="min-width:34px; padding: var(--sp-1) var(--sp-2);">${lab}</button>`).join("")}
-            </div>`; })()}
+            ${S.profileComplete ? "" : `<button type="button" class="pf-incomplete" id="pf-incomplete">
+              <span aria-hidden="true">✍️</span> <b>Profil à compléter</b> — nom, date de naissance, téléphone, photo et bio.
+            </button>`}
             <h2>${escHtml(S.pseudo)}</h2>
             <p class="small muted">ID joueur #${S.id || "—"} · 📍 ${escHtml(me?.province || "—")}</p>
             ${myBadge ? `<div style="margin-top:6px;"><span class="badge-chip" style="--b-ink:${myBadge.color}; --b-ink-day:${myBadge.ink}; border-color:${myBadge.color}66; background:${myBadge.color}14;" title="Badge national"><span class="bi">${escHtml(myBadge.icon)}</span>${escHtml(myBadge.name)} <span class="muted mono" style="font-weight:400;">#${me.rank}</span></span></div>` : ""}
@@ -12547,12 +13280,23 @@ const App = (() => {
               </button>
             </div>
           </div>
-          <div class="panel ${S.kyc ? "kyc-card ok" : "kyc-card"}">
+          <div class="panel ${S.kyc ? "kyc-card ok" : (kycState() === "pending" ? "kyc-card attente" : (kycState() === "rejected" ? "kyc-card refus" : "kyc-card"))}">
             <div class="panel-title">Vérification KYC</div>
             ${S.kyc
-              ? `<div class="kyc-step"><span class="n" style="background:var(--brand-dark);color:#EAFBF3;">✓</span> CIN vérifiée</div>
+              ? `<div class="kyc-step"><span class="n" style="background:var(--brand-dark);color:#EAFBF3;">✓</span> CIN vérifiée (recto + verso)</div>
                  <div class="kyc-step"><span class="n" style="background:var(--brand-dark);color:#EAFBF3;">✓</span> Transactions réelles débloquées</div>`
-              : `<div class="kyc-step"><span class="n">1</span> Photographier la CIN (recto)</div>
+              : kycState() === "pending"
+              ? `<div class="kyc-step"><span class="n">⏳</span> Dossier envoyé — en cours d'examen</div>
+                 <div class="kyc-step"><span class="n">2</span> Vérification par l'équipe (< 24 h)</div>
+                 <div class="kyc-step"><span class="n">3</span> Dépôts, retraits, tournois et défis s'ouvriront à la validation</div>
+                 <button class="btn ghost block" style="margin-top:10px;" onclick="App.kycRequired(()=>{})">Voir l'état de mon dossier</button>`
+              : kycState() === "rejected"
+              ? `<div class="kyc-step"><span class="n">!</span> Dossier refusé</div>
+                 <div class="small muted" style="margin:6px 0 10px;">${escHtml(S.kycReason || "Photo illisible ou document incomplet.")}</div>
+                 <div class="kyc-step"><span class="n">1</span> Reprendre le recto ET le verso</div>
+                 <div class="kyc-step"><span class="n">2</span> Nouvelle vérification par l'équipe (< 24 h)</div>
+                 <button class="btn primary block" style="margin-top:10px;" onclick="App.kycRequired(()=>{})">Reprendre mon dossier</button>`
+              : `<div class="kyc-step"><span class="n">1</span> Photographier la CIN — recto ET verso</div>
                  <div class="kyc-step"><span class="n">2</span> Vérification par l'équipe (< 24 h)</div>
                  <div class="kyc-step"><span class="n">3</span> Dépôts, retraits, tournois et défis débloqués</div>
                  <button class="btn primary block" style="margin-top:10px;" onclick="App.kycRequired(()=>{})">Vérifier mon identité</button>`}
@@ -12583,14 +13327,11 @@ const App = (() => {
     document.querySelectorAll("#profile-root .switch").forEach((sw) => sw.onclick = () => {
       const k = sw.dataset.set; S.settings[k] = !S.settings[k]; sw.classList.toggle("on", S.settings[k]);
     });
-    /* Taille de la photo de profil : elle ne concerne QUE l'avatar. On met donc à
-       jour l'avatar et l'état des pastilles SUR PLACE — l'ancien code relançait
-       `renderProfile()` pour un changement de 20 px, ce qui ramenait la page en
-       haut et reconstruisait tout le Profil. */
-    document.querySelectorAll("#profile-root [data-avsize]").forEach((c) => c.onclick = () => {
-      try { localStorage.setItem("daona_avatar_size", c.dataset.avsize); } catch (e) {}
-      applyAvatarSize();
-    });
+    /* Profil : engrenage et bandeau « à compléter » ouvrent le même écran. */
+    const gear = document.getElementById("pf-gear");
+    if (gear) gear.onclick = () => openProfileEdit();
+    const incomplete = document.getElementById("pf-incomplete");
+    if (incomplete) incomplete.onclick = () => openProfileEdit();
     /* Période de la courbe Elo : D / S / M / A. DÉLÉGATION sur la carte (et non un
        `onclick` par bouton) : les quatre tuiles répondent toujours, y compris
        après un remplacement du corps, et rien ne dépend de l'ordre des rendus.
@@ -12620,9 +13361,8 @@ const App = (() => {
     }
     /* Première peinture de la courbe : elle se trace, une fois. */
     mountEloCurveAnimation(document.getElementById("elo-body"));
-    // Bannière partenaire : fermeture mémorisée sur l'appareil
-    const adClose = document.getElementById("pf3-ad-close");
-    if (adClose) adClose.onclick = () => { try { localStorage.setItem("daona_ad_closed", "1"); } catch (e) {} renderProfile(); };
+    /* Bannière partenaire : plus AUCUN moyen de la désactiver (décision
+       produit) — ni ✕, ni mémoire locale. Elle reste affichée. */
     // Carte de solde façon carte bancaire : ouvre le Wallet ; la tuile « Fonds » lance le dépôt
     const bank = document.getElementById("pf3-bank");
     if (bank) bank.onclick = () => go("wallet");
@@ -12635,31 +13375,18 @@ const App = (() => {
     /* Le CTA boutique est un LIEN vers #/skins : aucun script n'est nécessaire
        (le routeur s'en occupe). L'ancien code descendait dans le profil, où la
        boutique n'existe plus. */
-    // Upload photo de profil
+    /* Photo de profil : sélection → RECADRAGE (zone déplaçable + zoom, aperçu
+       rond) → envoi. Plus de tailles S/M/L, et plus de recadrage centré imposé :
+       le joueur choisit lui-même le cadrage. */
     const av = document.getElementById("profile-avatar");
     const avIn = document.getElementById("avatar-input");
     if (av && avIn) {
       av.onclick = () => avIn.click();
-      avIn.onchange = async () => {
-        const f = avIn.files[0];
+      avIn.onchange = () => {
+        const f = avIn.files && avIn.files[0];
         avIn.value = "";
         if (!f) return;
-        try {
-          toast("Traitement de la photo…");
-          const cropped = await processAvatarFile(f);   // crop carré centré + resize 256px
-          const d = await API.request("/api/user/avatar", "POST", { avatar: cropped });
-          S.avatar = d.avatar;
-          /* La photo vient d'une SEULE source d'état : on la propage aux endroits
-             qui l'affichent déjà (header, accueil, classement) au lieu d'espérer
-             que chacun pense à recharger. C'est ce qui évite « à jour dans le
-             header, périmée sur l'accueil ». */
-          const meRow = (S.leaderboard || []).find((p) => p.me);
-          if (meRow) meRow.avatar = d.avatar;
-          toast("Photo de profil mise à jour ✓");
-          renderProfile(); updateTopbar();
-          if (currentRoute() === "home") renderHome();
-          if (currentRoute() === "ranks") renderRanks();
-        } catch (e) { toast(e.message || "Erreur lors de l'envoi", "error"); }
+        openAvatarCropper(f, () => renderProfile());
       };
     }
   }
@@ -13964,8 +14691,9 @@ const App = (() => {
     }).join("");
     /* Les pseudos viennent du réseau : échappés comme partout ailleurs (mtEsc). */
     verdict.innerHTML = "La pièce tombe sur <b>" + (drawn === "pile" ? "PILE" : "FACE") + "</b>";
-    /* La face montrée à l'arrêt est décidée par le CSS (`rotateY(1080deg)` pour PILE,
-       `1260deg` pour FACE) : l'image affichée ne peut pas diverger du verdict. */
+    /* La face montrée à l'ARRÊT est décidée par `.landed` (voir CSS) : la pièce
+       retombe sur la face tirée par le serveur, quelle que soit l'orientation
+       laissée par le vol (`rotateX`). */
     air.className = "coin-air";
     void air.offsetWidth;                     // relance le vol d'un tirage au prochain
     air.className = "coin-air " + drawn + " on";
@@ -14189,6 +14917,11 @@ const App = (() => {
          ne stocke plus une valeur qu'il ne connaît pas. */
       if (typeof msg.balance === "number") S.balance = msg.balance;
       if (typeof msg.bonusLock === "number") S.bonusLock = msg.bonusLock;
+      /* Réservé = bonus verrouillé + demandes de retrait en cours. Le serveur
+         l'envoie dans la même charge : le « solde disponible » du joueur baisse
+         donc dès qu'il dépose une demande, sans quoi il croirait son argent
+         encore engageable. */
+      if (typeof msg.reserved === "number") S.reserved = msg.reserved;
       updateTopbar();
     });
     API.on("tournament_update", async () => {
@@ -15070,20 +15803,121 @@ const App = (() => {
     } catch (e) { toast(e.message, "error"); }
   }
 
+  /* =========================================================
+     ADMINISTRATION — identite administrative (le reste vit dans `admin/`)
+     ---------------------------------------------------------
+     `adminRefresh()` est la seule source de vérité du droit d'entrée : elle
+     interroge `/api/admin/me` et remplit `S.admin.me`, que lit ensuite le
+     module `admin/`. Elle est appelée depuis `refreshUser()`, donc le bouton du
+     Profil est correct dès le premier rendu — avant même d'ouvrir l'espace.
+
+     `adminCan()` ne sert qu'à MASQUER un bouton ou un écran. Il ne protège
+     rien : le serveur refuse chaque route, quel que soit ce que le client
+     affiche.
+
+     Les écrans, eux, sont dans `admin/` (modules ES chargés à la demande) :
+     quinze vues et leur feuille de style scopée, hors de ce mono-fichier.
+     ========================================================= */
+  const adm = (s) => escHtml(s == null ? "" : String(s));
+  /* Horodatage → « 01/11/2026 08:18 », dans le fuseau du poste. Deux formats
+     cohabitent : SQLite (« 2026-11-01 08:18:15 », UTC) et ISO (« …T08:18:15Z »,
+     dates de tournoi). Le premier est converti explicitement en UTC — sinon un
+     navigateur le lirait comme une heure locale —, puis les deux sont affichés
+     en local, comme partout ailleurs dans l'application. */
+  function admWhen(s) {
+    const raw = String(s || "").trim();
+    if (!raw) return "—";
+    const iso = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(raw) ? raw.replace(" ", "T") + "Z" : raw;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("fr-FR") + " " +
+      d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  async function adminRefresh(force = false) {
+    if (!API.getToken()) { S.admin.me = null; S.admin.modules = []; S.admin.loaded = false; return null; }
+    if (S.admin.loaded && !force) return S.admin.me;
+    try {
+      const d = await API.request("/api/admin/me");
+      S.admin.me = d;
+      S.admin.modules = d.modules || [];
+      S.admin.loaded = true;
+    } catch (e) {
+      /* 401 (session expirée) et 403 (aucun rôle) ont le même effet ici : pas
+         d'espace d'administration. Aucune erreur n'est montrée au joueur. */
+      S.admin.me = null; S.admin.modules = []; S.admin.loaded = true;
+    }
+    return S.admin.me;
+  }
+  const adminCan = (perm) => !!(S.admin.me && (S.admin.me.permissions || []).includes(perm));
+  const adminHasAny = () => !!(S.admin.me && (S.admin.me.permissions || []).length);
+  const adminIsSuper = () => !!(S.admin.me && S.admin.me.superAdmin);
+  /* Bouton du Profil : rendu seulement si AU MOINS une permission existe.
+     Masquer le bouton n'est pas une sécurité — le serveur refuse chaque route —
+     mais c'est ce qui évite d'offrir une porte qui ne s'ouvrira pas. */
+  function adminLinkHtml() {
+    if (!adminHasAny()) return "";
+    return '<button class="btn ghost mini-btn" type="button" onclick="App.go(\'admin\')">⚙ Administration</button>';
+  }
+
+  /* =========================================================
+     ADMINISTRATION — deleguee au module `admin/`
+     ---------------------------------------------------------
+     Le back-office n'est plus dessine ici : il vit dans `admin/`, en modules
+     ES charges A LA DEMANDE. Trois raisons, dans l'ordre d'importance :
+       1. `index.html` est un mono-fichier de 16 700 lignes (objectif : une
+          coquille) ; y ajouter quinze ecrans d'administration l'aurait porte a
+          22 000. Le module sort le back-office de ce fichier sans toucher au
+          reste de l'application.
+       2. Le back-office a sa propre densite visuelle et sa feuille de style
+          SCOPEE (`admin/admin.css`, tout sous `#admin-root`) : aucune de ses
+          regles ne peut repeindre l'accueil, le profil ou le plateau.
+       3. Il ne se telecharge que si quelqu'un ouvre l'espace.
+
+     Ce qui RESTE ici : `adminRefresh()`, `adminCan()`, `adminLinkHtml()` —
+     l'identite administrative dont le Profil a besoin pour afficher (ou non) le
+     bouton d'entree. Le module lit `S.admin.me`, charge une seule fois.
+
+     `window.Admin` (expose par `admin/admin.boot.js`) porte `go()` et
+     `mount()` : `App.adminShow(view)` continue donc de fonctionner.
+     ========================================================= */
+  let adminBoot = null;
+  function adminShow(view) {
+    const root = document.getElementById("admin-root");
+    if (!root) return;
+    if (!adminBoot) {
+      adminBoot = import("./admin/admin.boot.js");
+      /* Pas de `catch` qui masque : si le module ne se charge pas, l'ecran doit
+         le DIRE et la console doit garder la trace. */
+      adminBoot.catch((e) => {
+        adminBoot = null;
+        root.innerHTML = '<p class="muted">Espace d\'administration indisponible. Rechargez la page (Ctrl+F5).</p>';
+        console.error("[admin] chargement impossible", e);
+      });
+    }
+    adminBoot.then((m) => m.mount(view)).catch(() => {});
+  }
+
   /* ------------------ ROUTER ------------------ */
-  const ROUTES = ["home", "play", "board", "match", "ranks", "wallet", "profile", "skins", "chat", "friends", "notifications", "tournament"];
+  const ROUTES = ["home", "play", "board", "match", "ranks", "wallet", "profile", "skins", "chat", "friends", "notifications", "tournament", "admin"];
   /* Routes en « plein écran » (desktop ≥ 1081 px) : la page ne défile plus, ce
      sont les blocs qui défilent en interne. « Jeux » (play) et le plateau (board)
      en sont EXCLUS : leur mise en page (wizard à hauteur calculée, plateau au
      ratio 1647/955 + HUD) a besoin du défilement de page. Ajouter une route ici
      suffit à la faire basculer. */
-  const FILL_ROUTES = ["home", "match", "ranks", "wallet", "profile", "skins", "chat", "friends", "notifications", "tournament"];
+  const FILL_ROUTES = ["home", "match", "ranks", "wallet", "profile", "skins", "chat", "friends", "notifications", "tournament", "admin"];
   const TAB_ROUTES = ["home", "play", "match", "ranks", "wallet", "profile"];   // ordre de la barre d'onglets (notifications = via header)
   let mainTab = null;
   function route() {
     const raw = (location.hash.replace("#/", "") || "home");
     const [h, query] = raw.split("?");
     const r = ROUTES.includes(h) ? h : "home";
+    /* Le parcours « défi depuis un profil » ne survit pas à une entrée
+       quelconque dans l'onglet Jeux : seul `challengeUser` l'arme (voir
+       `_defiIntent`). Sans cette garde, l'étape « Mode » restait supprimée pour
+       toutes les parties suivantes. */
+    if (r === "play" && !_defiIntent) defiDirect = null;
+    _defiIntent = false;
     /* Le plateau embarqué n'existe que sur SON écran. Passer par l'historique
        du navigateur (`hashchange` → `route`) court-circuite `go()` : sans ce
        détachement, le minuteur de l'IA continuait de jouer hors écran et le
@@ -15107,7 +15941,7 @@ const App = (() => {
     if (mainTab && ti >= 0) mainTab.select(ti, true);
     // Profil d'un autre joueur : #/profile?id=<ID joueur>
     const viewId = query ? parseInt(new URLSearchParams(query).get("id")) : null;
-    const renderers = { home: renderHome, play: () => (playLive ? renderLive() : renderPlay()), match: renderMatch, ranks: renderRanks, wallet: renderWallet, profile: viewId && viewId !== S.id ? () => renderPublicProfile(viewId) : async () => { await refreshUser(); await refreshMyTournaments(); renderProfile(); }, skins: async () => { await refreshSkins(); applyPionStyles(); renderSkins(); }, chat: renderChat, friends: renderFriends, notifications: renderNotifications, tournament: () => renderTournamentScreen(viewId), board: renderBoard };
+    const renderers = { home: renderHome, play: () => (playLive ? renderLive() : renderPlay()), match: renderMatch, ranks: renderRanks, wallet: renderWallet, profile: viewId && viewId !== S.id ? () => renderPublicProfile(viewId) : async () => { await refreshUser(); await refreshMyTournaments(); renderProfile(); }, skins: async () => { await refreshSkins(); applyPionStyles(); renderSkins(); }, chat: renderChat, friends: renderFriends, notifications: renderNotifications, tournament: () => renderTournamentScreen(viewId), board: renderBoard, admin: () => adminShow() };
     renderers[r] && renderers[r]();
     /* Le VISIONNAGE SURVIT au changement d'onglet : c'est exactement ce qui rend
        le retour possible via le bouton « Reprendre ». Il se termine de deux
@@ -15124,7 +15958,12 @@ const App = (() => {
     const startTab = TAB_ROUTES.indexOf((location.hash.replace("#/", "") || "home").split("?")[0]);
     mainTab = LightTabbar.init(document.getElementById("mainTabbar"), {
       active: Math.max(0, startTab),
-      onChange: (i, el) => go(el.dataset.route),
+      onChange: (i, el) => {
+        /* « Jeux » repart TOUJOURS de son point de départ (étape 01, liste des
+           jeux), quel que soit l'écran où l'assistant avait été laissé. */
+        if (el.dataset.route === "play") resetPlayWizard();
+        go(el.dataset.route);
+      },
     });
     // Re-mesure la pastille après chargement des polices web (largeurs de libellés)
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => mainTab.measure());
@@ -15148,7 +15987,11 @@ const App = (() => {
     window.addEventListener("resize", () => { if (openPanelName) placePanel(openPanelName); });
     document.getElementById("tb-wallet").onclick = () => go("wallet");
     document.getElementById("tb-avatar").onclick = () => go("profile");
-    document.getElementById("tb-kyc").onclick = () => { if (!S.kyc) kycRequired(() => {}); else toast("Identité vérifiée ✓"); };
+    document.getElementById("tb-kyc").onclick = () => {
+      if (S.kyc) { toast("Identité vérifiée ✓"); return; }
+      if (kycState() === "pending") { toast("Dossier en cours d'examen — réponse sous 24 h.", "warn", 5200); return; }
+      kycRequired(() => {});
+    };
     /* Recherche de joueurs du header : montée une seule fois, elle survit aux
        changements d'écran (le champ est dans la barre haute, pas dans une vue). */
     mountTopSearch();
@@ -15344,6 +16187,36 @@ const App = (() => {
       });
     });
     document.getElementById("btn-theme").onclick = cycleTheme;
+    suivreClavier();
+  }
+
+  /* =========================================================
+     CLAVIER VIRTUEL — la barre d'onglets ne recouvre plus le champ saisi
+     ---------------------------------------------------------
+     `visualViewport` est la seule source fiable : `innerHeight` ne bouge pas
+     quand le clavier s'ouvre. On en déduit la hauteur occupée par le clavier
+     (`--kb-inset`, utilisé par la feuille modale) et on bascule la classe
+     `kb-open` : la barre glisse hors de l'écran, le champ reste visible, et
+     tout revient dès la fermeture. Aucun écouteur par champ : un seul point.
+     ========================================================= */
+  function suivreClavier() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let dernier = -1;
+    const maj = () => {
+      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      /* Seuil : les micro-variations d'URL bar / barre d'état ne doivent pas
+         faire clignoter la barre d'onglets. */
+      const ouvert = kb > 120;
+      document.documentElement.style.setProperty("--kb-inset", ouvert ? kb + "px" : "0px");
+      if (ouvert !== document.documentElement.classList.contains("kb-open"))
+        document.documentElement.classList.toggle("kb-open", ouvert);
+      if (ouvert && kb !== dernier) dernier = kb;
+    };
+    vv.addEventListener("resize", maj);
+    vv.addEventListener("scroll", maj);
+    window.addEventListener("orientationchange", () => setTimeout(maj, 250));
+    maj();
   }
 
   function iconFanorona() {
@@ -15392,6 +16265,10 @@ const App = (() => {
     readNotification, readAllNotifications, confirmPresence,
     openTournament, matchDetail, renderNotifications, renderTournamentScreen,
     backToTournaments,
+    /* Back-office : `adminShow` est le seul point d'entrée utilisé par les
+       boutons inline (retour aux modules, journal). `adminRefresh` reste
+       interne — une vue ne doit pas rafraîchir les droits d'une autre. */
+    adminShow,
     /* Règle PURE des bannières (n° 4) : exposée pour être vérifiée telle quelle,
        sur la configuration réellement servie. */
     pubsActives,

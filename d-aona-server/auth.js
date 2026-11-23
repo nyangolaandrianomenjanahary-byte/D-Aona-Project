@@ -16,7 +16,7 @@
 
 const crypto = require("node:crypto");
 const argon2 = require("@node-rs/argon2");
-const { db, User, Skins } = require("./db");
+const { db, User, Skins, Wallet, Sanction } = require("./db");
 
 /* ---------- Paramètres de hachage -------------------------------------
    Argon2id est l'algorithme recommandé. `algorithm: 2` est explicite
@@ -346,10 +346,18 @@ async function register({ pseudo, password, province = null, phone = null, email
   db.exec("BEGIN");
   try {
     /* L'email est enregistré ici : l'écran d'inscription le propose. */
+    /* `balance` à ZÉRO : le compte d'un VRAI joueur ne reçoit plus de solde
+       d'ouverture de 5 000 Ar (règle PRD). Il démarre à 0 avec le seul BONUS
+       DE BIENVENUE de 1 000 Ar, non retirable (`bonus_lock`), crédité par une
+       écriture au grand livre. Une colonne posée à la main créerait un solde
+       sans trace comptable — le compte neuf violerait l'invariant
+       « solde = Σ écritures ». `Wallet.grantWelcome` est idempotent : le dépôt
+       et l'inscription au tournoi ne peuvent plus le créditer une 2ᵉ fois. */
     const info = db.prepare(
-      "INSERT INTO users (pseudo, elo, balance, province, phone, email, last_seen) VALUES (?, 1100, 5000, ?, ?, ?, ?)"
+      "INSERT INTO users (pseudo, elo, balance, province, phone, email, last_seen) VALUES (?, 1100, 0, ?, ?, ?, ?)"
     ).run(p, province ? String(province).slice(0, 40) : "Antananarivo", cleanPhone, cleanEmail, nowIso());
     userId = Number(info.lastInsertRowid);
+    Wallet.grantWelcome(userId);
     /* Skins gratuits + emplacements par défaut : définition unique, partagée
        avec `User.createOrUpdate` (les deux chemins ne peuvent pas diverger). */
     Skins.ensureDefaults(userId);
@@ -425,6 +433,15 @@ async function login({ pseudo, password, userAgent = null, ip = null }) {
   }
 
   clearFailures(user.id);
+  /* Compte suspendu par la modération. Le contrôle vient APRÈS la vérification
+     du mot de passe : annoncer une suspension à qui ne connaît pas le mot de
+     passe révélerait l'existence et l'état du compte. Ici, les identifiants
+     sont bons — la seule information utile au joueur est la suspension. */
+  if (Sanction.isBlocked(user.id)) {
+    audit({ event: "login_fail", userId: user.id, pseudo: p, ip, userAgent, detail: "compte suspendu" });
+    return { ok: false, status: 403, code: "COMPTE_SUSPENDU",
+      error: "Compte suspendu — contactez le support." };
+  }
   const session = createSession(user.id, { userAgent, ip });
   db.prepare("UPDATE users SET last_seen = ? WHERE id = ?").run(nowIso(), user.id);
   audit({ event: "login_ok", userId: user.id, pseudo: p, sessionId: session.sessionId, ip, userAgent });

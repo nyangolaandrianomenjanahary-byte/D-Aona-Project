@@ -20,6 +20,10 @@ const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 const { chromium } = require("playwright");
 const game = require("./game.js");
+/* Deux images PNG réelles (recto/verso) et l'attribution du rôle
+   d'administration sur la copie jetable : fixtures partagées avec
+   test_scenarios.js. */
+const KYCX = require("./test/kyc_fixtures");
 
 const PORT = Number(process.env.D_AONA_TEST_PORT || 8098);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -128,9 +132,18 @@ async function step(label, fn) {
    NAVIGATEUR + OUTILLAGE DE PAGE
    ========================================================================= */
 const jsErrors = [];
-/* 401 provoqués volontairement par les scénarios (mot de passe erroné) : ce
-   sont les réponses attendues du serveur, pas des défauts de l'application. */
+/* Refus ATTENDUS : réponses du serveur que les scénarios provoquent exprès.
+   401 du test de mot de passe erroné, 403 de `/api/admin/me` pour un joueur
+   sans rôle (le serveur refuse, l'interface masque l'espace : c'est la
+   conception, pas un défaut). Un scénario peut en déclarer d'autres le temps
+   d'une vérification précise (`allowFailure`). */
 const authNoise = [];
+const expectedFailures = ["/api/auth/login", "/api/admin/me"];
+const allowFailure = (frag) => { if (!expectedFailures.includes(frag)) expectedFailures.push(frag); };
+const dropFailure = (frag) => {
+  const i = expectedFailures.indexOf(frag);
+  if (i >= 0) expectedFailures.splice(i, 1);
+};
 async function launchBrowser() {
   const tries = [
     () => chromium.launch({ channel: "msedge" }),
@@ -149,11 +162,13 @@ async function newPlayer(browser, label) {
   page.on("console", (m) => {
     if (m.type() !== "error") return;
     /* Un 401 renvoyé par /api/auth/login est la réponse attendue du test
-       négatif d'authentification (mot de passe erroné) : le navigateur le
-       journalise comme une ressource en échec. On le compte à part. */
+       négatif d'authentification (mot de passe erroné) ; un 403 de
+       /api/admin/me est le refus normal d'un joueur sans rôle. Le navigateur
+       journalise ces réponses comme des ressources en échec : on les compte à
+       part au lieu d'en faire des défauts applicatifs. */
     const where = (m.location && m.location().url) || "";
     const txt = m.text().slice(0, 160);
-    if (where.includes("/api/auth/login")) { authNoise.push(txt); return; }
+    if (expectedFailures.some((f) => where.includes(f))) { authNoise.push(txt); return; }
     jsErrors.push(`[${label}] console: ` + txt);
   });
   return { ctx, page, label };
@@ -177,7 +192,8 @@ const stateOf = (page) => page.evaluate(() => {
   const s = window.App.state();
   return {
     id: s.id, pseudo: s.pseudo, elo: s.elo, balance: s.balance, bonusLock: s.bonusLock,
-    kyc: s.kyc, currentSession: s.currentSession, playerNum: s.playerNum,
+    kyc: s.kyc, kycStatus: s.kycStatus, kycReason: s.kycReason,
+    currentSession: s.currentSession, playerNum: s.playerNum,
     skins: s.skins, pion: s.pion, notifUnread: s.notifUnread, bonusUsed: s.bonusUsed,
     route: (location.hash || "").replace("#/", "").split("?")[0],
   };
@@ -194,6 +210,48 @@ async function apiFromPage(page, p, method = "GET", body = null) {
   let json = null;
   try { json = await r.json(); } catch (e) {}
   return { status: r.status, json };
+}
+
+/* ---------- Administration : compte + revue d'identité ----------
+   La vérification KYC est MANUELLE : un dossier déposé reste « en attente »
+   jusqu'à la décision d'un administrateur. Ce compte d'administration est un
+   VRAI compte de la campagne (inscrit par l'interface, comme un joueur) ; son
+   rôle lui est donné par le script hôte `admin_grant.js` — il n'existe aucun
+   lien d'invitation, et c'est voulu : un tel lien, s'il fuyait, offrirait les
+   pleins pouvoirs. */
+let ADMIN = null;
+async function ensureAdmin(browser) {
+  if (ADMIN) return ADMIN;
+  const p = await ensure(browser, "AD");
+  const g = KYCX.grantAdmin(path.join(tmpDir, "d-aona.db"), p.pseudo);
+  if (!g.ok) throw new Error("attribution du rôle super_admin impossible : " + g.out);
+  ADMIN = p;
+  return ADMIN;
+}
+
+/* Dépose un dossier recto + verso puis le fait approuver par l'administrateur.
+   Renvoie le corps de l'approbation (`{ status: "verified" }`) ou null.
+
+   IDEMPOTENT : le statut d'identité est une donnée du SERVEUR, pas de la page.
+   Plusieurs comptes sont PARTAGÉS par les scénarios d'une même campagne ; un
+   scénario antérieur (S9) avait fait approuver le compte sans que sa page ait
+   rechargé, donc `S.kyc` était périmé. Un second envoi se heurtait alors à
+   `409 DEJA_VERIFIE` — la campagne complète échouait là où le scénario isolé
+   passait. On demande donc d'abord le statut réel, et s'il est déjà vérifié, on
+   recharge la page : c'est exactement ce que fait l'application au démarrage. */
+async function verifyKycViaApi(page, browser) {
+  const st = await apiFromPage(page, "/api/user");
+  const u = (st.json && st.json.user) || {};
+  if (u.kyc_status === "verified" || u.kyc === true) {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await sleep(2400);
+    return { status: "verified", kyc: true, already: true };
+  }
+  const sub = await apiFromPage(page, "/api/kyc/submit", "POST", { recto: KYCX.recto(), verso: KYCX.verso() });
+  if (sub.status !== 200) return null;
+  const adm = await ensureAdmin(browser);
+  const r = await apiFromPage(adm.page, `/api/admin/kyc/${sub.json.caseId}/approve`, "POST", {});
+  return r.status === 200 ? r.json : null;
 }
 
 /* =========================================================================
@@ -554,12 +612,19 @@ async function s1_auth(browser) {
     return r;
   });
 
-  await step("session ouverte : écran d'authentification masqué + solde de bienvenue 5 000 Ar", async () => {
+  await step("session ouverte : écran d'authentification masqué + bonus de 1 000 Ar verrouillé", async () => {
     if (await visible(A.page, "#auth")) return "l'écran de connexion reste affiché après inscription";
     const s = await stateOf(A.page);
     if (s.pseudo !== A.pseudo) return "pseudo en session inattendu : " + s.pseudo;
+    const u = await apiFromPage(A.page, "/api/user");
+    if (u.json.user.balance !== 1000 || u.json.user.bonus_lock !== 1000)
+      return "bonus de bienvenue inattendu : " + JSON.stringify({ balance: u.json.user.balance, lock: u.json.user.bonus_lock });
+    /* Le header affiche le DISPONIBLE (solde − réservé) : le seul crédit d'un
+       compte neuf est le bonus de 1 000 Ar, NON retirable → 0 disponible. */
     const bal = (await textOf(A.page, "#tb-balance")) || "";
-    if (!/5\s?000/.test(bal.replace(/[\u202f\u00a0]/g, " "))) return "solde affiché inattendu : " + bal;
+    const attendu = new Intl.NumberFormat("fr-FR").format(u.json.user.withdrawable);
+    const nu = (x) => String(x).replace(/[\u202f\u00a0]/g, " ").trim();
+    if (nu(bal) !== nu(attendu)) return "header « " + bal + " » alors que le disponible est " + attendu;
     return true;
   });
 
@@ -849,8 +914,14 @@ async function s2_nav(browser) {
     const solde = d.tuiles.find((t) => /solde/i.test(t)) || "";
     const nu = (s) => String(s).replace(/[\s\u00a0\u202f]/g, "");
     if (!/Ar/.test(solde)) return "le solde n'affiche pas l'unité « Ar » : « " + solde + " »";
-    if (!nu(solde).includes(nu(d.etat.balance)))
-      return `le solde affiché (« ${solde} ») ne correspond pas au wallet réel (${d.etat.balance})`;
+    /* Le solde affiché est le DISPONIBLE (solde − réservé), la même règle que le
+       header, le Wallet et le Profil : le bonus de bienvenue (1 000 Ar) est
+       verrouillé et ne compte donc pas. La valeur de référence vient du SERVEUR
+       (`withdrawable`), pas d'une reconstruction locale. */
+    const apiUser = await apiFromPage(A.page, "/api/user");
+    const dispo = apiUser.json.user.withdrawable;
+    if (!nu(solde).includes(nu(dispo)))
+      return `le solde affiché (« ${solde} ») ne correspond pas au disponible réel (${dispo})`;
     if (!d.tuiles.some((t) => /parties jou/i.test(t))) return "l'indicateur « Parties jouées » manque";
     return d.tuiles.some((t) => /victoires/i.test(t)) ? true : "l'indicateur « Victoires » manque";
   });
@@ -865,14 +936,23 @@ async function s2_nav(browser) {
 /* =========================================================================
    S3 — ENTRAÎNEMENT CONTRE L'IA : assistant, plateau, tirage au sort, coups
    ========================================================================= */
-async function wizard(page, { mode = "ai", fmt = "blitz" }) {
+async function wizard(page, { mode = "ai", fmt = "blitz", variant = "fanoron-tsivy" }) {
   /* UN CHOIX VAUT « SUIVANT » : depuis le lot « onglet Jeux », la flèche « Suivant »
      n'existe plus et le CTA (lancement) n'apparaît qu'à l'étape 4. On clique donc la
-     tuile du jeu, puis le mode, puis le format — le geste réel d'un joueur. */
+     tuile du jeu, puis le PLATEAU, puis le mode, puis le format — le geste réel d'un
+     joueur. Le plateau est une étape à part entière : depuis le lot « trois
+     plateaux », taper la tuile du jeu ouvre la sous-vue des variantes DANS l'étape 1
+     et c'est la variante qui fait passer à l'étape 2 (les tuiles de mode n'existent
+     qu'à `playStep === 2`). Les deux joueurs d'une partie classée doivent choisir le
+     MÊME plateau : il est donc nommé explicitement, jamais pris « au hasard ». */
   await goScreen(page, "play");
   const game = page.locator("#play-root .pg-opt[data-game]");
   if (!(await game.count())) return "aucune tuile de jeu à l'étape 1 de l'assistant";
-  await game.first().click();          /* étape 1 → 2 */
+  await game.first().click();          /* étape 1 → sous-vue des plateaux */
+  await sleep(400);
+  const plat = page.locator(`#play-root .pg-opt[data-variant="${variant}"]`);
+  if (!(await plat.count())) return `aucun plateau « ${variant} » à l'étape 1`;
+  await plat.first().click();          /* étape 1 (plateau) → 2 */
   await sleep(400);
   const opt = page.locator(`#play-root .pg-opt[data-mode="${mode}"]`);
   if (!(await opt.count())) return `aucune option de mode « ${mode} » à l'étape 2`;
@@ -1276,6 +1356,7 @@ async function s6_online_play(browser) {
 async function s7_wallet(browser) {
   const A = await ensure(browser, "A");
   let before = 0;
+  let dispoApres = 0;
 
   await step("le bouton de la barre du haut ouvre le wallet", async () => {
     await goScreen(A.page, "home");
@@ -1294,14 +1375,90 @@ async function s7_wallet(browser) {
     await sleep(1100);
     const m = await modalText(A.page);
     if (!/vérification d'identité|KYC/i.test(m)) return "aucune demande de KYC avant dépôt : « " + m.slice(0, 70) + " »";
-    return (await visible(A.page, "#kyc-upload")) ? true : "bouton de vérification de la CIN absent";
+    /* TROIS emplacements (recto, verso ET selfie) : le selfie est la pièce
+       ajoutée au parcours KYC (caméra frontale). */
+    const slots = await A.page.evaluate(() => {
+      const q = (s) => document.querySelector(s);
+      const send = q("#kyc-send");
+      return {
+        recto: !!q('[data-kyc-input="recto"]'),
+        verso: !!q('[data-kyc-input="verso"]'),
+        visage: !!q('[data-kyc-input="visage"]'),
+        captureUser: (q('[data-kyc-input="visage"]') || {}).getAttribute
+          ? q('[data-kyc-input="visage"]').getAttribute("capture") : null,
+        disabled: !!send && !!send.disabled,
+      };
+    });
+    if (!slots.recto || !slots.verso || !slots.visage) return "les trois emplacements (recto, verso, selfie) ne sont pas proposés";
+    if (slots.captureUser !== "user") return "le selfie n'ouvre pas la caméra FRONTALE (capture=" + slots.captureUser + ")";
+    return slots.disabled ? true : "le bouton d'envoi est déjà actif avant toute photo";
   });
 
-  await step("la vérification d'identité simulée ouvre l'accès au dépôt", async () => {
-    await A.page.click("#kyc-upload");
-    await sleep(3200);
+  await step("une seule face ne suffit pas : l'envoi reste impossible", async () => {
+    await A.page.locator('[data-kyc-input="recto"]').setInputFiles(KYCX.rectoFile());
+    await sleep(1500);
+    const st = await A.page.evaluate(() => {
+      const b = document.getElementById("kyc-send");
+      return { present: !!b, disabled: !!b && !!b.disabled, vignette: !!document.querySelector(".kyc-face.has img") };
+    });
+    if (!st.vignette) return "la vignette du recto ne s'affiche pas après la photo";
+    if (!st.present) return "le bouton d'envoi a disparu du formulaire";
+    return st.disabled ? true : "l'envoi est possible avec le recto seul";
+  });
+
+  await step("les trois pièces envoyées : dossier « en attente », dépôt toujours fermé", async () => {
+    await A.page.locator('[data-kyc-input="verso"]').setInputFiles(KYCX.versoFile());
+    await sleep(1500);
+    /* Le verso seul ne suffit plus : le selfie est la troisième pièce. */
+    const apresVerso = await A.page.evaluate(() => {
+      const b = document.getElementById("kyc-send");
+      return !!b && !!b.disabled;
+    });
+    if (!apresVerso) return "l'envoi est possible sans le selfie";
+    await A.page.locator('[data-kyc-input="visage"]').setInputFiles(KYCX.visageFile());
+    await sleep(1500);
+    const enabled = await A.page.evaluate(() => {
+      const b = document.getElementById("kyc-send");
+      return !!b && !b.disabled;
+    });
+    if (!enabled) return "le bouton d'envoi reste inactif alors que les trois pièces sont prises";
+    await A.page.click("#kyc-send");
+    await sleep(2600);
     const m = await modalText(A.page);
-    if (!/déposer/i.test(m)) return "le formulaire de dépôt n'apparaît pas après vérification : « " + m.slice(0, 70) + " »";
+    if (!/dossier envoyé|en attente/i.test(m)) return "aucune confirmation d'envoi : « " + m.slice(0, 80) + " »";
+    /* Le dépôt ne doit PAS s'ouvrir : un dossier en attente n'ouvre aucune
+       transaction — c'est la décision d'un administrateur qui l'ouvre. */
+    if (await visible(A.page, "#dep-amt")) return "le formulaire de dépôt s'ouvre alors que la revue n'a pas eu lieu";
+    const s = await stateOf(A.page);
+    if (s.kyc) return "l'application se croit vérifiée sans décision de l'administration";
+    return s.kycStatus === "pending" ? true : "l'état local n'est pas « en attente » : " + s.kycStatus;
+  });
+
+  await step("après approbation par l'administration, le dépôt s'ouvre", async () => {
+    const adm = await ensureAdmin(browser);
+    /* On passe par la FILE DE REVUE, comme le ferait l'administrateur : on y
+       retrouve le dossier du compte A, puis on l'approuve. */
+    const queue = await apiFromPage(adm.page, "/api/admin/kyc?status=pending");
+    const cases = (queue.json && queue.json.cases) || [];
+    const mine = await stateOf(A.page);
+    const dossier = cases.find((c) => c.user_id === mine.id);
+    if (!dossier) return "le dossier déposé n'apparaît pas dans la file de revue";
+    if (!dossier.bytes_recto || !dossier.bytes_verso) return "le dossier ne porte pas les DEUX pièces";
+    const ap = await apiFromPage(adm.page, `/api/admin/kyc/${dossier.id}/approve`, "POST", {});
+    if (ap.status !== 200 || !ap.json || ap.json.status !== "verified") {
+      return "approbation impossible : " + JSON.stringify(ap.json);
+    }
+    await A.page.reload({ waitUntil: "domcontentloaded" });
+    await sleep(3000);
+    const s = await stateOf(A.page);
+    if (!s.kyc) return "le KYC approuvé n'est pas relu par l'application après rechargement";
+    await goScreen(A.page, "wallet");
+    await sleep(1400);
+    await A.page.locator("#wallet-root button", { hasText: "Déposer" }).first().click();
+    await sleep(1300);
+    if (!(await visible(A.page, "#dep-amt"))) {
+      return "le formulaire de dépôt ne s'ouvre toujours pas : « " + (await modalText(A.page)).slice(0, 70) + " »";
+    }
     return true;
   });
 
@@ -1320,13 +1477,18 @@ async function s7_wallet(browser) {
     await sleep(3200);
     const s = await stateOf(A.page);
     if (s.balance !== before + 10000) return `solde ${before} -> ${s.balance} (attendu ${before + 10000})`;
+    /* La barre du haut affiche le solde DISPONIBLE (solde − réservé), comme le
+       Wallet et le Profil : c'est la règle unique de l'écran. Le bonus de
+       bienvenue (1 000 Ar) est verrouillé, il ne s'affiche donc pas ici. */
+    const u = await apiFromPage(A.page, "/api/user");
+    dispoApres = u.json.user.withdrawable;
     const top = (await textOf(A.page, "#tb-balance")) || "";
-    const fmt = new Intl.NumberFormat("fr-FR").format(s.balance).replace(/[\u202f\u00a0]/g, " ");
+    const fmt = new Intl.NumberFormat("fr-FR").format(dispoApres).replace(/[\u202f\u00a0]/g, " ");
     return top.replace(/[\u202f\u00a0]/g, " ").includes(fmt)
-      ? true : "la barre du haut n'affiche pas le nouveau solde : " + top;
+      ? true : "la barre du haut n'affiche pas le disponible (" + dispoApres + ") : " + top;
   });
 
-  await step("le retrait est débloqué et débite le solde", async () => {
+  await step("le retrait est débloqué : la DEMANDE est déposée sans débit", async () => {
     await A.page.locator("#wallet-root button", { hasText: "Retirer" }).first().click();
     await sleep(1100);
     if (!(await visible(A.page, "#wd-amount"))) {
@@ -1338,9 +1500,22 @@ async function s7_wallet(browser) {
     await A.page.click("#wd-ok");
     await sleep(3200);
     const s = await stateOf(A.page);
-    if (s.balance === before + 10000 - 2000) return true;
-    const t = (await toasts(A.page)).join(" | ");
-    return `solde ${before + 10000} -> ${s.balance} (attendu ${before + 8000})${t ? " — message : " + t : ""}`;
+    /* Depuis la refonte, un retrait est une DEMANDE instruite par la finance :
+       le solde ne bouge PAS, le montant devient RÉSERVÉ. Ce qui doit être vrai
+       ici : la demande existe côté serveur (pending), le solde est intact et le
+       disponible a baissé de 2 000 Ar. */
+    const u = await apiFromPage(A.page, "/api/user");
+    const w = u.json && u.json.withdrawal;
+    if (!w) {
+      const t = (await toasts(A.page)).join(" | ");
+      return "aucune demande de retrait enregistrée" + (t ? " — message : " + t : "");
+    }
+    if (s.balance !== before + 10000) return `le solde a bougé : ${before + 10000} -> ${s.balance}`;
+    if (w.amount !== 2000 || w.status !== "pending")
+      return "demande inattendue : " + JSON.stringify(w);
+    const dispo = u.json.user.withdrawable;
+    if (dispo !== dispoApres - 2000) return `disponible ${dispo} (attendu ${dispoApres - 2000})`;
+    return true;
   });
 
   await step("l'historique des transactions contient le dépôt", async () => {
@@ -1848,11 +2023,11 @@ async function s9_tournament(browser) {
        campagne complète, est ce qui vérifiait le KYC). On le vérifie ici :
        le scénario devient réellement autonome, comme annoncé plus haut. */
     if (!(await stateOf(A.page)).kyc) {
-      const r = await apiFromPage(A.page, "/api/kyc/verify", "POST", {});
-      if (!r.json || r.json.kyc !== true) return "impossible de vérifier le KYC du compte de test";
+      const r = await verifyKycViaApi(A.page, browser);
+      if (!r || r.status !== "verified") return "impossible de faire approuver le KYC du compte de test";
       await A.page.reload({ waitUntil: "domcontentloaded" });
       await sleep(2500);
-      if (!(await stateOf(A.page)).kyc) return "le KYC vérifié n'est pas relu par l'application";
+      if (!(await stateOf(A.page)).kyc) return "le KYC approuvé n'est pas relu par l'application";
       /* Le rechargement repart sur l'onglet « En direct » : on revient sur les
          tournois, sinon le bouton cherché n'existe pas dans la page. */
       await goMatchTab(A.page, "tournois");
@@ -1927,7 +2102,7 @@ async function s9_tournament(browser) {
     if (del.changes !== 1) return "aucune inscription à retirer pour l'utilisateur " + me.id;
     const B = await ensure(browser, "B");
     let bs = await stateOf(B.page);
-    if (!bs.kyc) { await apiFromPage(B.page, "/api/kyc/verify", "POST", {}); bs = await stateOf(B.page); }
+    if (!bs.kyc) { await verifyKycViaApi(B.page, browser); bs = await stateOf(B.page); }
     if (bs.balance < 1000) await apiFromPage(B.page, "/api/deposit", "POST", { amount: 1000, operator: "MVola" });
     const joinB = await apiFromPage(B.page, "/api/tournaments/join", "POST", { tournamentId: TID_UI });
     if (joinB.status !== 200) return "impossible de déclencher la diffusion serveur : " + JSON.stringify(joinB.json);
@@ -2192,6 +2367,7 @@ const SCENARIOS = [
   ["S11", "Messagerie : dock, envoi et réception temps réel", () => s11_chat(BROWSER)],
   ["S12", "Écran Match : héro, tuiles de statistiques, deux colonnes, défis réels et annulation", () => s12_match(BROWSER)],
   ["S13", "Données : classement vivant, badge Amis, photo de profil, noms cliquables, Elo gagné/perdu", () => s13_datafix(BROWSER)],
+  ["S14", "Administration : bouton du profil, cartes de modules, écrans réels, interrupteur", () => s14_admin(BROWSER)],
 ];
 let BROWSER = null;
 
@@ -2321,44 +2497,63 @@ async function s12_match(browser) {
     return tpl && tpl !== "none" ? tpl.split(" ").filter(Boolean).length : 0;
   }, sel);
 
-  /* Vérifie le KYC comme le fait l'application après la simulation de la CIN :
-     le serveur persiste, puis la page recharge son état (S.kyc est lu au
-     démarrage). Un défi AVEC MISE est refusé sans KYC — on ne court-circuite pas
-     la règle, on la respecte. */
+  /* Vérifie le KYC comme le fait un administrateur : dépôt des DEUX faces puis
+     approbation par le compte d'administration, et la page recharge son état
+     (S.kyc est lu au démarrage). Un défi AVEC MISE est refusé sans KYC — on ne
+     court-circuite pas la règle, on la respecte. */
   const mtVerify = async (p) => {
     if ((await stateOf(p.page)).kyc) return true;
-    const r = await apiFromPage(p.page, "/api/kyc/verify", "POST", {});
-    if (!r.json || r.json.kyc !== true) return false;
+    const r = await verifyKycViaApi(p.page, browser);
+    if (!r || r.status !== "verified") return false;
     await p.page.reload({ waitUntil: "domcontentloaded" });
     await sleep(2800);
     return (await stateOf(p.page)).kyc === true;
   };
 
-  /* Envoi d'un défi par le geste réel : l'adversaire est choisi dans la colonne
-     « Joueurs en ligne », puis l'assistant de l'écran Jeux (déjà configuré en
-     mode défi par ce clic) est mené jusqu'à la mise en jeu. */
-  const mtSendChallenge = async (p, pseudo) => {
+  /* Ouvre l'assistant de défi depuis la colonne « Joueurs en ligne » et le mène
+     jusqu'au RÉCAPITULATIF : jeu → plateau → format. L'étape 02 (Mode) est
+     RETIRÉE de ce parcours (le mode est déjà « défi »), c'est le récapitulatif
+     qui porte l'adversaire et la mise. Renvoie true, ou le message d'échec. */
+  const mtOuvrirDefi = async (p, pseudo) => {
     await goMatchTab(p.page, "defis");
     const sel = '#mt-online-root [data-mtdefy="' + pseudo + '"]';
     if (!(await until(p.page, (s) => !!document.querySelector(s), sel, 9000))) {
       return "adversaire « " + pseudo + " » absent de la colonne Joueurs en ligne";
     }
     await mtClick(p.page, sel);
-    /* Le défi ouvre l'assistant à l'ÉTAPE 2 (mode « Défi » déjà sélectionné, le
-       formulaire affiché). Un choix vaut « suivant » : la MISE valide le défi, puis
-       le FORMAT, et le CTA de l'étape 4 envoie le défi. */
-    const wagerSel = "#play-root [data-wager]";
-    if (!(await until(p.page, (s) => !!document.querySelector(s), wagerSel, 9000))) {
-      return "l'assistant de mise en jeu ne s'ouvre pas sur le mode défi";
+    const gameSel = "#play-root .pg-opt[data-game]";
+    if (!(await until(p.page, (s) => !!document.querySelector(s), gameSel, 9000))) {
+      return "l'assistant ne s'ouvre pas sur le choix du jeu";
     }
-    await mtClick(p.page, wagerSel);
-    await sleep(600);
+    await mtClick(p.page, gameSel);
+    await sleep(500);
+    const varSel = "#play-root .pg-opt[data-variant]";
+    if (!(await until(p.page, (s) => !!document.querySelector(s), varSel, 9000))) {
+      return "les plateaux ne s'ouvrent pas après le choix du jeu";
+    }
+    await mtClick(p.page, varSel);
+    await sleep(650);
     const fmtSel = "#play-root .pg-fmt:not(.off)";
     if (!(await until(p.page, (s) => !!document.querySelector(s), fmtSel, 9000))) {
-      return "aucun format disponible après la mise du défi";
+      return "aucun format proposé après le choix du plateau";
     }
     await mtClick(p.page, fmtSel);
-    await sleep(600);
+    await sleep(650);
+    if (!(await until(p.page, (s) => !!document.querySelector(s), "#play-root [data-wager]", 9000))) {
+      return "l'assistant de mise en jeu ne s'ouvre pas sur le récapitulatif du défi";
+    }
+    return true;
+  };
+
+  /* Envoi d'un défi par le geste réel : l'adversaire est choisi dans la colonne
+     « Joueurs en ligne », puis l'assistant de l'écran Jeux est mené jusqu'au
+     récapitulatif (voir `mtOuvrirDefi`) où la mise et l'envoi se règlent. */
+  const mtSendChallenge = async (p, pseudo) => {
+    const ouvert = await mtOuvrirDefi(p, pseudo);
+    if (ouvert !== true) return ouvert;
+    const wagerSel = "#play-root [data-wager]";
+    await mtClick(p.page, wagerSel);
+    await sleep(500);
     if (!(await until(p.page, () => !!document.getElementById("pg-cta"), 9000))) {
       return "l'étape de lancement du défi ne s'ouvre pas";
     }
@@ -2387,6 +2582,17 @@ async function s12_match(browser) {
       minutes: Math.round((exp - ret) / 60000),
     };
   });
+  /* Solde de départ de la campagne : depuis la règle PRD, un compte neuf ne
+     porte que le bonus de 1 000 Ar (verrouillé). Les scénarios de défi misent
+     plusieurs fois 500 Ar : on réalimente les DEUX joueurs UNE fois, au début,
+     pour que les refus mesurés plus loin soient ceux du scénario (plafond,
+     solde volontairement insuffisant) et non un manque d'argent hérité. */
+  for (const P of [A, B]) {
+    await apiFromPage(P.page, "/api/deposit", "POST", { amount: 8000, operator: "MVola" });
+    await P.page.reload({ waitUntil: "domcontentloaded" });
+    await sleep(2400);
+  }
+
   await step("l'écran Match est un héro avec trois tuiles de statistiques, aucun « À jouer »", async () => {
     await goScreen(A.page, "match");
     const info = await A.page.evaluate(() => {
@@ -2631,11 +2837,8 @@ async function s12_match(browser) {
      Ariary, la validation nomme ce qui ne va pas, et le montant retenu vaut pour
      les DEUX joueurs — pot recalculé, et le défi part réellement avec ce montant. */
   await step("« Montant personnalisé » : chaque saisie invalide est refusée avec un message clair", async () => {
-    await goMatchTab(A.page, "defis");
-    const sel = '#mt-online-root [data-mtdefy="' + B.pseudo + '"]';
-    if (!(await until(A.page, (s) => !!document.querySelector(s), sel, 9000)))
-      return "adversaire absent de la colonne Joueurs en ligne";
-    await mtClick(A.page, sel);
+    const ouvert = await mtOuvrirDefi(A, B.pseudo);
+    if (ouvert !== true) return ouvert;
     if (!(await until(A.page, () => !!document.querySelector("#play-root [data-wager-perso]"), 9000)))
       return "le bouton « Montant personnalisé » n'est pas proposé dans « Mise du défi »";
     await mtClick(A.page, "#play-root [data-wager-perso]");
@@ -2677,25 +2880,24 @@ async function s12_match(browser) {
 
   await step("le montant personnalisé s'applique aux DEUX joueurs et le pot est recalculé", async () => {
     const MONTANT = 1500;
+    /* Les deux joueurs ont été réalimentés au début du scénario (règle PRD :
+       un compte neuf n'a que 1 000 Ar de bonus verrouillé). */
     /* On rouvre l'assistant depuis la colonne des joueurs en ligne : l'étape
        précédente a pu laisser l'écran ailleurs (elle se termine sur l'onglet
        Défis), et un clic dans une vue masquée ne mesurerait rien. */
-    await goMatchTab(A.page, "defis");
-    const cible = '#mt-online-root [data-mtdefy="' + B.pseudo + '"]';
-    if (!(await until(A.page, (s) => !!document.querySelector(s), cible, 9000)))
-      return "adversaire absent de la colonne Joueurs en ligne";
-    await mtClick(A.page, cible);
+    const ouvert = await mtOuvrirDefi(A, B.pseudo);
+    if (ouvert !== true) return ouvert;
     if (!(await until(A.page, () => !!document.querySelector("#play-root [data-wager-perso]"), 9000)))
       return "l'assistant ne s'ouvre pas sur la mise du défi";
     await A.page.click("#play-root [data-wager-perso]");
     await sleep(400);
     await A.page.fill("#wager-perso", String(MONTANT));
     await A.page.click("#wager-perso-ok");
-    /* La mise vaut validation : l'assistant passe à l'étape du format. */
-    if (!(await until(A.page, () => !!document.querySelector("#play-root .pg-fmt:not(.off)"), 8000)))
-      return "la mise personnalisée valide n'ouvre pas l'étape du format";
-    await mtClick(A.page, "#play-root .pg-fmt:not(.off)");
-    await sleep(600);
+    /* Dans le parcours direct, la mise se règle SUR LE RÉCAPITULATIF (l'étape
+       Mode est retirée) : valider le montant y ramène, le format étant déjà
+       choisi. */
+    if (!(await until(A.page, () => !!document.querySelector("#play-root .pg-recap"), 8000)))
+      return "le récapitulatif du défi ne s'affiche pas après la mise personnalisée";
     if (!(await until(A.page, () => !!document.getElementById("pg-cta"), 8000)))
       return "l'étape de lancement ne s'ouvre pas";
     const recap = await A.page.evaluate(() => (document.querySelector(".pg-recap") || {}).innerText || "");
@@ -2896,7 +3098,7 @@ async function s12_match(browser) {
   });
 }
 
-/* =========================================================================
+﻿/* =========================================================================
    S13 — DONNÉES : classement vivant, badge Amis, photo de profil, noms
    cliquables et Elo gagné/perdu
    =========================================================================
@@ -3130,6 +3332,11 @@ async function s13_datafix(browser) {
     await sleep(900);
     const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==", "base64");
     await A.page.setInputFiles("#avatar-input", { name: "photo.png", mimeType: "image/png", buffer: png });
+    /* La photo passe par le RECADREUR (zone déplaçable + zoom, aperçu rond) :
+       le test le traverse comme le joueur, en validant le cadrage. */
+    if (!(await until(A.page, () => !!document.getElementById("av-crop-ok"), 15000)))
+      return "le recadreur de photo ne s'ouvre pas";
+    await A.page.click("#av-crop-ok");
     if (!(await until(A.page, () => !!document.querySelector("#profile-avatar img"), 15000)))
       return "la photo déposée n'apparaît pas dans la carte profil";
     const src = await A.page.evaluate(() => document.querySelector("#profile-avatar img").getAttribute("src"));
@@ -3332,5 +3539,140 @@ async function s13_datafix(browser) {
       if (hit) bad.push(`${r} : « ${hit} »`);
     }
     return bad.length ? bad.slice(0, 3).join(" | ") : true;
+  });
+}
+
+/* =========================================================================
+   S14 — ADMINISTRATION : bouton du profil, cartes de modules, écrans réels
+   =========================================================================
+   Le back-office est un espace à droits. Ce scénario vérifie d'abord qu'un
+   joueur ORDINAIRE ne le voit pas et n'en reçoit aucune gêne, puis qu'un super
+   administrateur — rôle attribué par `admin_grant.js` sur la COPIE de la base —
+   ouvre les écrans et y lit des données RÉELLES. Chaque étape compare ce que
+   l'écran AFFICHE à ce que l'API RÉPOND : aucun droit n'est supposé.
+   ========================================================================= */
+async function s14_admin(browser) {
+  const A = await ensure(browser, "A");
+  const AD = await ensureAdmin(browser);
+
+  await step("un joueur sans rôle ne voit aucun bouton « Administration »", async () => {
+    await goScreen(A.page, "profile");
+    await sleep(700);
+    const has = await A.page.locator('#profile-root button:has-text("Administration")').count();
+    return has ? "le bouton d'administration est proposé à un joueur sans rôle" : true;
+  });
+
+  await step("la route #/admin refuse proprement et SANS message d'erreur", async () => {
+    await goScreen(A.page, "admin");
+    await sleep(900);
+    const txt = await A.page.evaluate(() => ((document.getElementById("admin-root") || {}).innerText || ""));
+    if (!/acc[eè]s refus/i.test(txt)) return "la route #/admin n'annonce pas le refus : « " + txt.slice(0, 90) + " »";
+    /* Le 403 de /api/admin/me est attendu : il ne doit pas produire de toast. */
+    const t = (await toasts(A.page)).join(" | ");
+    if (/refus|erreur|403/i.test(t)) return "un refus silencieux a produit un message visible : " + t;
+    /* La v2 ne peint AUCUN écran pour un compte sans rôle : ni barre latérale,
+       ni module. Seul le message de refus est attendu. */
+    const nav = await A.page.locator("#admin-root [data-voir]").count();
+    return nav === 0 ? true : "des modules sont proposés malgré le refus (" + nav + ")";
+  });
+
+  await step("après attribution du rôle, le profil propose « Administration »", async () => {
+    /* Le rôle a été écrit en base APRÈS l'ouverture de la session : la page
+       recharge ses droits, comme au démarrage de l'application. */
+    await AD.page.reload({ waitUntil: "domcontentloaded" });
+    await sleep(2600);
+    const me = await apiFromPage(AD.page, "/api/admin/me");
+    if (me.status !== 200) return "/api/admin/me répond " + me.status + " au super administrateur";
+    await goScreen(AD.page, "profile");
+    await sleep(900);
+    const btn = AD.page.locator('#profile-root button:has-text("Administration")').first();
+    if (!(await btn.count())) return "aucun bouton « Administration » dans le profil malgré le rôle";
+    await btn.click();
+    const ok = await until(AD.page, () => (location.hash || "").includes("admin"), 8000);
+    await sleep(1200);
+    return ok ? true : "le clic sur « Administration » n'ouvre pas la route admin";
+  });
+
+  await step("la barre latérale liste EXACTEMENT les modules du catalogue serveur", async () => {
+    await goScreen(AD.page, "admin");
+    await sleep(1800);
+    const api = await apiFromPage(AD.page, "/api/admin/modules");
+    const mods = (api.json && api.json.modules) || [];
+    if (!mods.length) return "le catalogue serveur est vide";
+    /* Les entrées de navigation sont construites À PARTIR du catalogue : une
+       vue ne peut pas exister sans son module, ni l'inverse. */
+    const shown = await AD.page.evaluate(() => [...document.querySelectorAll("#admin-root [data-voir]")]
+      .map((b) => ({ id: b.dataset.voir })));
+    if (shown.length !== mods.length)
+      return shown.length + " entrée(s) affichée(s) pour " + mods.length + " module(s)";
+    const missing = mods.filter((m) => !shown.some((s) => s.id === m.id));
+    if (missing.length) return "modules absents de la barre : " + missing.map((m) => m.id).join(", ");
+    return true;
+  });
+
+  await step("écran Campagnes : les bannières affichées sont celles servies par l'API", async () => {
+    await AD.page.evaluate(() => window.Admin.go("campaigns"));
+    await sleep(1600);
+    const api = await apiFromPage(AD.page, "/api/admin/ads");
+    const ads = (api.json && api.json.ads) || [];
+    const shown = await AD.page.evaluate(() => ({
+      n: document.querySelectorAll("#admin-root tbody tr").length,
+      txt: ((document.getElementById("admin-root") || {}).innerText || ""),
+    }));
+    if (ads.length && !shown.n) return ads.length + " bannière(s) côté serveur, aucune ligne à l'écran";
+    if (!ads.length && !/aucune banni/i.test(shown.txt)) return "aucune bannière au serveur et aucun message explicite";
+    return /\bundefined\b/.test(shown.txt) ? "l'écran Campagnes contient « undefined »" : true;
+  });
+
+  await step("écran Rôles : un contrôle par droit, rôle protégé en lecture seule", async () => {
+    await AD.page.evaluate(() => window.Admin.go("roles"));
+    await sleep(1800);
+    const api = await apiFromPage(AD.page, "/api/admin/roles");
+    const mods = (api.json && api.json.modules) || [];
+    const expected = mods.reduce((s, m) => s + (m.actions || []).length, 0);
+    /* Le premier onglet est le rôle protégé (super_admin) : tout doit y être
+       désactivé, et aucun bouton « Enregistrer » ne doit être proposé. */
+    await AD.page.locator("#admin-root [role=tab][data-role]").first().click();
+    await sleep(1500);
+    const got = await AD.page.locator("#admin-root input[data-grant]").count();
+    if (got !== expected) return got + " contrôle(s) pour " + expected + " droit(s) du catalogue";
+    const ro = await AD.page.evaluate(() => {
+      const boxes = [...document.querySelectorAll("#admin-root input[data-grant]")];
+      return { n: boxes.length, disabled: boxes.filter((b) => b.disabled).length,
+        save: !!document.querySelector("#admin-root [data-save]") };
+    });
+    if (ro.disabled !== ro.n) return ro.disabled + " contrôle(s) désactivé(s) sur " + ro.n + " pour le rôle protégé";
+    return ro.save ? "le rôle protégé propose tout de même « Enregistrer »" : true;
+  });
+
+  await step("écran Journal : les décisions sont listées, jamais « undefined »", async () => {
+    await AD.page.evaluate(() => window.Admin.go("audit"));
+    await sleep(1600);
+    const txt = await AD.page.evaluate(() => ((document.getElementById("admin-root") || {}).innerText || ""));
+    if (/undefined|NaN/.test(txt)) return "le journal affiche une valeur technique : « " + txt.slice(0, 90) + " »";
+    const rows = await AD.page.locator("#admin-root tbody tr").count();
+    /* L'attribution du rôle a été journalisée par admin_grant.js : le journal
+       ne peut pas être vide. */
+    return rows > 0 ? true : "journal vide alors que l'attribution du rôle a été auditée";
+  });
+
+  await step("interrupteur de module : couper ferme l'accès, rallumer le rouvre", async () => {
+    /* Le 403 de /api/admin/badges pendant la coupure est le RÉSULTAT attendu :
+       le navigateur le journalise comme une ressource en échec, on l'annonce
+       donc au harnais le temps de la vérification. */
+    allowFailure("/api/admin/badges");
+    try {
+      const off = await apiFromPage(AD.page, "/api/admin/modules/ranking", "POST", { enabled: false });
+      if (off.status !== 200) return "la désactivation répond " + off.status;
+      const closed = await apiFromPage(AD.page, "/api/admin/badges");
+      const on = await apiFromPage(AD.page, "/api/admin/modules/ranking", "POST", { enabled: true });
+      if (on.status !== 200) return "la réactivation répond " + on.status;
+      const reopened = await apiFromPage(AD.page, "/api/admin/badges");
+      if (closed.status !== 403) return "module éteint mais /api/admin/badges répond " + closed.status;
+      return reopened.status === 200 ? true : "module rallumé mais /api/admin/badges répond " + reopened.status;
+    } finally {
+      await sleep(400);
+      dropFailure("/api/admin/badges");
+    }
   });
 }

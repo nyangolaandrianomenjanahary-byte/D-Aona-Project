@@ -31,12 +31,19 @@ async function s1_auth(browser) {
     return r;
   });
 
-  await step("session ouverte : écran d'authentification masqué + solde de bienvenue 5 000 Ar", async () => {
+  await step("session ouverte : écran d'authentification masqué + bonus de 1 000 Ar verrouillé", async () => {
     if (await visible(A.page, "#auth")) return "l'écran de connexion reste affiché après inscription";
     const s = await stateOf(A.page);
     if (s.pseudo !== A.pseudo) return "pseudo en session inattendu : " + s.pseudo;
+    const u = await apiFromPage(A.page, "/api/user");
+    if (u.json.user.balance !== 1000 || u.json.user.bonus_lock !== 1000)
+      return "bonus de bienvenue inattendu : " + JSON.stringify({ balance: u.json.user.balance, lock: u.json.user.bonus_lock });
+    /* Le header affiche le DISPONIBLE (solde − réservé) : le seul crédit d'un
+       compte neuf est le bonus de 1 000 Ar, NON retirable → 0 disponible. */
     const bal = (await textOf(A.page, "#tb-balance")) || "";
-    if (!/5\s?000/.test(bal.replace(/[\u202f\u00a0]/g, " "))) return "solde affiché inattendu : " + bal;
+    const attendu = new Intl.NumberFormat("fr-FR").format(u.json.user.withdrawable);
+    const nu = (x) => String(x).replace(/[\u202f\u00a0]/g, " ").trim();
+    if (nu(bal) !== nu(attendu)) return "header « " + bal + " » alors que le disponible est " + attendu;
     return true;
   });
 

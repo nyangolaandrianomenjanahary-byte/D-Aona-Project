@@ -1,0 +1,385 @@
+/* =========================================================
+   D-aôna — Administration v2 : feuille de style
+   ---------------------------------------------------------
+   RÈGLE ABSOLUE : tout est scopé sous `#admin-root`. L'application est un
+   mono-fichier dont la feuille globale définit déjà `.btn`, `.panel`,
+   `.status`, `.badge`, `.chip`… Sans scope, cette feuille repeindrait
+   l'accueil, le profil et le plateau. Chaque sélecteur commence donc par
+   `#admin-root`.
+
+   Les jetons de couleur sont REDÉFINIS LOCALEMENT (--a-*) plutôt que repris de
+   `--panel`/`--text` : le back-office a sa propre densité et doit rester
+   lisible quand le thème de l'application change. Les valeurs sont celles du
+   thème jour/nuit du produit, avec des contrastes vérifiés AA sur leur propre
+   fond.
+
+   Le thème de l'application s'appelle `night` (pas `dark`) : c'est cette
+   valeur-là qu'il faut cibler, sinon le back-office reste blanc la nuit.
+   ========================================================= */
+
+#admin-root {
+  --a-ground: #f7f8f8;
+  --a-surface: #ffffff;
+  --a-raised: #f3f5f4;
+  --a-active: #e9edeb;
+  --a-ink: #202823;
+  --a-muted: #66706a;
+  --a-border: #e3e7e4;
+  --a-rule: #edf0ee;
+  --a-control: #cdd4cf;
+  --a-accent: #15775a;
+  --a-accent-soft: #eaf4ef;
+  --a-positive: #176b4e;
+  --a-positive-bg: #eaf5ee;
+  --a-warning: #8a5a13;
+  --a-warning-bg: #fcf4e4;
+  --a-negative: #b33e38;
+  --a-negative-bg: #fbeeed;
+  --a-info: #3d6380;
+  --a-info-bg: #edf3f8;
+  --a-radius: 10px;
+
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  margin: 4px 0 28px;
+  color: var(--a-ink);
+  font-size: 14px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-theme="night"] #admin-root {
+  --a-ground: #141715;
+  --a-surface: #1c201e;
+  --a-raised: #242a26;
+  --a-active: #303832;
+  --a-ink: #ecf0ed;
+  --a-muted: #aab5ad;
+  --a-border: #323a34;
+  --a-rule: #2a322c;
+  --a-control: #526057;
+  --a-accent: #75c5a3;
+  --a-accent-soft: #213c2f;
+  --a-positive: #8bd5ac;
+  --a-positive-bg: #233c2d;
+  --a-warning: #e6bc76;
+  --a-warning-bg: #3d3220;
+  --a-negative: #efa39d;
+  --a-negative-bg: #402827;
+  --a-info: #a4c7e1;
+  --a-info-bg: #273641;
+}
+
+#admin-root *, #admin-root *::before, #admin-root *::after { box-sizing: border-box; }
+#admin-root h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -.3px; }
+#admin-root h2 { font-size: 15px; font-weight: 600; margin: 0; }
+#admin-root h3 { font-size: 14px; font-weight: 600; margin: 0; }
+#admin-root p { margin: 0; }
+#admin-root strong { font-weight: 600; }
+#admin-root small { font-size: 12px; }
+#admin-root :focus-visible { outline: 2px solid var(--a-accent); outline-offset: 2px; }
+
+/* ---------- Barre latérale ---------- */
+#admin-root .a-side {
+  position: sticky; top: 12px;
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius);
+  padding: 12px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+#admin-root .a-side-title { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--a-muted); margin: 0 0 10px 6px; }
+#admin-root .a-group { margin-bottom: 12px; }
+#admin-root .a-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--a-muted); padding: 4px 6px; }
+#admin-root .a-nav { display: flex; flex-direction: column; gap: 2px; }
+#admin-root .a-nav button {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 8px 10px; border: 0; border-radius: 8px; background: none;
+  color: var(--a-ink); font: inherit; text-align: left; cursor: pointer;
+}
+#admin-root .a-nav button:hover { background: var(--a-raised); }
+#admin-root .a-nav button[aria-current="page"] { background: var(--a-accent-soft); color: var(--a-accent); font-weight: 600; }
+#admin-root .a-nav .a-count { margin-left: auto; font-size: 11px; background: var(--a-negative-bg); color: var(--a-negative); border-radius: 999px; padding: 1px 7px; }
+#admin-root .a-nav .a-ico { width: 18px; text-align: center; opacity: .9; }
+#admin-root .a-side-foot { border-top: 1px solid var(--a-rule); margin-top: 10px; padding-top: 10px; font-size: 12px; color: var(--a-muted); }
+
+/* ---------- Zone principale ---------- */
+#admin-root .a-main { min-width: 0; }
+#admin-root .a-head {
+  display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap;
+  background: var(--a-surface); border: 1px solid var(--a-border);
+  border-radius: var(--a-radius); padding: 14px 16px; margin-bottom: 14px;
+}
+#admin-root .a-head .a-sub { color: var(--a-muted); font-size: 13px; margin-top: 3px; }
+#admin-root .a-head .a-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+#admin-root .a-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--a-muted); margin-bottom: 4px; }
+
+/* ---------- Cartes et grilles ---------- */
+#admin-root .a-panel { background: var(--a-surface); border: 1px solid var(--a-border); border-radius: var(--a-radius); overflow: hidden; }
+#admin-root .a-panel + .a-panel { margin-top: 14px; }
+#admin-root .a-panel-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--a-rule); }
+#admin-root .a-panel-head .a-actions { margin-left: auto; display: flex; gap: 8px; }
+#admin-root .a-panel-body { padding: 14px 16px; }
+#admin-root .a-panel-foot { padding: 10px 16px; border-top: 1px solid var(--a-rule); color: var(--a-muted); font-size: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
+#admin-root .a-grid { display: grid; gap: 14px; }
+#admin-root .a-grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+#admin-root .a-grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+#admin-root .a-grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); }
+
+#admin-root .a-metric { background: var(--a-surface); border: 1px solid var(--a-border); border-radius: var(--a-radius); padding: 12px 14px; }
+#admin-root .a-metric-label { font-size: 12px; color: var(--a-muted); display: block; }
+#admin-root .a-metric-value { font-size: 22px; font-weight: 600; display: block; margin-top: 2px; }
+#admin-root .a-metric-caption { font-size: 11px; color: var(--a-muted); display: block; margin-top: 2px; }
+
+/* ---------- Boutons ---------- */
+#admin-root .a-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 8px; border: 1px solid var(--a-control);
+  background: var(--a-surface); color: var(--a-ink); font: inherit; cursor: pointer;
+}
+#admin-root .a-btn:hover { background: var(--a-raised); }
+#admin-root .a-btn[disabled] { opacity: .55; cursor: not-allowed; }
+#admin-root .a-btn.primary { background: var(--a-accent); border-color: var(--a-accent); color: #ffffff; }
+html[data-theme="night"] #admin-root .a-btn.primary { color: #10201a; }
+#admin-root .a-btn.primary:hover { filter: brightness(1.06); }
+#admin-root .a-btn.ghost { background: none; border-color: transparent; color: var(--a-accent); }
+#admin-root .a-btn.ghost:hover { background: var(--a-accent-soft); }
+#admin-root .a-btn.danger { border-color: var(--a-negative); color: var(--a-negative); }
+#admin-root .a-btn.danger:hover { background: var(--a-negative-bg); }
+#admin-root .a-btn.small { padding: 4px 9px; font-size: 12px; }
+
+/* ---------- Tableaux ---------- */
+#admin-root .a-table-wrap { overflow-x: auto; }
+/* En-tête TRIABLE : c'est un bouton (donc atteignable au clavier) mais il garde
+   l'apparence d'un en-tête de colonne. La flèche double `aria-sort`. */
+#admin-root .a-thsort {
+  border: 0; background: none; padding: 0; font: inherit; color: inherit;
+  display: inline-flex; align-items: center; gap: 4px; cursor: pointer; text-transform: inherit;
+  /* Un en-tête long (« Dernière visite dans le jeu ») ne doit pas être COUPÉ par
+     le bord du panneau : il passe à la ligne. `nowrap` + `overflow` le
+     tronquaient sans même un « … ». */
+  white-space: normal; text-align: left;
+}
+#admin-root .a-thsort:hover { color: var(--a-ink); }
+#admin-root .a-thsort.on { color: var(--a-ink); font-weight: 600; }
+#admin-root .a-thsort-dir { font-size: 10px; opacity: .55; }
+#admin-root .a-thsort.on .a-thsort-dir { opacity: .9; }
+
+/* Pièce d'identité cliquable (fiche « Examiner ») : une vignette qui s'agrandit
+   d'un clic. `object-fit: contain` garde la carte entière lisible, jamais
+   rognée par une hauteur fixe. */
+#admin-root .a-doc {
+  display: block; width: 100%; padding: 0; border: 1px solid var(--a-border);
+  border-radius: 8px; background: var(--a-raised); overflow: hidden; cursor: zoom-in;
+}
+#admin-root .a-doc img { display: block; width: 100%; height: 150px; object-fit: contain; }
+#admin-root .a-doc:hover { border-color: var(--a-control); }
+#admin-root .a-zoomable { width: 100%; height: auto; max-height: calc(100vh - 220px); object-fit: contain; border-radius: 8px; }
+#admin-root table.a-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+#admin-root table.a-table th, #admin-root table.a-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--a-rule); vertical-align: middle; }
+#admin-root table.a-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--a-muted); font-weight: 600; background: var(--a-raised); white-space: normal; }
+#admin-root table.a-table tbody tr:last-child td { border-bottom: 0; }
+#admin-root table.a-table tbody tr:hover { background: var(--a-raised); }
+#admin-root table.a-table td.num, #admin-root table.a-table th.num { text-align: right; }
+#admin-root table.a-table td.a-actions { white-space: nowrap; text-align: right; }
+
+/* ---------- Étiquettes d'état ---------- */
+#admin-root .a-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; }
+#admin-root .a-tag.ok { background: var(--a-positive-bg); color: var(--a-positive); }
+#admin-root .a-tag.warn { background: var(--a-warning-bg); color: var(--a-warning); }
+#admin-root .a-tag.bad { background: var(--a-negative-bg); color: var(--a-negative); }
+#admin-root .a-tag.info { background: var(--a-info-bg); color: var(--a-info); }
+#admin-root .a-tag.neutral { background: var(--a-raised); color: var(--a-muted); }
+#admin-root .a-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* ---------- Onglets ---------- */
+#admin-root .a-tabs { display: flex; gap: 4px; flex-wrap: wrap; padding: 10px 16px 0; }
+#admin-root .a-tabs button {
+  border: 0; background: none; font: inherit; cursor: pointer; color: var(--a-muted);
+  padding: 6px 10px; border-radius: 8px 8px 0 0; border-bottom: 2px solid transparent;
+}
+#admin-root .a-tabs button[aria-selected="true"] { color: var(--a-accent); border-bottom-color: var(--a-accent); font-weight: 600; }
+#admin-root .a-tabs button:hover { background: var(--a-raised); }
+
+/* ---------- Formulaires ---------- */
+#admin-root .a-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+#admin-root .a-field > span { font-size: 12px; color: var(--a-muted); }
+#admin-root .a-field input, #admin-root .a-field select, #admin-root .a-field textarea {
+  font: inherit; color: var(--a-ink); background: var(--a-surface);
+  border: 1px solid var(--a-control); border-radius: 8px; padding: 7px 10px; width: 100%;
+}
+#admin-root .a-field textarea { resize: vertical; min-height: 76px; }
+#admin-root .a-field input[type="checkbox"] { width: auto; }
+#admin-root .a-inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#admin-root .a-search { display: flex; gap: 8px; align-items: center; }
+#admin-root .a-search input { min-width: 200px; }
+
+/* ---------- Divers ---------- */
+#admin-root .a-empty { padding: 34px 16px; text-align: center; color: var(--a-muted); }
+#admin-root .a-empty .a-empty-icon { font-size: 26px; display: block; margin-bottom: 6px; opacity: .7; }
+#admin-root .a-muted { color: var(--a-muted); }
+#admin-root .a-right { text-align: right; }
+#admin-root .a-nowrap { white-space: nowrap; }
+#admin-root .a-trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+#admin-root .a-notice { display: flex; gap: 9px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+#admin-root .a-notice.info { background: var(--a-info-bg); color: var(--a-info); }
+#admin-root .a-notice.warn { background: var(--a-warning-bg); color: var(--a-warning); }
+#admin-root .a-notice.bad { background: var(--a-negative-bg); color: var(--a-negative); }
+#admin-root .a-loading { padding: 40px; text-align: center; color: var(--a-muted); }
+#admin-root .a-bar { height: 8px; background: var(--a-raised); border-radius: 999px; overflow: hidden; }
+#admin-root .a-bar > span { display: block; height: 100%; background: var(--a-accent); }
+#admin-root .a-chart { display: flex; align-items: flex-end; gap: 6px; height: 110px; padding: 8px 0; }
+#admin-root .a-chart .a-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; height: 100%; }
+#admin-root .a-chart .a-col i { display: block; width: 100%; background: var(--a-accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+#admin-root .a-chart .a-col b { font-size: 10px; color: var(--a-muted); font-weight: 500; }
+#admin-root .a-perm { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
+#admin-root .a-perm label { display: flex; gap: 5px; align-items: center; font-size: 12px; }
+
+/* ---------- Graphique « Activité des parties » ----------
+   Le portage a produit un balisage `chart-col` / `i` / `b`, mais la maquette
+   dessine son graphe en SVG dans `#activity-chart` : `admin.demo.css` (GÉNÉRÉ)
+   ne contient donc AUCUNE règle `chart-col`. Mesure d'entrée : « 7 colonnes,
+   0 stylée, hauteurs distinctes = [17] » — sept `<i>` inline de 17 px, c'est-à-
+   dire aucun histogramme. Ces règles-là sont la contrepartie du balisage :
+   la barre EST une boîte dont la hauteur suit `--v` (0 → 1).
+
+   Écrites ici et non dans `admin.demo.css` : la feuille de la maquette est
+   régénérée par `scripts/extract-demo-css.js`. */
+#admin-root .chart {
+  display: flex; align-items: flex-end; gap: 6px;
+  height: 180px; padding: 8px 0 0;
+}
+#admin-root .chart-col {
+  flex: 1 1 0; min-width: 0; height: 100%;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px;
+}
+#admin-root .chart-col i {
+  display: block; width: 100%; flex: 0 0 auto;
+  height: calc(var(--v, 0) * 100%);
+  min-height: 2px;
+  background: var(--chart-1, var(--accent));
+  border-radius: 3px 3px 0 0;
+}
+#admin-root .chart-col b { font-size: 10px; font-weight: 500; color: var(--axis-ink, var(--muted)); }
+
+/* ---------- Boîte de dialogue (native <dialog>) ---------- */
+#admin-root dialog.a-dialog {
+  border: 1px solid var(--a-border); border-radius: 12px; padding: 0;
+  background: var(--a-surface); color: var(--a-ink);
+  width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 60px); overflow: auto;
+  /* `margin: auto` est INDISPENSABLE : la règle UA `dialog:modal` centre la
+     boîte (`inset: 0` + `margin: auto`), mais le reset global de l'application
+     (`* { margin: 0 }`, feuille d'auteur) l'emporte sur les styles du
+     navigateur. Mesuré : sans cette ligne, `rect=0,0` — le dialogue s'affichait
+     collé dans le coin haut-gauche, et un clic « à côté » tombait sur son
+     en-tête au lieu du fond. */
+  margin: auto;
+}
+#admin-root dialog.a-dialog::backdrop { background: rgba(10, 14, 12, .45); }
+#admin-root .a-dialog-head { padding: 14px 16px; border-bottom: 1px solid var(--a-rule); display: flex; align-items: center; gap: 10px; }
+#admin-root .a-dialog-head h2 { margin: 0; flex: 1 1 auto; }
+/* Croix de fermeture : une sortie explicite, toujours présente — et distincte
+   du bouton d'action, pour qu'on ne confonde pas « fermer » et « valider ». */
+#admin-root .a-dialog-x {
+  border: 0; background: none; color: var(--a-muted); font: inherit; line-height: 1;
+  padding: 5px 7px; border-radius: 6px; cursor: pointer;
+}
+#admin-root .a-dialog-x:hover { background: var(--a-raised); color: var(--a-ink); }
+#admin-root .a-dialog-body { padding: 14px 16px; }
+#admin-root .a-dialog-foot { padding: 12px 16px; border-top: 1px solid var(--a-rule); display: flex; gap: 8px; justify-content: flex-end; }
+#admin-root .a-err { background: var(--a-negative-bg); color: var(--a-negative); padding: 7px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 10px; }
+
+/* ---------- Toasts ---------- */
+#admin-root .a-toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 60; max-width: 340px; }
+#admin-root .a-toast {
+  background: var(--a-surface); border: 1px solid var(--a-border); border-left: 3px solid var(--a-accent);
+  border-radius: 8px; padding: 10px 12px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.14);
+  cursor: pointer;   /* un clic sur le toast le ferme tout de suite */
+}
+#admin-root .a-toast.bad { border-left-color: var(--a-negative); }
+#admin-root .a-toast.ok { border-left-color: var(--a-positive); }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 860px) {
+  #admin-root { grid-template-columns: minmax(0, 1fr); }
+  #admin-root .a-side { position: static; max-height: none; }
+  #admin-root .a-nav { flex-direction: row; flex-wrap: wrap; }
+  #admin-root .a-nav button { width: auto; }
+  #admin-root .a-head .a-actions { margin-left: 0; width: 100%; }
+  #admin-root table.a-table td.a-actions { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #admin-root * { transition: none !important; animation: none !important; }
+}
+
+/* ---------- Coquille de la MAQUETTE ----------
+   Quand `admin.demo.css` est chargée, la mise en page vient de la maquette :
+   `.sidebar` est en `position:fixed` et `.canvas` porte `margin-left:236px`.
+   La grille à deux colonnes de la v2 s'y ajouterait et enfermerait le canvas
+   dans une colonne de 236 px. On la neutralise ici, une seule fois. */
+#admin-root.demo-shell { display: block; margin: 0; padding: 0; color: inherit; }
+#admin-root.demo-shell .a-toasts { position: fixed; }
+
+/* `position:fixed` de la maquette vise la FENÊTRE : vrai pour une application
+   autonome, faux pour un module posé au milieu de la page. La barre latérale
+   se retrouverait alors collée au coin de l'écran, hors du cadre du module.
+   On l'ancre donc au module (`position:relative` sur la racine + `absolute`),
+   et le canvas reprend sa hauteur naturelle au lieu de `100vh`. */
+#admin-root.demo-shell { position: relative; }
+#admin-root.demo-shell .sidebar { position: absolute; }
+#admin-root.demo-shell .canvas { min-height: 0; }
+
+/* ---------- Défilement : UN SEUL conteneur, et c'est le canvas ----------
+   Mesure d'entrée (`reports/probe-2026-11-07-avant.md`) : sur desktop, six
+   écrans (Vue d'ensemble, Joueurs, Parties, Classement, Rôles, Modules) avaient
+   leur bas de page INATTEIGNABLE — 1 265 px, 3 610 px de contenu pour un cadre
+   de 900 px. Cause : `admin` est dans FILL_ROUTES, donc `body.is-fill` pose
+   `height:100dvh; overflow:hidden` sur `body` et `#screens`, et seuls
+   `#friends-root` / `#notifications-root` / `#tournament-root` reçoivent
+   `overflow-y:auto`. `#admin-root` n'avait aucun conteneur défilant.
+
+   Pourquoi ici et pas dans `admin.demo.css` : cette feuille est GÉNÉRÉE par
+   `scripts/extract-demo-css.js` (« NE PAS ÉDITER À LA MAIN »). Une règle écrite
+   dans la maquette serait écrasée au prochain passage du script.
+
+   Pourquoi une colonne flex : la maquette pose la barre latérale en
+   `position:fixed` et décale le canvas de 236 px. Dans un module embarqué, ces
+   deux règles sont fausses (la barre sortirait de l'écran d'administration).
+   On garde donc EXACTEMENT les mêmes largeurs (236 px, même padding) mais dans
+   un flux : la barre devient une colonne fixe, le canvas la seule zone qui
+   défile. Un seul ascenseur, donc pas de double barre.
+
+   Portée `body.is-fill` : c'est la condition exacte du défaut (≥ 1081 px) et
+   cela laisse intact le défilement de page en dessous — le mobile défilait déjà
+   correctement (15/15 vues au relevé). */
+@media (min-width: 1081px) {
+  body.is-fill #admin-root.demo-shell {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;          /* le défilement est délégué au canvas */
+  }
+  body.is-fill #admin-root.demo-shell .sidebar {
+    position: relative;        /* plus d'évasion hors du cadre du module */
+    inset: auto;
+    flex: 0 0 236px;
+    width: 236px;
+    height: auto;
+    min-height: 0;
+    transform: none;           /* la version mobile (`translate(-100%)`) ne vaut pas ici */
+  }
+  body.is-fill #admin-root.demo-shell .canvas {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    margin-left: 0;            /* le décalage est porté par la largeur de la colonne */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}
