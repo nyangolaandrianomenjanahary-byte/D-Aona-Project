@@ -16,6 +16,10 @@ d-aona-server/private/
 # Dépendances
 node_modules/
 
+# Build statique Vercel (généré par `npm run vercel-build`)
+public/
+.vercel/
+
 # Bases de données (contenu clients → jamais sur GitHub)
 *.db
 *.sqlite
