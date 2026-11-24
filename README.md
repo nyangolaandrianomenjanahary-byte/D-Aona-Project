@@ -15,6 +15,16 @@ Le dépôt sépare **trois choses** qui n'ont pas le même rythme de vie :
 > héberger un WebSocket persistant avec de l'état en mémoire (parties, horloges,
 > matchmaking). Voir [ARCHITECTURE.md](ARCHITECTURE.md).
 
+Deux modes de déploiement coexistent et partagent le même frontend et la même
+base — le client choisit tout seul en interrogeant `/api/config` :
+
+| | Mode A (recommandé) | Mode B (tout-Vercel, déjà en place) |
+|---|---|---|
+| Backend | `apps/api` sur Render/Railway (WebSocket natif) | `api/index.js` (serverless + Supabase Realtime) |
+| Base | `supabase/migrations/` | `supabase/schema.sql` |
+
+Voir [RUNBOOK-DEPLOY §1.1](docs/RUNBOOK-DEPLOY.md).
+
 ---
 
 ## Démarrage local (mode hôte)

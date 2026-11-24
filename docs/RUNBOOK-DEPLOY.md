@@ -13,7 +13,32 @@
     │  (statique)  │                       │  apps/api    │         │  + Storage │
     └──────────────┘                       └──────────────┘         └────────────┘
 
-**Pourquoi le backend n'est pas sur Vercel** : Vercel est *serverless*. Il n'y a
+### 1.1 Deux modes cohabitent dans ce dépôt
+
+| | **Mode A — recommandé** | **Mode B — tout-Vercel (déjà présent)** |
+|---|---|---|
+| Frontend | Vercel, *Root Directory* `apps/web` | Vercel, racine du dépôt (`npm run vercel-build` → `public/`) |
+| Backend | Render/Railway, `apps/api/server.js` (processus Node) | `api/index.js` (fonctions serverless) |
+| Temps réel | WebSocket `ws` natif | Supabase Realtime Broadcast + repli par interrogation |
+| Fichiers | disque, puis Supabase Storage | `user_avatars` et `kyc_cases.*_data` (base64 en base) |
+| Schéma de base | `supabase/migrations/` (`supabase db push`) | `supabase/schema.sql` (exécuté au démarrage) |
+| Limite de durée | aucune | 30 s par fonction (`maxDuration`) |
+| Avantage | vrais WebSockets, aucune latence ajoutée | un seul hébergeur |
+
+Le frontend **détecte le mode tout seul** : il interroge `/api/config` et bascule
+sur `serverless: true` ou sur le WebSocket classique. Aucune configuration côté
+navigateur.
+
+> Le mode B est conservé parce qu'il fonctionne déjà. Le mode A est recommandé
+> parce qu'il n'impose pas de transformer une partie en direct en succession
+> d'appels HTTP. Les deux partagent le même frontend et la même base ; seul
+> l'hébergement du backend change.
+
+**Variables du mode B** (à saisir dans Vercel) : `DATABASE_URL` (ou
+`POSTGRES_URL` / `SUPABASE_DB_URL`), `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+(publique), `SUPABASE_SERVICE_ROLE_KEY` (**secrète**).
+
+**Pourquoi le backend du mode A n'est pas sur Vercel** : Vercel est *serverless*. Il n'y a
 ni WebSocket persistant, ni état en mémoire (parties, horloges, matchmaking),
 ni timer long. Le backend doit rester un processus vivant.
 
@@ -98,6 +123,7 @@ npx supabase db push
 | 7 | Partie en ligne | 2 navigateurs | coups et Elo consignés |
 | 8 | Reprise | F5 en pleine partie | « Reprendre » propose la partie |
 | 9 | Parité base | `node scripts/verify-parity.js` (lot L5) | 0 écart |
+| 10 | Cohérence des deux schémas | `node scripts/verify-db-schema.js` | schémas cohérents |
 
 ---
 

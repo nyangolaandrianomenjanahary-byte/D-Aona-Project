@@ -51,6 +51,8 @@ jobs:
           node-version: "24"
       - name: Vérifier docs/API-CONTRACT.md
         run: node scripts/gen-api-contract.js --check
+      - name: Vérifier la cohérence des deux schémas
+        run: node scripts/verify-db-schema.js
 
   frontend:
     name: Frontend statique valide

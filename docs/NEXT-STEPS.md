@@ -30,6 +30,13 @@
 Cette étape donne une URL publique qui fonctionne, **avec la base SQLite
 actuelle**. Elle ne règle pas la persistance long terme (voir §2).
 
+> **Le dépôt contient déjà un second chemin** (mode B, tout-Vercel) : `api/index.js`
+> + `supabase/schema.sql` + `vercel.json` à la racine. Il est conservé et
+> fonctionne — voir [RUNBOOK-DEPLOY §1.1](RUNBOOK-DEPLOY.md). Si vous restez sur
+> ce mode, sautez l'étape 1.3 (Render) et appliquez `supabase/schema.sql` au lieu
+> des migrations. Le mode A reste recommandé : sans WebSocket natif, chaque coup
+> devient un aller-retour HTTP complet.
+
 ### 1.1 Supabase — créer le projet
 
 1. <https://supabase.com/dashboard> → **New project**.

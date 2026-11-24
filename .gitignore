@@ -17,7 +17,12 @@ apps/api/uploads/
 # auditée — jamais par le serveur statique, jamais versionnées.
 apps/api/private/
 
-# Bases de données (contenu clients)
+
+# Build statique Vercel (généré par `npm run vercel-build`)
+public/
+.vercel/
+
+# Bases de données (contenu clients → jamais sur GitHub)
 *.db
 *.sqlite
 *.sqlite3

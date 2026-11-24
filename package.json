@@ -2,11 +2,15 @@
   "name": "d-aona-root",
   "private": true,
   "version": "1.0.0",
-  "description": "D-aôna — racine du monorepo : scripts de vérification, de comparaison et d'outillage base de données",
+  "description": "D-aôna — monorepo : frontend (apps/web), backend (apps/api), base Supabase, scripts de vérification et d'outillage",
+  "main": "api/index.js",
   "engines": {
     "node": ">=22.5.0"
   },
   "scripts": {
+    "build": "node scripts/build-vercel.js",
+    "vercel-build": "node scripts/build-vercel.js",
+    "setup:supabase": "node scripts/setup-supabase.js",
     "ref": "node scripts/export-reference.js",
     "seed:oracle": "node apps/api/seed_oracle.js --db=apps/api/_oracle.db --force",
     "actual": "node scripts/export-actual.js --db=apps/api/_oracle.db",
@@ -28,6 +32,7 @@
     "web:config": "node scripts/gen-web-config.js"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.2.1",
     "pg": "^8.13.1"
   }
 }
