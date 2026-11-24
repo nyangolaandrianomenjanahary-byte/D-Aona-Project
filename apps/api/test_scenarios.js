@@ -27,7 +27,7 @@
    ========================================================= */
 "use strict";
 
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -118,12 +118,34 @@ function wsClient(token) {
   };
 }
 
-/* ---------- Copie jetable de la base (VACUUM INTO, source en lecture seule) ---------- */
+/* ---------- Copie jetable de la base (VACUUM INTO, source en lecture seule) ----------
+   Deux chemins :
+     · une base réelle existe (poste de développement) → copie vérifiée ;
+     · aucune base (clone propre, CI) → base NEUVE créée par le schéma et les
+       migrations, puis complétée par la fixture. Sans ce second chemin,
+       `npm test` échouait sur un checkout vierge avec « unable to open
+       database file » — c'est-à-dire partout ailleurs que sur le poste qui
+       possède d-aona.db.
+   D_AONA_SNAPSHOT_DB permet de désigner une autre source (vérification du
+   chemin « clone propre » sans déplacer la base réelle). */
 let tmpDir = null;
 function snapshotDb() {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "daona-scenarios-"));
   const dest = path.join(tmpDir, "d-aona.db");
-  const src = new DatabaseSync(REAL_DB, { readOnly: true });
+  const source = process.env.D_AONA_SNAPSHOT_DB || REAL_DB;
+  if (!fs.existsSync(source)) {
+    console.log("Aucune base réelle (" + source + ") : création d'une base NEUVE (schéma + migrations).");
+    const r = spawnSync(process.execPath, ["-e", "require('./db')"], {
+      cwd: __dirname,
+      env: { ...process.env, D_AONA_DB_PATH: dest },
+      encoding: "utf8",
+    });
+    if (r.status !== 0 || !fs.existsSync(dest)) {
+      throw new Error("création de la base de test impossible : " + (r.stderr || "").slice(0, 300));
+    }
+    return dest;
+  }
+  const src = new DatabaseSync(source, { readOnly: true });
   src.exec(`VACUUM INTO '${dest.replace(/\\/g, "/").replace(/'/g, "''")}'`);
   src.close();
   return dest;
@@ -668,12 +690,20 @@ async function phaseAdministration() {
   const del = await api(`/api/admin/ads/${created.json.ad.id}`, { method: "DELETE", token: ADM });
   check("suppression d'une bannière par l'administration", del.status === 200 && del.json.ok === true, JSON.stringify(del.json));
 
-  /* ---------- Comptabilité ---------- */
+  /* ---------- Comptabilité ----------
+     La campagne exige un mouvement ENTRANT (les dépôts qu'elle vient de faire) :
+     la table est bien relue, pas recalculée. Elle n'exige PAS de mouvement
+     sortant : sur un clone propre (CI), aucun retrait n'a encore été payé —
+     la base de démonstration en contenait, ce qui rendait cette vérification
+     dépendante d'un fichier d-aona.db absent du dépôt. */
   const acc = await api("/api/admin/accounting", { token: ADM });
   check("comptabilité : totaux cohérents avec les transactions de la campagne",
-    acc.status === 200 && acc.json.totals.out.amount > 0 && acc.json.players.total > 0 &&
+    acc.status === 200 && acc.json.totals.in.amount > 0 && acc.json.players.total > 0 &&
     Array.isArray(acc.json.byKind) && acc.json.byKind.some((k) => k.key === "deposit"),
     JSON.stringify({ totals: acc.json && acc.json.totals, players: acc.json && acc.json.players }));
+  if (acc.json && acc.json.totals && acc.json.totals.out.amount === 0) {
+    note("aucun mouvement sortant dans cette base : la colonne « sorties » n'est pas mesurable ici.");
+  }
 
   const csv = await fetch(BASE + "/api/admin/accounting?format=csv", { headers: { Authorization: "Bearer " + ADM } });
   /* Les OCTETS, pas le texte : `Response.text()` retire le BOM en décodant, or
