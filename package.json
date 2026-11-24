@@ -2,8 +2,19 @@
   "name": "d-aona-root",
   "private": true,
   "version": "1.0.0",
-  "description": "D-aôna — racine : scripts de vérification et de comparaison avec la démo de référence",
+  "description": "D-aôna — plateforme web (Vercel + Supabase) et scripts de vérification",
+  "main": "api/index.js",
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.2.1",
+    "pg": "^8.13.1"
+  },
   "scripts": {
+    "build": "node scripts/build-vercel.js",
+    "vercel-build": "node scripts/build-vercel.js",
+    "setup:supabase": "node scripts/setup-supabase.js",
     "ref": "node scripts/export-reference.js",
     "seed:oracle": "node d-aona-server/seed_oracle.js --db=d-aona-server/_oracle.db --force",
     "actual": "node scripts/export-actual.js --db=d-aona-server/_oracle.db",

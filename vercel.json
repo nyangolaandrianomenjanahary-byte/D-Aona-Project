@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30,
+      "includeFiles": "{supabase/schema.sql,d-aona-server/games/**,d-aona-server/data.js,d-aona-server/image.js,d-aona-server/admin/permissions.js}"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api",
+      "destination": "/api/index?__path=/api"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index?__path=/api/$1"
+    },
+    {
+      "source": "/uploads/(.*)",
+      "destination": "/api/index?__path=/uploads/$1"
+    }
+  ]
+}

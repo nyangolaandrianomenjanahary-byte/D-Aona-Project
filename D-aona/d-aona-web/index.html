@@ -6858,6 +6858,55 @@ const API = (() => {
   let wsDownLogged = false; // un seul avertissement console par panne
   const handlers = {};   // type -> [fn]
 
+  /* Mode adaptatif : "ws" (serveur Node local) ou "serverless" (Vercel + Supabase) */
+  let rtMode = null;        // null = pas encore détecté via /api/config
+  let rtCfg = null;
+  let cfgPromise = null;
+  let pollTimer = null;
+  let pollCursor = 0;
+  let pollInFlight = false;
+  let authUserId = null;
+  let sbWs = null;
+  let sbRef = 1;
+  let sbHbTimer = null;
+  const seenEids = new Set();
+
+  function rememberEid(eid) {
+    if (!eid) return true;
+    if (seenEids.has(eid)) return false;
+    seenEids.add(eid);
+    if (seenEids.size > 500) {
+      const first = seenEids.values().next().value;
+      seenEids.delete(first);
+    }
+    return true;
+  }
+
+  function dispatchEvent(msg) {
+    if (!msg || typeof msg !== "object") return;
+    if (msg.__eid && !rememberEid(msg.__eid)) return;
+    if (msg.type === "auth_ok" && msg.userId && authUserId !== msg.userId) {
+      authUserId = msg.userId;
+      joinSupabaseUserTopic();
+    }
+    emit(msg.type, msg);
+  }
+
+  async function detectConfig() {
+    if (rtCfg) return rtCfg;
+    if (!cfgPromise) {
+      cfgPromise = fetch(base + "/api/config", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : {}))
+        .catch(() => ({}))
+        .then((c) => {
+          rtCfg = c || {};
+          rtMode = rtCfg.serverless ? "serverless" : "ws";
+          return rtCfg;
+        });
+    }
+    return cfgPromise;
+  }
+
   /* ---------- REST ---------- */
   async function request(path, method = "GET", body = null) {
     const opts = { method, headers: { "Content-Type": "application/json" } };
@@ -6888,8 +6937,128 @@ const API = (() => {
     return data;
   }
 
-  /* ---------- WebSocket ---------- */
-  function connect(force = false) {
+  /* ---------- Supabase Realtime Broadcast (optionnel en serverless) ---------- */
+  function joinSupabaseUserTopic() {
+    if (!sbWs || sbWs.readyState !== WebSocket.OPEN || !authUserId) return;
+    try {
+      sbWs.send(JSON.stringify({
+        topic: "realtime:daona:user:" + authUserId,
+        event: "phx_join",
+        payload: { config: { broadcast: { self: false } } },
+        ref: String(sbRef++),
+      }));
+    } catch (e) {}
+  }
+
+  function connectSupabaseRealtime() {
+    if (!rtCfg || !rtCfg.realtimeEnabled || !rtCfg.supabaseUrl || !rtCfg.supabaseAnonKey) return;
+    if (sbWs && (sbWs.readyState === WebSocket.OPEN || sbWs.readyState === WebSocket.CONNECTING)) return;
+    try {
+      const wsBase = rtCfg.supabaseUrl.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
+      const url = `${wsBase}/realtime/v1/websocket?apikey=${encodeURIComponent(rtCfg.supabaseAnonKey)}&vsn=1.0.0`;
+      const sock = new WebSocket(url);
+      sbWs = sock;
+      sock.onopen = () => {
+        if (sbWs !== sock) return;
+        try {
+          sock.send(JSON.stringify({
+            topic: "realtime:daona:global",
+            event: "phx_join",
+            payload: { config: { broadcast: { self: false } } },
+            ref: String(sbRef++),
+          }));
+        } catch (e) {}
+        joinSupabaseUserTopic();
+        if (sbHbTimer) clearInterval(sbHbTimer);
+        sbHbTimer = setInterval(() => {
+          if (sbWs && sbWs.readyState === WebSocket.OPEN) {
+            try { sbWs.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: String(sbRef++) })); } catch (e) {}
+          }
+        }, 25000);
+      };
+      sock.onmessage = (ev) => {
+        try {
+          const frame = JSON.parse(ev.data);
+          if (frame && frame.event === "broadcast" && frame.payload && frame.payload.payload) {
+            dispatchEvent(frame.payload.payload);
+          }
+        } catch (e) {}
+      };
+      sock.onclose = () => {
+        if (sbWs === sock) sbWs = null;
+        if (sbHbTimer) { clearInterval(sbHbTimer); sbHbTimer = null; }
+      };
+      sock.onerror = () => { try { sock.close(); } catch (e) {} };
+    } catch (e) {}
+  }
+
+  /* ---------- Polling serverless (/api/rt/poll) ---------- */
+  function nextPollDelay() {
+    if (document.visibilityState === "hidden") return 9000;
+    const h = location.hash || "";
+    if (h.startsWith("#/board") || h.startsWith("#/play") || h.startsWith("#/match") || document.querySelector(".modal:not(.hidden)")) {
+      return 1200;
+    }
+    return 3500;
+  }
+
+  function schedulePoll(ms) {
+    if (pollTimer) clearTimeout(pollTimer);
+    if (rtMode !== "serverless" || !token) return;
+    pollTimer = setTimeout(runPoll, ms != null ? ms : nextPollDelay());
+  }
+
+  async function runPoll() {
+    if (rtMode !== "serverless" || !token) return;
+    if (pollInFlight) { schedulePoll(); return; }
+    pollInFlight = true;
+    try {
+      const r = await request("/api/rt/poll?since=" + encodeURIComponent(String(pollCursor || 0)), "GET");
+      if (r && typeof r.lastId === "number" && r.lastId > pollCursor) pollCursor = r.lastId;
+      if (r && Array.isArray(r.events)) {
+        r.events.forEach(dispatchEvent);
+      }
+    } catch (e) {
+      // Silencieux en cas de micro-coupure : le prochain cycle reprend
+    } finally {
+      pollInFlight = false;
+      schedulePoll();
+    }
+  }
+
+  async function rtPost(msg) {
+    try {
+      const r = await request("/api/rt", "POST", msg);
+      if (r && typeof r.rtCursor === "number" && r.rtCursor > pollCursor) pollCursor = r.rtCursor;
+      if (r && Array.isArray(r.events)) r.events.forEach(dispatchEvent);
+      return r;
+    } catch (e) {
+      if (e && e.status === 401) {
+        wsReady = false;
+        emit("close");
+      } else {
+        emit("error", { message: e.message || "Erreur réseau" });
+      }
+      return null;
+    }
+  }
+
+  async function connectServerless(force = false) {
+    if (!token) { wsReady = false; return; }
+    if (!force && wsReady && pollTimer) return;
+    wsReady = true;
+    const r = await rtPost({ type: "auth", token });
+    if (!r) { wsReady = false; return; }
+    emit("open");
+    const pending = wsQueue;
+    wsQueue = [];
+    for (const m of pending) await rtPost(m);
+    connectSupabaseRealtime();
+    schedulePoll(800);
+  }
+
+  /* ---------- WebSocket local (d-aona-server) ---------- */
+  function connectWs(force = false) {
     if (!force && ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     const previous = ws;
     if (previous) { try { previous.close(); } catch (e) {} }
@@ -6897,23 +7066,14 @@ const API = (() => {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(proto + "//" + location.host + "/ws");
     ws = socket;
-    /* Chaque gestionnaire vérifie qu'il parle BIEN de la socket courante. Sans
-       cette garde, la fermeture tardive d'une socket REMPLACÉE remettait
-       `wsReady` à false et `ws` à null — donc la page se croyait déconnectée
-       alors que la nouvelle socket était saine — ou l'inverse : `ws` restait
-       braqué sur une socket morte, `if (!ws) connect()` ne se déclenchait plus,
-       et la page ne recevait plus RIEN (classement, badge d'amis, état de
-       partie) tout en affichant « connecté ». */
     socket.onopen = () => {
       if (ws !== socket) return;
       wsReady = true;
       wsAttempts = 0;
       wsDownLogged = false;
-      // 1. Envoyer l'authentification d'abord
       if (token) {
         try { socket.send(JSON.stringify({ type: "auth", token })); } catch (e) {}
       }
-      // 2. Vider la file d'attente (le serveur traite auth en premier)
       const pending = wsQueue;
       wsQueue = [];
       pending.forEach((m) => { try { socket.send(JSON.stringify(m)); } catch (e) {} });
@@ -6926,25 +7086,39 @@ const API = (() => {
       } catch (e) { /* ignore */ }
     };
     socket.onclose = () => {
-      if (ws !== socket) return;   // une socket plus récente a pris la main
+      if (ws !== socket) return;
       wsReady = false;
       ws = null;
       emit("close");
       if (!wsDownLogged) { wsDownLogged = true; console.warn("[ws] connexion perdue — reconnexion automatique"); }
-      /* Backoff exponentiel plafonné (1 s → 15 s) avec jitter : évite de
-         marteler un serveur longuement indisponible toutes les 3 s, et évite
-         que tous les clients reviennent à la même milliseconde au retour. */
       const delay = Math.min(1000 * Math.pow(2, wsAttempts), 15000) + Math.floor(Math.random() * 400);
       wsAttempts += 1;
-      setTimeout(() => { if (!ws) connect(); }, delay);
+      setTimeout(() => { if (!ws && rtMode === "ws") connectWs(); }, delay);
     };
     socket.onerror = () => { try { socket.close(); } catch (e) {} };
   }
 
+  function connect(force = false) {
+    detectConfig().then(() => {
+      if (rtMode === "serverless") connectServerless(force);
+      else connectWs(force);
+    });
+  }
+
   function send(msg) {
+    if (rtMode === "serverless") {
+      if (!wsReady || !token) {
+        wsQueue.push(msg);
+        if (wsQueue.length > 50) wsQueue.shift();
+        connect();
+        return;
+      }
+      rtPost(msg);
+      return;
+    }
     if (!wsReady) {
       wsQueue.push(msg);
-      if (wsQueue.length > 50) wsQueue.shift();  // on jette le plus ancien : rejouer des centaines d'actions périmées n'a aucun sens
+      if (wsQueue.length > 50) wsQueue.shift();
       connect();
       return;
     }
@@ -6966,19 +7140,28 @@ const API = (() => {
     const changed = token !== t;
     token = t;
     if (t) localStorage.setItem("daona_token", t);
-    else localStorage.removeItem("daona_token");
-    if (changed && t) connect(true);   // nouvelle auth → reconnexion forcée
+    else {
+      localStorage.removeItem("daona_token");
+      wsReady = false;
+      authUserId = null;
+      pollCursor = 0;
+      if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+      if (sbWs) { try { sbWs.close(); } catch (e) {} sbWs = null; }
+      if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+    }
+    if (changed && t) connect(true);
   }
   function getToken() { return token; }
 
-  /* Chien de garde : une socket peut mourir sans que `onclose` ne se déclenche
-     (proxy, mise en veille, réseau mobile, changement de réseau). Toutes les
-     15 s, on regarde l'état RÉEL de la socket et on reconnexionne si besoin — la
-     reconnexion ré-authentifie et rejoue la file d'attente. Sans ce filet, la
-     page pouvait rester des minutes « connectée » sans recevoir aucune poussée. */
   setInterval(() => {
     if (!token) return;
-    if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) connect();
+    if (rtMode === "serverless") {
+      if (!wsReady) connect();
+      return;
+    }
+    if (rtMode === "ws" && (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING)) {
+      connectWs();
+    }
   }, 15000);
 
   return {
