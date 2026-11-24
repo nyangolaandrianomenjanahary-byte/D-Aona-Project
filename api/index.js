@@ -3,6 +3,8 @@
    ========================================================= */
 "use strict";
 
+const fs = require("node:fs");
+const path = require("node:path");
 const { query, one, all, ensureSchema, getDbUrl } = require("./_lib/db");
 const { realtimeConfig, emitUser, emitBroadcast, pruneOldEvents } = require("./_lib/realtime");
 const Auth = require("./_lib/auth");
@@ -160,6 +162,46 @@ async function acceptFriendRequest(res, reqId, user) {
   return respond(res, { ok: true, status: "accepted", friend: other ? { id: other.id, pseudo: other.pseudo, elo: other.elo } : null });
 }
 
+const STATIC_MIME = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".ico": "image/x-icon",
+};
+
+function tryServeStatic(req, res, pathname) {
+  if (req.method !== "GET" && req.method !== "HEAD") return false;
+  if (pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/uploads/")) return false;
+  let rel = pathname === "/" ? "/index.html" : pathname;
+  try { rel = decodeURIComponent(rel); } catch (_) { return false; }
+  if (rel.endsWith("/")) rel += "index.html";
+  const roots = [
+    path.resolve(__dirname, "../public"),
+    path.resolve(__dirname, "../D-aona/d-aona-web"),
+  ];
+  for (const root of roots) {
+    const abs = path.resolve(root, "." + rel);
+    if (!abs.startsWith(root + path.sep) && abs !== root) continue;
+    if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+      const ext = path.extname(abs).toLowerCase();
+      res.statusCode = 200;
+      res.setHeader("Content-Type", STATIC_MIME[ext] || "application/octet-stream");
+      res.setHeader("Cache-Control", ext === ".html" ? "no-cache" : "public, max-age=3600");
+      if (req.method === "HEAD") { res.end(); return true; }
+      res.end(fs.readFileSync(abs));
+      return true;
+    }
+  }
+  return false;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
@@ -172,6 +214,13 @@ module.exports = async function handler(req, res) {
   const overridePath = rawUrl.searchParams.get("__path");
   const pathname = overridePath ? (overridePath.startsWith("/") ? overridePath : "/" + overridePath) : rawUrl.pathname;
   const method = req.method;
+
+  /* ---------- Repli statique si Vercel route / ou un asset vers /api/index ---------- */
+  if (tryServeStatic(req, res, pathname)) return;
+  if (pathname !== "/api" && !pathname.startsWith("/api/") && !pathname.startsWith("/uploads/")) {
+    res.statusCode = 404;
+    return res.end("Not found");
+  }
 
   /* ---------- Health check (avant ensureSchema pour diagnostiquer vite) ---------- */
   if (method === "GET" && pathname === "/api/health") {

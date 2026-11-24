@@ -3,7 +3,6 @@
   "private": true,
   "version": "1.0.0",
   "description": "D-aôna — plateforme web (Vercel + Supabase) et scripts de vérification",
-  "main": "api/index.js",
   "engines": {
     "node": "22.x"
   },
