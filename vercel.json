@@ -5,7 +5,7 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 30,
-      "includeFiles": "{supabase/schema.sql,d-aona-server/games/**,d-aona-server/data.js,d-aona-server/image.js,d-aona-server/admin/permissions.js}"
+      "includeFiles": "{supabase/schema.sql,D-aona/d-aona-web/**,d-aona-server/games/**,d-aona-server/data.js,d-aona-server/image.js,d-aona-server/admin/permissions.js}"
     }
   },
   "rewrites": [
