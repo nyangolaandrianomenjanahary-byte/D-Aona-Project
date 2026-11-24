@@ -1,0 +1,70 @@
+# =========================================================
+# D-aôna — Intégration continue
+# ---------------------------------------------------------
+# Deux verrous, pas un :
+#   1. les 7 suites de tests du backend (règles, auth, matchmaking,
+#      variantes, structure, moteurs Telo et Dimy) ;
+#   2. le contrat d'API, qui échoue si une route existe dans le code
+#      mais plus dans docs/API-CONTRACT.md.
+#
+# Le backend est testé sur Node 24 : `node:sqlite` exige ≥ 22.5, et
+# @node-rs/argon2 fournit des binaires N-API (indépendants de l'ABI).
+name: CI
+
+on:
+  push:
+    branches: [main, "refonte/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests backend (7 suites)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - name: Dépendances
+        working-directory: apps/api
+        run: npm ci
+      - name: Suites de tests
+        working-directory: apps/api
+        run: npm test
+
+  contrat:
+    name: Contrat d'API à jour
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Vérifier docs/API-CONTRACT.md
+        run: node scripts/gen-api-contract.js --check
+
+  frontend:
+    name: Frontend statique valide
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: config.js généré et syntaxe des scripts
+        run: |
+          node scripts/gen-web-config.js
+          for f in apps/web/config.js apps/web/variant-match.js apps/web/games/fanorona-board.js; do
+            node --check "$f"
+          done
+          grep -q "window.DAONA_CONFIG" apps/web/config.js

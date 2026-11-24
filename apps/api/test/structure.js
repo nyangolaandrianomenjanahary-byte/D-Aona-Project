@@ -5,8 +5,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const ROOT = path.join(__dirname, "..", "..");
-const WEB_GAMES = path.join(ROOT, "D-aona", "d-aona-web", "games");
+const ROOT = path.join(__dirname, "..", "..", "..");
+const WEB_GAMES = path.join(ROOT, "apps", "web", "games");
 const SRV_GAMES = path.join(__dirname, "..", "games");
 
 const WEB_REQUIRED = ["manifest.json", "engine.js", "ai.js", "board.js", "ui.js", "README.md", "test.js"];
@@ -62,7 +62,7 @@ for (const slug of dirs(SRV_GAMES)) {
   const missing = SRV_REQUIRED.filter((f) => !fs.existsSync(path.join(dir, f)));
   check(slug + " : moteur complet", missing.length === 0, missing.join(", "));
   const absent = WEB_REQUIRED.filter((f) => !fs.existsSync(path.join(dir, f)));
-  if (absent.length) debt.push("d-aona-server/games/" + slug + " : encore sans " + absent.join(", "));
+  if (absent.length) debt.push("apps/api/games/" + slug + " : encore sans " + absent.join(", "));
 }
 /* DOSSIER <-> REGISTRE : ajouter un plateau, c'est un dossier ET une ligne
    dans registry.js. Un dossier present mais non enregistre ne serait jamais
@@ -81,7 +81,7 @@ const facade = path.join(__dirname, "..", "game.js");
 check("game.js reste une facade de moins de 40 lignes", lines(facade) < 40, lines(facade) + " lignes");
 const srv = path.join(__dirname, "..", "server.js");
 if (lines(srv) > 250) debt.push("server.js : " + lines(srv) + " lignes (objectif < 250)");
-const shell = path.join(ROOT, "D-aona", "d-aona-web", "index.html");
+const shell = path.join(ROOT, "apps", "web", "index.html");
 if (fs.existsSync(shell) && lines(shell) > 200) debt.push("index.html : " + lines(shell) + " lignes (objectif < 200)");
 
 section("Reprise (obligatoire pour tout plateau, present et futur)");
@@ -98,7 +98,7 @@ for (const slug of dirs(SRV_GAMES)) {
   check(slug + " : la session declare son plateau", src.includes('this.game = "' + slug + '"'), "this.game");
   check(slug + " : l etat publie le plateau", /game:\s*this\.game/.test(src), "getState().game");
 }
-const shellPath = path.join(ROOT, "D-aona", "d-aona-web", "index.html");
+const shellPath = path.join(ROOT, "apps", "web", "index.html");
 if (fs.existsSync(shellPath)) {
   const src = fs.readFileSync(shellPath, "utf8");
   const block = src.match(/const FANORON_VARIANTS = \[([\s\S]*?)\n\];/);

@@ -22,7 +22,7 @@ const { MODULES, ROLES, ALL_MODULES, isPermission, isCore } = require("./permiss
 /* Chemin du fichier de bannières historique : sert UNIQUEMENT de source de
    reprise pour la première alimentation de la table `ads` (le carrousel lisait
    ce fichier avant l'arrivée du back-office). Absent → on ne copie rien. */
-const PUBS_JSON = path.resolve(__dirname, "..", "..", "D-aona", "d-aona-web", "assets", "ad", "pubs.json");
+const PUBS_JSON = path.resolve(__dirname, "..", "..", "..", "apps", "web", "assets", "ad", "pubs.json");
 
 /* ---------- Amorçage idempotent ---------- */
 function ensureSeed() {

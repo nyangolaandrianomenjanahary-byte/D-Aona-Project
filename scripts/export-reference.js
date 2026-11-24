@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    D-aôna — Générateur du golden file de comparaison
    ---------------------------------------------------------
    Le prompt d'installation annonce `scripts/export-reference.ts` et
@@ -23,7 +23,7 @@ const fs = require("node:fs");
 const crypto = require("node:crypto");
 
 /* Playwright vit dans les dépendances du serveur, pas à la racine. */
-const { chromium } = require(path.join(__dirname, "..", "d-aona-server", "node_modules", "playwright"));
+const { chromium } = require(path.join(__dirname, "..", "apps", "api", "node_modules", "playwright"));
 
 const DEMO = path.join(__dirname, "..", "reference", "D-aona-Administration.html");
 const OUT = path.join(__dirname, "..", "reference", "REFERENCE-DEMO.json");

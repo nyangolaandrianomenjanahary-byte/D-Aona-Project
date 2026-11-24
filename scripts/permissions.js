@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    D-aôna — Parité des permissions : 630 assertions (§11.6)
    ---------------------------------------------------------
    Pourquoi 630 : 7 rôles × 15 modules × 6 actions. C'est le produit cartésien
@@ -27,7 +27,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 
-const SERVER_DIR = path.join(__dirname, "..", "d-aona-server");
+const SERVER_DIR = path.join(__dirname, "..", "apps", "api");
 const DB = path.join(SERVER_DIR, "_permissions.db");
 const REF = path.join(__dirname, "..", "reference", "REFERENCE-DEMO.json");
 const PORT = 8095;

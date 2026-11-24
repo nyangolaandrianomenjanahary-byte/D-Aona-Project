@@ -81,7 +81,7 @@ strict et rend un rapport Portee / Objectifs / Preuves / Ecarts / Non-verifie / 
   risque de transcription sur 34 exports sans gain structurel. A reprendre si un
   fichier doit etre < 150 lignes.
 - T2 : games/fanoron-tsivy/ reste cote serveur (CommonJS) ; sa consolidation
-  dans D-aona/d-aona-web/games/ est prevue au lot T5, avec un moteur UMD.
+  dans apps/web/games/ est prevue au lot T5, avec un moteur UMD.
 - S6 (spectature) est ROUGE avant et apres refonte : defaut preexistant, mesure
   par stash sur le commit b1b0bf4. Il ne compte donc pas comme regression.
 - T7 : le plateau Dimy est ecrit en 5x5 — lecture retenue de « fanoron-dimy »
@@ -122,7 +122,7 @@ entree du 2026-11-02.
 | A5 | Routes par domaine (`routes.v2.js`, `routes.finance.js`) | VERT | contrat `(contexte) -> booleen`, aucune SQL dans les routes |
 | A6 | Temps reel : `admin_update` filtre par role (signal, sans charge utile) | VERT | `admin.core.js`, regroupement 350 ms |
 | A7 | Contrat d API v2 fige | VERT | `docs/ADMIN_API.md` |
-| A8 | Front `D-aona/d-aona-web/admin/` (CSS scope `#admin-root`, api, store, ui) | VERT | 7 fichiers, aucune regle hors scope |
+| A8 | Front `apps/web/admin/` (CSS scope `#admin-root`, api, store, ui) | VERT | 7 fichiers, aucune regle hors scope |
 | A9 | Les 15 vues, quatre familles de fichiers | VERT | systeme, moderation, competition, finances |
 | A10 | Bascule : retrait de `.adm*` et des vues v1 (−1 016 lignes), `Admin.go()` | VERT | S14 reecrit, 11/11 |
 | A11 | Campagne UI complete + documentation | VERT | campagne **135/135**, journal, contrat d API |

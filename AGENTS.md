@@ -46,7 +46,7 @@ Rules:
 ## agent UI/UX (local)
 
 `.claude/agents/ui-ux-designer.md` — **critique UI/UX** : hiérarchie visuelle, contraste, accessibilité, choix typographiques, anti-patterns. Outils en LECTURE SEULE (`Read`, `Grep`, `Glob`, `WebFetch`) : il analyse et argumente, il ne modifie pas le code.
-- L'invoquer pour une revue d'écran AVANT de figer une maquette : lui donner la capture (`%TEMP%\daona_shots\*.png`) ou les fichiers concernés (`D-aona/d-aona-web/index.html`).
+- L'invoquer pour une revue d'écran AVANT de figer une maquette : lui donner la capture (`%TEMP%\daona_shots\*.png`) ou les fichiers concernés (`apps/web/index.html`).
 - Ses recommandations restent des PROPOSITIONS : les confronter aux règles du projet (jetons de couleur existants, contrastes AA déjà mesurés, thèmes jour/nuit, mono-fichier `index.html`), puis consigner ce qui est retenu dans `CONTEXTE_PROJET.md`.
 - Installation locale volontairement HORS Git (`.gitignore` : `.claude/`) : aucun impact sur l'application déployée.
 

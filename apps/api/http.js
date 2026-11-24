@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    D-aôna — Utilitaires HTTP : fichiers statiques (anti-traversée),
    corps borné, IP cliente, jetons Bearer, limitation de débit,
    réponses JSON.
@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const Auth = require("./auth");
 
-const ROOT = path.resolve(__dirname, "../D-aona/d-aona-web");
+const ROOT = path.resolve(__dirname, "../web");
 
 /* ---------- Static file serving ---------- */
 const MIME = { ".html":"text/html",".css":"text/css",".js":"application/javascript",

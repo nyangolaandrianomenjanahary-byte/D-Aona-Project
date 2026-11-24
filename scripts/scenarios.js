@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    D-aôna — Les 8 scénarios métier de la RÉFÉRENCE (§11.4)
    ---------------------------------------------------------
    Rejoue sur un seed NEUF les huit scénarios du cahier des charges et compare
@@ -19,7 +19,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 
-const SERVER_DIR = path.join(__dirname, "..", "d-aona-server");
+const SERVER_DIR = path.join(__dirname, "..", "apps", "api");
 const DB = path.join(SERVER_DIR, "_scenarios.db");
 const PORT = 8097;
 const BASE = "http://127.0.0.1:" + PORT;

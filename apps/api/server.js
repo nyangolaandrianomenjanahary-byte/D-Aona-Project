@@ -34,8 +34,10 @@ const Finance = require("./admin/store.finance");
    et faire passer un réglage par le routeur HTTP serait un détour inutile. */
 const Settings = require("./admin/store.v2");
 const { imageMagicOk } = require("./image");
+/* Configuration : un seul endroit lit l'environnement (voir config.js). */
+const CONFIG = require("./config");
 
-const PORT = parseInt(process.env.D_AONA_PORT || process.env.PORT || "8080", 10);
+const PORT = CONFIG.port;
 const TICK_MS = 1000;
 
 /* ---------- State serveur (in-memory) ---------- */
@@ -1939,6 +1941,7 @@ function start() {
      fenêtre que le garde-fou `test/variantes.js` surveille ; les deux sont de
      toute façon terminés avant l'écoute HTTP. */
   Admin.init();
+  CONFIG.check();
 
   const server = http.createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -1964,10 +1967,27 @@ function start() {
     res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=(), payment=()");
     res.setHeader("Content-Security-Policy",
       "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-      "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' ws: wss:; " +
+      "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; " +
+      /* `connect-src` accueille les origines de l'API distante : quand le
+         frontend est servi par Vercel et l'API par Render/Railway, la liste
+         vient de D_AONA_ALLOWED_ORIGINS. Sans elle, même un simple fetch
+         serait bloqué par le navigateur. */
+      "connect-src 'self' ws: wss: " + CONFIG.connectSources() + "; " +
       "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
     const url = new URL(req.url, `http://${req.headers.host || "localhost:" + PORT}`);
+    /* Sonde de disponibilité : sans authentification, sans base, sans effet de
+       bord. C'est ce que l'hébergeur interroge pour décider qu'une instance est
+       saine — et ce qui rend un déploiement observable. */
+    if (url.pathname === "/healthz") {
+      respond(res, {
+        ok: true,
+        up: Math.round(process.uptime()),
+        version: CONFIG.version,
+        env: CONFIG.nodeEnv,
+      });
+      return;
+    }
     if (url.pathname.startsWith("/api/")) {
       handleRest(req, res, url, authMiddleware(req));
     } else {
@@ -1985,9 +2005,17 @@ function start() {
        jeton, elle ne la remplace pas. */
     const origin = req.headers.origin;
     if (origin !== undefined) {
-      let originHost = null;
-      try { originHost = new URL(origin).host; } catch (e) { originHost = null; }
-      if (!originHost || originHost !== req.headers.host) {
+      let originHost = null, originClean = null;
+      try { const u = new URL(origin); originHost = u.host; originClean = u.origin; } catch (e) { originHost = null; }
+      /* Deux voies acceptées :
+         · MÊME HÔTE — mode hôte historique, frontend et API servis ensemble ;
+         · ORIGINE DÉCLARÉE — déploiement séparé (Vercel → Render/Railway).
+           La liste vient de D_AONA_ALLOWED_ORIGINS. Sans elle, un frontend
+           Vercel serait refusé ici alors que le HTTP fonctionne : le jeu en
+           ligne ne s'ouvrirait pas, sans message utile. */
+      const sameHost = !!originHost && originHost === req.headers.host;
+      const declared = !!originClean && CONFIG.allowedOrigins.includes(originClean);
+      if (!sameHost && !declared) {
         try { ws.close(1008, "Origine refusée"); } catch (e) {}
         return;
       }

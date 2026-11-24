@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    D-aôna — Audit du portefeuille (LECTURE SEULE)
    ---------------------------------------------------------
    Vérifie, pour CHAQUE compte de la base active, que le solde stocké est
@@ -29,7 +29,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 
-const SERVER_DIR = path.join(__dirname, "..", "d-aona-server");
+const SERVER_DIR = path.join(__dirname, "..", "apps", "api");
 const DB_PATH = process.env.D_AONA_DB_PATH
   ? path.resolve(process.env.D_AONA_DB_PATH)
   : path.join(SERVER_DIR, "d-aona.db");

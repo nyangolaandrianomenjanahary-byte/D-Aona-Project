@@ -1,86 +1,84 @@
-# Sauvegardes locales de la base (créées par `node backup_db.js`) — jamais versionnées :
-# elles contiennent des données clients (comptes, transactions, chat).
-d-aona-server/backups/
-
-# Fichiers téléversés par les joueurs (photos de profil) = données personnelles.
-# Ne doivent jamais entrer dans l'historique Git.
-d-aona-server/uploads/
-
-# Pièces d'identité (KYC, recto + verso) : données personnelles sensibles.
-# Servies par AUCUN serveur statique — uniquement par la route d'administration
-# authentifiée et auditée. Jamais versionnées, jamais sauvegardées dans un dépôt.
-d-aona-server/private/
-
 # ===== D-aôna — .gitignore =====
+# Arborescence : apps/web (frontend), apps/api (backend), packages/, supabase/,
+# scripts/, docs/. Les règles ci-dessous suivent ce découpage.
 
-# Dépendances
+# ---------- Dépendances ----------
 node_modules/
 
-# Bases de données (contenu clients → jamais sur GitHub)
+# ---------- Données clients : JAMAIS sur GitHub ----------
+# Sauvegardes locales de la base (créées par `node apps/api/backup_db.js`).
+apps/api/backups/
+
+# Fichiers téléversés par les joueurs (photos de profil) = données personnelles.
+apps/api/uploads/
+
+# Pièces d'identité (KYC, recto + verso + selfie) : données personnelles
+# sensibles. Servies uniquement par la route d'administration authentifiée et
+# auditée — jamais par le serveur statique, jamais versionnées.
+apps/api/private/
+
+# Bases de données (contenu clients)
 *.db
 *.sqlite
+*.sqlite3
+apps/api/_oracle.db
 
-# Journaux / logs d'exécution
+# ---------- Secrets ----------
+.env
+.env.*
+!.env.example
+!.env.*.example
+.vercel/
+
+# ---------- Journaux / bruits d'exécution ----------
 *.log
+*.err
+*.out
+debug.log
+apps/api/*.txt
+**/*_result.txt
+**/*_res.txt
+test-tools/*.txt
+debug_outputs/*.txt
 
-# Binaires
+# ---------- Binaires ----------
 *.exe
 
-# État généré (journal projet)
+# ---------- État généré ----------
 maj_state.json
+_graphify_ver.txt
+_tmp_listen.txt
 
-# Copie locale d'outils / agents (skills) — pas du code de l'app
+# ---------- Graphe de connaissances (régénérable) ----------
+graphify-out/
+
+# ---------- Copies locales d'outils / agents (pas du code de l'app) ----------
 .agents/
 .claude/
 agent/
 skills-lock.json
 
-# Fichier placeholder
-File path here
+# ---------- Scripts jetables et sondes ----------
+# Le harnais livré reste test_ui_scenarios.js, régénérable depuis test/ui/parts.
+apps/api/_*.js
+apps/api/_*.err
+apps/api/_*.py
+apps/api/_*.out
+apps/api/_*.cmd
+apps/api/tools/
+apps/api/__pycache__/
+apps/api/_shots/
+apps/api/shots/
+apps/api/test_ui_scenarios.fixed.js
+apps/api/_plateau_source.png
 
-# Sorties de tests / debug générées (txt)
-**/*_result.txt
-**/*_res.txt
-test-tools/*.txt
-d-aona-server/*.txt
-debug_outputs/*.txt
-
-# Captures de test
-d-aona-server/shots/
-
-# Graphe de connaissances généré par graphify (régénérable via `py -m graphify update .`)
-graphify-out/
-
-# Secrets locaux (clé de session, mots de passe) — jamais versionnés.
-# Le modèle à copier est fourni dans d-aona-server/.env.example
-.env
-.env.*
-!.env.example
-
-# Scripts jetables de session (sondes, découpages, mesures ponctuelles).
-# Le harnais livré reste test_ui_scenarios.js, régénérable par `node _build.js`
-# à partir des morceaux _p1.js ... _p12.js (ces deux-là sont versionnés).
-d-aona-server/_*.js
-d-aona-server/tools/
-d-aona-server/_*.err
-d-aona-server/_*.py
-d-aona-server/_*.out
-d-aona-server/_*.cmd
-d-aona-server/__pycache__/
-# Captures des sondes (`tools/_vm_shots.js`, `_variantes_verif.js`...) : des
-# images de contrôle, jamais du code ni un asset de l'application.
-d-aona-server/_shots/
-d-aona-server/test_ui_scenarios.fixed.js
-# Entrée de `_squarify_board.py` : la plaque AVANT mise d'équerre, copie de
-# l'asset versionné (2,3 Mo). Jamais versionnée, mais gardée pour rejouer l'outil.
-d-aona-server/_plateau_source.png
-
-# Captures des audits locales (`audit-*/shots/`) : images de contrôle produites
-# pendant une session, jamais du code ni un asset de l'application. Seuls les
-# rapports écrits (`audit-*/*.md`, `audit-*/*.html`) sont versionnés.
+# Captures des audits locales : images de contrôle, jamais du code.
 audit-*/shots/
 
-# Brouillons racine et artefacts d'outillage local (jamais du code de l'app)
+# ---------- Brouillons racine ----------
 tasks/
-_graphify_ver.txt
-_tmp_listen.txt
+
+# ---------- Supabase local ----------
+supabase/.branches/
+supabase/.temp/
+supabase/.env

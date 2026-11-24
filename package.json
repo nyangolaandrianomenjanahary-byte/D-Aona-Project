@@ -2,11 +2,14 @@
   "name": "d-aona-root",
   "private": true,
   "version": "1.0.0",
-  "description": "D-aôna — racine : scripts de vérification et de comparaison avec la démo de référence",
+  "description": "D-aôna — racine du monorepo : scripts de vérification, de comparaison et d'outillage base de données",
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "scripts": {
     "ref": "node scripts/export-reference.js",
-    "seed:oracle": "node d-aona-server/seed_oracle.js --db=d-aona-server/_oracle.db --force",
-    "actual": "node scripts/export-actual.js --db=d-aona-server/_oracle.db",
+    "seed:oracle": "node apps/api/seed_oracle.js --db=apps/api/_oracle.db --force",
+    "actual": "node scripts/export-actual.js --db=apps/api/_oracle.db",
     "compare": "node scripts/compare.js",
     "scenarios": "node scripts/scenarios.js",
     "invariants": "node scripts/invariants.js",
@@ -14,7 +17,17 @@
     "permissions": "node scripts/permissions.js",
     "visual": "node scripts/visual.js",
     "verify:seed": "npm run seed:oracle && npm run actual && npm run compare",
-    "verify:server": "npm --prefix d-aona-server test",
-    "verify": "npm run verify:server && npm run verify:seed && npm run scenarios && npm run invariants && npm run permissions && npm run audit:wallet"
+    "verify:server": "npm --prefix apps/api test",
+    "verify": "npm run verify:server && npm run verify:seed && npm run scenarios && npm run invariants && npm run permissions && npm run audit:wallet",
+    "db:model": "node scripts/gen-db-model.js",
+    "db:migrate": "node scripts/migrate-sqlite-to-pg.js",
+    "db:migrate:apply": "node scripts/migrate-sqlite-to-pg.js --apply",
+    "db:parity": "node scripts/verify-parity.js",
+    "api:contract": "node scripts/gen-api-contract.js",
+    "api:contract:check": "node scripts/gen-api-contract.js --check",
+    "web:config": "node scripts/gen-web-config.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
   }
 }

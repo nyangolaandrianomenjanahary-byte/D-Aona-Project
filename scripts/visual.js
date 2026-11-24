@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    D-aôna — Régression visuelle : démo (oracle) ↔ back-office réel (§11.8)
    ---------------------------------------------------------
    Capture les MÊMES écrans des deux côtés, aux mêmes tailles et dans les deux
@@ -29,9 +29,9 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 const { spawn } = require("node:child_process");
-const { chromium } = require(path.join(__dirname, "..", "d-aona-server", "node_modules", "playwright"));
+const { chromium } = require(path.join(__dirname, "..", "apps", "api", "node_modules", "playwright"));
 
-const SERVER_DIR = path.join(__dirname, "..", "d-aona-server");
+const SERVER_DIR = path.join(__dirname, "..", "apps", "api");
 const DEMO = path.join(__dirname, "..", "reference", "D-aona-Administration.html");
 const REPORT = path.join(__dirname, "..", "reports");
 const SHOTS = path.join(os.tmpdir(), "daona_visual");

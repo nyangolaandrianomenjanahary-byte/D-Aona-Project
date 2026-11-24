@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    D-aôna — Extraction et scoping du CSS de la MAQUETTE
    ---------------------------------------------------------
    Le CSS de la référence (≈ 104 Ko, 170 classes) est la seule source possible
@@ -32,7 +32,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 
 const DEMO = path.join(__dirname, "..", "reference", "D-aona-Administration.html");
-const OUT = path.join(__dirname, "..", "D-aona", "d-aona-web", "admin", "admin.demo.css");
+const OUT = path.join(__dirname, "..", "apps", "web", "admin", "admin.demo.css");
 const SCOPE = "#admin-root";
 
 const html = fs.readFileSync(DEMO, "utf8");

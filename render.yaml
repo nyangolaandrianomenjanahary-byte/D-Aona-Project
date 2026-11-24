@@ -1,0 +1,47 @@
+# =========================================================
+# D-aôna — Déploiement du backend (Render Blueprint)
+# ---------------------------------------------------------
+# Le frontend va sur Vercel (apps/web), la base sur Supabase,
+# et CE service fait tourner l'API HTTP + WebSocket.
+#
+# Pourquoi pas Vercel pour l'API : Vercel est serverless — pas de
+# WebSocket persistant, pas d'état en mémoire (parties, horloges,
+# matchmaking), pas de timers longs. Le backend doit rester un
+# processus vivant.
+#
+# Mise en place : Render → New → Blueprint → ce dépôt.
+# Les valeurs `sync: false` se saisissent dans le tableau de bord.
+# =========================================================
+services:
+  - type: web
+    name: d-aona-api
+    runtime: node
+    plan: starter          # free : mise en veille après 15 min SANS trafic → WebSockets coupés
+    region: frankfurt      # le plus proche de Madagascar parmi les régions Render
+    rootDir: .             # la racine : apps/api require ../../apps/web/games (moteurs partagés)
+    buildCommand: npm ci --prefix apps/api
+    startCommand: node apps/api/server.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"        # node:sqlite exige Node ≥ 22.5 ; on aligne sur le poste de dev
+      - key: NODE_ENV
+        value: production
+      # Derrière le proxy de Render : sans ceci, TOUS les joueurs partagent
+      # l'IP du proxy et la limitation de débit d'authentification (12 / 300 s)
+      # bloque la salle entière.
+      - key: D_AONA_TRUST_PROXY
+        value: "1"
+      # Origines autorisées à ouvrir une WebSocket : le(s) domaine(s) Vercel.
+      # Sans cette liste, le HTTP passe mais le jeu en ligne est refusé (1008).
+      - key: D_AONA_ALLOWED_ORIGINS
+        sync: false
+      - key: D_AONA_PUBLIC_API_URL
+        sync: false
+      # Base Postgres Supabase — activée au lot L5 (voir docs/NEXT-STEPS.md).
+      # Tant que D_AONA_DB n'est pas « postgres », le serveur utilise SQLite.
+      - key: DATABASE_URL
+        sync: false
+      # - key: D_AONA_DB
+      #   value: postgres

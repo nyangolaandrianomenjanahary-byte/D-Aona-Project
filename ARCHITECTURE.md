@@ -1,27 +1,74 @@
-# ARCHITECTURE - D-Aona
+# ARCHITECTURE — D-aôna
 
-## Principe
+## 0. Dépôt, couches, déploiement
 
-Un jeu = un dossier autonome. Un fichier = une responsabilite. Le socle
-(serveur, hote, interface) ne connait AUCUN jeu par son nom : il lit un
-registre et parle aux contrats ci-dessous.
+Un seul dépôt, **trois frontières nettes** :
 
-## Arborescence cible
+    apps/web/        FRONTEND         → Vercel (statique ; build Vite au lot L8)
+    apps/api/        BACKEND          → Render / Railway (processus Node + WebSocket)
+    supabase/        BASE DE DONNÉES  → Supabase Postgres (migrations versionnées)
 
-    D-aona/d-aona-web/
-      index.html              coquille (< 200 lignes)
-      variant-match.js        hote leger des variantes locales (Telo, Dimy),
-                              embarque a l etape 4 de l assistant (option `host`)
-      styles/                 jetons, base, mise en page, ecrans
+**Règles de dépendance** — une seule direction, sans exception :
+
+- `apps/web` ne parle qu'à l'API, en HTTP (REST) et WebSocket. Jamais à Postgres,
+  jamais à un secret, jamais à une règle de jeu.
+- `apps/api` est la **seule autorité** : règles du jeu, Elo, portefeuille,
+  authentification, temps réel. Il ne sert du HTML qu'en mode hôte (développement).
+- `supabase/` ne contient que du SQL — schéma, index, RLS. Aucune logique métier,
+  donc aucune règle dupliquée.
+- Les **moteurs de jeu** (`games/<slug>/engine.js`, pied UMD) sont la seule chose
+  partagée : `apps/web` les charge en `<script>`, `apps/api` les `require()`.
+  Une seule copie des règles ⇒ aucune divergence client/serveur possible.
+
+**Flux à l'exécution :**
+
+    navigateur ──REST (fetch)────▶ apps/api ──pg──▶ Supabase (Postgres)
+        ▲   │                          │
+        │   └──WebSocket (/ws)─────────┘
+        │
+        └──statique (HTML/CSS/JS)──▶ Vercel (apps/web)
+
+**Les variables qui portent la frontière :**
+
+| Variable | Où | Rôle |
+|---|---|---|
+| `apiUrl` / `wsUrl` dans `apps/web/config.js` | frontend | adresse du backend ; **vide = même origine** (mode hôte) |
+| `D_AONA_ALLOWED_ORIGINS` | backend | origines autorisées à ouvrir une WebSocket (sans quoi le jeu en ligne est refusé, code 1008) |
+| `D_AONA_TRUST_PROXY` | backend | lit la vraie IP derrière un proxy ; **obligatoire sur un hébergeur** |
+| `DATABASE_URL` | backend | Postgres Supabase |
+| `D_AONA_DB` | backend | `sqlite` (défaut, tests locaux) ou `postgres` |
+
+## Arborescence cible (détail)
+
+    apps/web/
+      index.html              coquille (< 200 lignes, lot L8) ; aujourd'hui 16 k lignes
+      config.js               adresse du backend (généré au build, public)
+      variant-match.js        hôte léger des variantes locales (Telo, Dimy)
+      styles/                 jetons, base, mise en page, écrans
       app/                    core, net, ui, screens, boot.js
       games/<slug>/           manifest.json engine.js ai.js board.js ui.js README.md test.js
-    d-aona-server/
-      server.js               amorcage (< 250 lignes)
+    apps/api/
+      server.js               amorçage (2 055 lignes — découpage prévu lot L3)
+      config.js               SEUL lecteur de l'environnement
       live/                   state.js, matchmaking.js
       game/                   host.js, elo.js, registry.js
       http/                   routes par domaine
+      db/                     core.js (connexion), schema.js, stores.js
+      migrations/             SQL SQLite versionné (gelé : la cible est supabase/)
       games/<slug>/           moteur autoritaire (engine, session, manifest)
       test/                   ui/parts, ui/build.js, matchmaking.js, structure.js
+    supabase/
+      migrations/             0001_initial.sql, 0002_rls.sql (GÉNÉRÉS)
+      config.toml
+    scripts/                  générateurs (modèle, contrat), import, parité
+    docs/                     DATA-MODEL, API-CONTRACT, RUNBOOK-DEPLOY, NEXT-STEPS
+
+## Principe (jeux)
+
+Un jeu = un dossier autonome. Un fichier = une responsabilité. Le socle
+(serveur, hôte, interface) ne connaît AUCUN jeu par son nom : il lit un
+registre et parle aux contrats ci-dessous.
+
 
 ## Contrat 1 - manifest.json
 
@@ -77,14 +124,14 @@ Le moteur ne connait ni horloge, ni compte, ni reseau, ni DOM.
     finish(winner)    -> { winnerId, delta1, delta2 }   (0/0,5/1 : la nulle compte)
     piecesLeft(side)  -> entier
 
-`d-aona-server/games/registry.js` associe `<id>` -> module du jeu. Le socle ne
+`apps/api/games/registry.js` associe `<id>` -> module du jeu. Le socle ne
 nomme aucun jeu : `createGameSession(..., game)` demande la session au registre
 et pose `session.game` sur l instance. Un identifiant inconnu retombe sur le
 jeu par defaut (Tsivy) — jamais sur une session d un autre plateau.
 
 - Les REGLES ne sont ecrites qu une fois : le dossier de jeu de l interface
-  (`D-aona/d-aona-web/games/<slug>/engine.js`) a un pied UMD, donc le serveur
-  le `require()`. `d-aona-server/games/<slug>/engine.js` est une facade de deux
+  (`apps/web/games/<slug>/engine.js`) a un pied UMD, donc le serveur
+  le `require()`. `apps/api/games/<slug>/engine.js` est une facade de deux
   lignes, exigee par `test/structure.js` — aucune copie des regles.
 - L Elo est UN seul bareme (celui du moteur Tsivy) et UNE seule colonne
   (`users.elo`) : les trois plateaux partagent le classement. `games.game` et
@@ -219,7 +266,7 @@ PREUVES (hors `npm test`, comme les autres sondes) :
 
 ## Ajouter un jeu en 6 etapes
 
-1. Creer D-aona/d-aona-web/games/<slug>/ avec les 7 fichiers.
+1. Creer apps/web/games/<slug>/ avec les 7 fichiers.
 2. Ecrire manifest.json (identite, plateau, phases, formats).
 3. Ecrire engine.js (contrat 2) et le couvrir par test.js.
 4. Ecrire ai.js (chooseMove) - niveau et budget injectables.
@@ -231,7 +278,7 @@ PREUVES (hors `npm test`, comme les autres sondes) :
    ou « play ») : c est l ecran ou sa partie se joue, donc la seule chose que
    la reprise demande au jeu (contrat 5). Si le plateau doit se jouer en ligne,
    ajouter aussi son dossier serveur (manifest.json, facade engine.js,
-   session.js, index.js) et UNE ligne a `d-aona-server/games/registry.js` :
+   session.js, index.js) et UNE ligne a `apps/api/games/registry.js` :
    `session.js` pose `this.game = "<slug>"` et publie `game: this.game` dans
    `getState()` — sans quoi `npm test` refuse le jeu. Aucune autre modification
    du socle.

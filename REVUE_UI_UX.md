@@ -1,6 +1,6 @@
 # Revue UX/UI — D-aôna
 
-**Date** : 23/09/2026 · **Périmètre** : SPA mono-fichier `D-aona/d-aona-web/index.html` —
+**Date** : 23/09/2026 · **Périmètre** : SPA mono-fichier `apps/web/index.html` —
 3 gabarits (1440, 390, 360 px), 2 thèmes (jour/nuit), 10 routes + états particuliers
 (modales, vues profondes, onglets) + un compte neuf (tous les états vides).
 **But** : confronter l'application à des **mesures objectives** avant de figer quoi que ce soit,
@@ -8,7 +8,7 @@ puis proposer des correctifs hiérarchisés.
 
 ## 0. Comment la revue a été produite (et comment la rejouer)
 
-`d-aona-server/_revue_ui.js` (outil jetable, motif `_*.js`, hors git) :
+`apps/api/_revue_ui.js` (outil jetable, motif `_*.js`, hors git) :
 
 1. **Instance jetable** : copie de la base réelle par `VACUUM INTO` (la source n'est ouverte
    qu'en lecture seule), serveur de travail sur le port **8095**, base temporaire supprimée
@@ -19,7 +19,7 @@ puis proposer des correctifs hiérarchisés.
 3. Captures + mesures sur les états réels de l'application (jeton posé avant le démarrage de
    la SPA, clics réels, aucun état forcé par injection de contenu).
 
-Rejouer : `cd d-aona-server && node _revue_ui.js` (≈ 4 min).
+Rejouer : `cd apps/api && node _revue_ui.js` (≈ 4 min).
 Preuves : `graphify-out/revue-ui/` — **53 PNG**, `mesures.txt` (journal lisible),
 `mesures.json` (brut), `captures.md` (index des captures).
 
@@ -417,7 +417,7 @@ campagne par passe), et, selon le lot : `perimetre.txt` (relevé **avant** corre
 (bilan avant/après), `segments-par-ecran.txt`, `verification-fonctionnelle.txt`, `releve-geometrie.txt`
 (sonde de géométrie), `fin-de-course.txt` (air sous le dernier contenu), `defauts-identifies-mi-lot.txt`
 (écarts transitoires attrapés pendant le lot). Les outils jetables correspondants sont dans
-`d-aona-server/` : `_revue_ui.js` (campagne), `_s1_analyse.js`/`_s2_scope.js` (périmètres), `_s4_cibles.js`,
+`apps/api/` : `_revue_ui.js` (campagne), `_s1_analyse.js`/`_s2_scope.js` (périmètres), `_s4_cibles.js`,
 `_s5_verif.js`, `_s6_probe.js`/`_s6_verif.js`, `_s7_probe.js`/`_s7_fin.js`, `_s5_seg.js`, `_s1_compare.js`.
 
 **Groupes de captures**
@@ -430,7 +430,7 @@ campagne par passe), et, selon le lot : `perimetre.txt` (relevé **avant** corre
   `wallet-retrait`, `tournoi-detail` (détail + bracket), `profil-public`.
 - `vide__*` : `home`, `wallet`, `notifications`, `friends`, `chat`, `tournament` sur un **compte neuf**.
 
-**Rappel de méthode.** L'outil (`d-aona-server/_revue_ui.js`) est **jetable** (motif `_*.js`, hors
+**Rappel de méthode.** L'outil (`apps/api/_revue_ui.js`) est **jetable** (motif `_*.js`, hors
 git) et n'écrit rien dans l'application : il copie la base, y crée ses deux comptes de revue, y
 applique le jeu de démonstration, démarre une instance sur le port 8095, capture, mesure, puis
 supprime la copie. Aucune donnée réelle n'est exposée dans les captures : les écrans sont remplis
@@ -443,7 +443,7 @@ par `demo_seed.js` (pseudos « Demo… »), et les montants, défis et messages 
 `html[data-theme="night"] { --muted: #5E6072 → #85879A }` (`index.html`, l. 126-131, commentaire
 de justification inclus). Aucune autre règle CSS, aucun script, aucun jeton du thème jour.
 
-**Protocole de preuve** — la campagne complète (`node d-aona-server/_revue_ui.js`) a été rejouée
+**Protocole de preuve** — la campagne complète (`node apps/api/_revue_ui.js`) a été rejouée
 **deux fois avec le même outil** : une passe **avant** la modification (baseline), une passe
 **après**. La sonde enregistre désormais, pour chaque ligne fautive, **l'encre et le fond
 réellement composés** : les non-conformités se classent donc **par jeton**, et l'on peut prouver
@@ -506,7 +506,7 @@ touché · relecture visuelle des captures nuit avant/après (Profil, Accueil, C
 
 **Preuves.** `graphify-out/revue-ui/S1-avant/` · `S1-apres/` : les **53 captures**, `mesures.txt`,
 `mesures.json` et le **journal de campagne** de chaque passe, plus `comparaison.txt` (les tables
-ci-dessus, régénérables par `node d-aona-server/_s1_compare.js`). Le dossier principal
+ci-dessus, régénérables par `node apps/api/_s1_compare.js`). Le dossier principal
 `graphify-out/revue-ui/` porte l'état **après** S1 ; `S1-avant/` porte l'état décrit aux §2 à §5.
 
 > **Sur les chiffres.** Le §2 annonce **133** non-conformités : cette campagne-là avait été mesurée
@@ -568,7 +568,7 @@ non rejoué, le serveur n'a pas été touché.
 captures, `mesures.txt`, `mesures.json`, le journal de campagne de chaque passe, `comparaison.txt`
 et `perimetre.txt` (les 13 éléments visés, relevés **avant** correction). Outils : `_s2_scope.js`
 (périmètre d'un lot) et `_s1_compare.js`, désormais générique —
-`node d-aona-server/_s1_compare.js S2-avant`.
+`node apps/api/_s1_compare.js S2-avant`.
 
 **État cumulé : 139 → 99 (S1) → 67 (S2).** Restent les familles du **lot S3** : `--brand-2` (31 :
 pastille wallet, « Gratuit », initiales d'avatar) · `--muted` jour (30 : pastilles génériques,
@@ -631,7 +631,7 @@ passe au vert profond, les badges restent nets ; Accueil : KPI et libellés plus
 captures, `mesures.txt`, `mesures.json`, le journal de campagne de chaque passe, `comparaison.txt`,
 `perimetre.txt` (les 14 éléments visés, relevés **avant** correction) et `releve-encres.txt` (où les
 jetons de marque servaient d'encre). Outils : `_s2_scope.js` est devenu générique —
-`node d-aona-server/_s2_scope.js S3-avant` — et `_s3_grep.js` a produit le relevé des encres.
+`node apps/api/_s2_scope.js S3-avant` — et `_s3_grep.js` a produit le relevé des encres.
 
 **Ce qui reste.** Les lots **S4** (tailles : horodatages 10 → 11 px, pastilles de pagination),
 **S5** (contenus), **S6** (comportements), **S7** (gabarits). Aucun ne porte d'écart de contraste :
@@ -657,7 +657,7 @@ autre. Ici le `gap` valait **9 px** : les cercles se recouvraient. La zone cliqu
 **Un défaut que la campagne ne voyait pas (consigné exprès).** La fenêtre de chat flottante n'est
 pas l'un des 36 écrans capturés : son horodatage — 9,5 px à **60 % d'opacité** — n'apparaissait
 dans aucun relevé, si bien que le « zéro non-conformité » du §13 ne couvrait pas cette surface. Un
-calculateur dédié (`node d-aona-server/_s4_pop.js`) compose les couleurs comme le navigateur (alpha
+calculateur dédié (`node apps/api/_s4_pop.js`) compose les couleurs comme le navigateur (alpha
 de l'élément, puis fond du message) :
 
 | Bulle | Jour avant | Jour après | Nuit avant | Nuit après |
@@ -747,7 +747,7 @@ interne dans le texte vu par un joueur, ce que la vérification ci-dessous étab
 **Une vérification que la campagne ne pouvait pas faire : le clic.** La sonde de revue mesure,
 photographie et détecte les erreurs JavaScript — elle **ne clique pas** sur les nouveautés. Un état
 vide « réparé » dont le bouton ne mène nulle part resterait vert. Un outil jetable
-(`node d-aona-server/_s5_verif.js`, port 8094, base copiée puis supprimée) rejoue donc les gestes
+(`node apps/api/_s5_verif.js`, port 8094, base copiée puis supprimée) rejoue donc les gestes
 réels, sur les deux comptes de revue :
 
 | Contrôle | Résultat |

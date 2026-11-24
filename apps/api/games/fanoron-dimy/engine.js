@@ -1,8 +1,8 @@
-/* Fanoron-Telo - REGLES (facade).
+﻿/* Fanoron-Dimy - REGLES (facade).
    ---------------------------------------------------------
    Les regles vivent dans le dossier de jeu de l interface :
-   `D-aona/d-aona-web/games/fanoron-telo/engine.js`. Ce fichier est un pied UMD
-   (`module.exports` + `window.FanoronTelo`) : le navigateur le charge comme
+   `apps/web/games/fanoron-dimy/engine.js`. Ce fichier est un pied UMD
+   (`module.exports` + `window.FanoronDimy`) : le navigateur le charge comme
    script, le serveur le `require()` — UNE seule copie des regles, donc aucune
    divergence client/serveur possible par construction.
 
@@ -10,4 +10,4 @@
    test/structure.js et par ./session.js. */
 "use strict";
 
-module.exports = require("../../../D-aona/d-aona-web/games/fanoron-telo/engine.js");
+module.exports = require("../../../../apps/web/games/fanoron-dimy/engine.js");

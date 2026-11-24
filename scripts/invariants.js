@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    D-aôna — Les 13 invariants de la RÉFÉRENCE (§11.5) + fuzz
    ---------------------------------------------------------
    Deux parties :
@@ -23,7 +23,7 @@ const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 const { DatabaseSync } = require("node:sqlite");
 
-const SERVER_DIR = path.join(__dirname, "..", "d-aona-server");
+const SERVER_DIR = path.join(__dirname, "..", "apps", "api");
 const DB = path.join(SERVER_DIR, "_invariants.db");
 const PORT = 8096;
 const BASE = "http://127.0.0.1:" + PORT;

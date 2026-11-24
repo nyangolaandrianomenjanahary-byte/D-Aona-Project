@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    D-aôna — Export de l'état RÉEL, au format du golden file
    ---------------------------------------------------------
    Produit `reference/ACTUAL.json`, de MÊME FORME que
@@ -9,7 +9,7 @@
    demandée avec `node:sqlite` en mode `readOnly`.
 
    Usage : node scripts/export-actual.js [--db=chemin] [--out=chemin]
-   Défaut : d-aona-server/_oracle.db  ->  reference/ACTUAL.json
+   Défaut : apps/api/_oracle.db  ->  reference/ACTUAL.json
    ========================================================= */
 "use strict";
 
@@ -24,12 +24,12 @@ const args = process.argv.slice(2);
 const dbArg = args.find((a) => a.startsWith("--db="));
 const outArg = args.find((a) => a.startsWith("--out="));
 const DB = dbArg ? path.resolve(dbArg.slice(5))
-  : path.join(__dirname, "..", "d-aona-server", "_oracle.db");
+  : path.join(__dirname, "..", "apps", "api", "_oracle.db");
 const OUT = outArg ? path.resolve(outArg.slice(6))
   : path.join(__dirname, "..", "reference", "ACTUAL.json");
 
 if (!fs.existsSync(DB)) {
-  console.error("Base introuvable : " + DB + "\nLancez d'abord : node d-aona-server/seed_oracle.js --db=... --force");
+  console.error("Base introuvable : " + DB + "\nLancez d'abord : node apps/api/seed_oracle.js --db=... --force");
   process.exit(2);
 }
 const db = new DatabaseSync(DB, { readOnly: true });
@@ -40,7 +40,7 @@ const sum = (sql, ...a) => (db.prepare(sql).get(...a) || {}).s || 0;
 /* ---------- Structure : lue depuis le catalogue du serveur ----------
    On n'écrit pas les modules à la main ici : ce serait une seconde source de
    vérité, et c'est exactement ce que la comparaison doit détecter. */
-const perms = require(path.join(__dirname, "..", "d-aona-server", "admin", "permissions.js"));
+const perms = require(path.join(__dirname, "..", "apps", "api", "admin", "permissions.js"));
 const structure = {
   modules: perms.ALL_MODULES.slice(),
   groups: perms.GROUPS.slice(),

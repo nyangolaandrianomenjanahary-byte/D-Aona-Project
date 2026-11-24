@@ -46,37 +46,37 @@
 | [maj_journal.bat](maj_journal.bat) | Lancement manuel de la mise à jour |
 | [skills-lock.json](skills-lock.json) | Verrou des skills d'agent |
 
-### Backend `d-aona-server/`
+### Backend `apps/api/`
 | Fichier | Rôle |
 |---|---|
-| [server.js](d-aona-server/server.js) | 🧠 **Cœur** : API REST, WebSocket, matchmaking, moteur tournoi (bracket, confirmations, forfaits auto), notifications |
-| [db.js](d-aona-server/db.js) | Couche SQLite : câblage public + application des migrations au démarrage. Le code vit dans [db/core.js](d-aona-server/db/core.js) (connexion), [db/schema.js](d-aona-server/db/schema.js) (schéma) et [db/stores.js](d-aona-server/db/stores.js) (magasins métier) |
-| [auth.js](d-aona-server/auth.js) | 🔐 **Authentification** : Argon2id, sessions opaques révocables, verrouillage progressif, limitation de débit, journal d'audit |
-| [migrate.js](d-aona-server/migrate.js) | Exécuteur de migrations versionnées (`node migrate.js --status`) |
-| [migrations/](d-aona-server/migrations) | Migrations SQL versionnées (`001`…`013` : auth, sessions, audit, contacts uniques, clés étrangères des skins, instantané d'Elo, filigrane Amis, types de pions clairs/sombres, apparence du pion, **apparences PAR CAMP (clairs / sombres)**, cohérence des groupes, index de performance (`012`), accents des libellés wallet (`013`)) |
-| [backup_db.js](d-aona-server/backup_db.js) | Sauvegarde **vérifiée** de la base + `uploads/` (manifeste SHA-256, `integrity_check`) |
-| [test_auth.js](d-aona-server/test_auth.js) | Tests d'authentification (instances jetables sur le port 8099) |
-| [reset_password.js](d-aona-server/reset_password.js) | Réinitialisation d'un mot de passe (outil console exploitant) |
-| [SECURITE_AUTH.md](d-aona-server/SECURITE_AUTH.md) | 🔐 Documentation sécurité : défaut corrigé, décisions, risques résiduels, opérations |
-| [.env.example](d-aona-server/.env.example) | Variables d'environnement documentées (modèle, non chargé automatiquement) |
-| [game.js](d-aona-server/game.js) | Moteur de partie Fanorona côté serveur (règles, captures, Elo) |
-| [data.js](d-aona-server/data.js) | Données / constantes de référence |
-| [check_db.js](d-aona-server/check_db.js) | Vérifier l'état des tables de la base |
-| [diag.js](d-aona-server/diag.js) | Diagnostic réseau |
-| [package.json](d-aona-server/package.json) | Dépendances (`ws`) |
-| [DEMARRER.bat](d-aona-server/DEMARRER.bat) | Demarrage simple |
-| [LIEN_REMOTE.bat](d-aona-server/LIEN_REMOTE.bat) | Serveur + pare-feu + tunnel Cloudflare (jeu à distance) |
-| [HOTSPOT.bat](d-aona-server/HOTSPOT.bat) / [HOTSPOT.ps1](d-aona-server/HOTSPOT.ps1) | Activer le hotspot WiFi |
-| [CONFIGURER.bat](d-aona-server/CONFIGURER.bat) / [setup_firewall.ps1](d-aona-server/setup_firewall.ps1) | Config pare-feu (port 8080) |
+| [server.js](apps/api/server.js) | 🧠 **Cœur** : API REST, WebSocket, matchmaking, moteur tournoi (bracket, confirmations, forfaits auto), notifications |
+| [db.js](apps/api/db.js) | Couche SQLite : câblage public + application des migrations au démarrage. Le code vit dans [db/core.js](apps/api/db/core.js) (connexion), [db/schema.js](apps/api/db/schema.js) (schéma) et [db/stores.js](apps/api/db/stores.js) (magasins métier) |
+| [auth.js](apps/api/auth.js) | 🔐 **Authentification** : Argon2id, sessions opaques révocables, verrouillage progressif, limitation de débit, journal d'audit |
+| [migrate.js](apps/api/migrate.js) | Exécuteur de migrations versionnées (`node migrate.js --status`) |
+| [migrations/](apps/api/migrations) | Migrations SQL versionnées (`001`…`013` : auth, sessions, audit, contacts uniques, clés étrangères des skins, instantané d'Elo, filigrane Amis, types de pions clairs/sombres, apparence du pion, **apparences PAR CAMP (clairs / sombres)**, cohérence des groupes, index de performance (`012`), accents des libellés wallet (`013`)) |
+| [backup_db.js](apps/api/backup_db.js) | Sauvegarde **vérifiée** de la base + `uploads/` (manifeste SHA-256, `integrity_check`) |
+| [test_auth.js](apps/api/test_auth.js) | Tests d'authentification (instances jetables sur le port 8099) |
+| [reset_password.js](apps/api/reset_password.js) | Réinitialisation d'un mot de passe (outil console exploitant) |
+| [SECURITE_AUTH.md](apps/api/SECURITE_AUTH.md) | 🔐 Documentation sécurité : défaut corrigé, décisions, risques résiduels, opérations |
+| [.env.example](apps/api/.env.example) | Variables d'environnement documentées (modèle, non chargé automatiquement) |
+| [game.js](apps/api/game.js) | Moteur de partie Fanorona côté serveur (règles, captures, Elo) |
+| [data.js](apps/api/data.js) | Données / constantes de référence |
+| [check_db.js](apps/api/check_db.js) | Vérifier l'état des tables de la base |
+| [diag.js](apps/api/diag.js) | Diagnostic réseau |
+| [package.json](apps/api/package.json) | Dépendances (`ws`) |
+| [DEMARRER.bat](apps/api/DEMARRER.bat) | Demarrage simple |
+| [LIEN_REMOTE.bat](apps/api/LIEN_REMOTE.bat) | Serveur + pare-feu + tunnel Cloudflare (jeu à distance) |
+| [HOTSPOT.bat](apps/api/HOTSPOT.bat) / [HOTSPOT.ps1](apps/api/HOTSPOT.ps1) | Activer le hotspot WiFi |
+| [CONFIGURER.bat](apps/api/CONFIGURER.bat) / [setup_firewall.ps1](apps/api/setup_firewall.ps1) | Config pare-feu (port 8080) |
 | `d-aona.db` | ⛔ Base SQLite (données → **exclue** du journal) |
 
-### Frontend `D-aona/d-aona-web/` (PRD v1.2 — mono-fichier)
+### Frontend `apps/web/` (PRD v1.2 — mono-fichier)
 | Fichier | Rôle |
 |---|---|
-| [index.html](D-aona/d-aona-web/index.html) | Application complète : design system (thèmes Jour/Nuit OLED), moteur Fanorona, client API/WebSocket, toutes les vues |
-| [README.md](D-aona/d-aona-web/README.md) | Doc frontend (cartographie PRD) |
-| [assets/board/](D-aona/d-aona-web/assets/board/) | Image du plateau de Fanorona |
-| [assets/coins/](D-aona/d-aona-web/assets/coins/) | Les deux faces de la pièce du tirage au sort (photos détourées, cf. son README) |
+| [index.html](apps/web/index.html) | Application complète : design system (thèmes Jour/Nuit OLED), moteur Fanorona, client API/WebSocket, toutes les vues |
+| [README.md](apps/web/README.md) | Doc frontend (cartographie PRD) |
+| [assets/board/](apps/web/assets/board/) | Image du plateau de Fanorona |
+| [assets/coins/](apps/web/assets/coins/) | Les deux faces de la pièce du tirage au sort (photos détourées, cf. son README) |
 
 ### 📂 Dossiers exclus du suivi
 `node_modules/`, `.git/`, `.claude/`, `.agents/` (copies de skills), `graphify-out/` (graphe généré), `*.log`, `*.db`, `cloudflared.exe` (retéléchargé par `LIEN_REMOTE.bat`), `maj_state.json`.
@@ -87,29 +87,29 @@
 
 | Action | Commande |
 |---|---|
-| Démarrer le serveur (hôte) | `d-aona-server\DEMARRER.bat` |
-| Jeu à distance (tunnel public) | `d-aona-server\LIEN_REMOTE.bat` |
-| Activer le hotspot | `d-aona-server\HOTSPOT.bat` |
-| Vérifier la base | `node d-aona-server\check_db.js` |
-| **Sauvegarder la base (vérifiée)** | `node d-aona-server\backup_db.js` |
-| **État / application des migrations** | `node d-aona-server\migrate.js --status` puis `node migrate.js` |
-| **Tests d'authentification** | `node d-aona-server\test_auth.js` |
-| **Tests d'interface (scénarios)** | `node d-aona-server\test_ui_scenarios.js` |
-| **Vérifier l'onglet Jeux sur modèles de téléphone** | `node d-aona-server\_verif_jeux_mobile.js` (6 appareils Playwright, clics réels, captures `%TEMP%\daona_shots\jeux-mobile`) |
-| **Vérifier les deux faces de la pièce (tirage au sort)** | `node d-aona-server\_coin_verif.js` (9 contrôles, base jetable, captures) |
-| **Contrôler la courbe Elo et les statistiques du Profil** | `node d-aona-server\_probe_elo_stats.js` (31 contrôles, base jetable) |
-| **Vérifier la courbe sur les données réelles** | `node d-aona-server\_check_elo_reel.js [pseudo]` (copie jetable ; le mot de passe n'est changé que sur la copie) |
-| **Mesurer l'état des données de jeu** | `node d-aona-server\_inspect_stats.js` (lecture seule : instantanés, cohérence des Elo, compteurs) |
-| **Reconstituer les instantanés d'Elo manquants** | `node d-aona-server\_backfill_elo.js` (mesure seule) puis `--apply` — écrit après une sauvegarde vérifiée |
-| **Aligner les compteurs du Profil sur l'historique** | `node d-aona-server\_sync_compteurs.js` (mesure seule) puis `--apply` |
-| **Étoffer l'historique d'un compte (jeu de test)** | `node d-aona-server\_seed_parties_elo.js --pseudo="Ny Angola" --nb=49` (mesure) puis `--apply` — annulable via `_seed_parties_manifest.json` |
-| **Mesurer un compte précis** | `node d-aona-server\_inspect_compte.js "Ny Angola"` (lecture seule : parties, chaîne d'Elo, compteurs) |
-| **Rejouer la revue UX/UI mesurée** | `node d-aona-server\_revue_ui.js` (≈ 4 min — base jetable, aucune donnée réelle) |
-| **Contrôler la géométrie (recouvrements, barre haute, cliquables au clavier)** | `node d-aona-server\_s7_probe.js` (lecture seule, port 8093) |
-| **Contrôler la fin de course (air sous le dernier contenu)** | `node d-aona-server\_s7_fin.js` (lecture seule, port 8092) |
-| **Vérifier le verrou de zoom mobile (n° 6)** | `node d-aona-server\_zoom_probe.js` (base jetable, pincement synthétisé CDP + page témoin, port 8093) |
-| **Réinitialiser un mot de passe** | `node d-aona-server\reset_password.js <pseudo> "<motDePasse>"` |
-| Diagnostic réseau | `node d-aona-server\diag.js` |
+| Démarrer le serveur (hôte) | `apps\api\DEMARRER.bat` |
+| Jeu à distance (tunnel public) | `apps\api\LIEN_REMOTE.bat` |
+| Activer le hotspot | `apps\api\HOTSPOT.bat` |
+| Vérifier la base | `node apps\api\check_db.js` |
+| **Sauvegarder la base (vérifiée)** | `node apps\api\backup_db.js` |
+| **État / application des migrations** | `node apps\api\migrate.js --status` puis `node migrate.js` |
+| **Tests d'authentification** | `node apps\api\test_auth.js` |
+| **Tests d'interface (scénarios)** | `node apps\api\test_ui_scenarios.js` |
+| **Vérifier l'onglet Jeux sur modèles de téléphone** | `node apps\api\_verif_jeux_mobile.js` (6 appareils Playwright, clics réels, captures `%TEMP%\daona_shots\jeux-mobile`) |
+| **Vérifier les deux faces de la pièce (tirage au sort)** | `node apps\api\_coin_verif.js` (9 contrôles, base jetable, captures) |
+| **Contrôler la courbe Elo et les statistiques du Profil** | `node apps\api\_probe_elo_stats.js` (31 contrôles, base jetable) |
+| **Vérifier la courbe sur les données réelles** | `node apps\api\_check_elo_reel.js [pseudo]` (copie jetable ; le mot de passe n'est changé que sur la copie) |
+| **Mesurer l'état des données de jeu** | `node apps\api\_inspect_stats.js` (lecture seule : instantanés, cohérence des Elo, compteurs) |
+| **Reconstituer les instantanés d'Elo manquants** | `node apps\api\_backfill_elo.js` (mesure seule) puis `--apply` — écrit après une sauvegarde vérifiée |
+| **Aligner les compteurs du Profil sur l'historique** | `node apps\api\_sync_compteurs.js` (mesure seule) puis `--apply` |
+| **Étoffer l'historique d'un compte (jeu de test)** | `node apps\api\_seed_parties_elo.js --pseudo="Ny Angola" --nb=49` (mesure) puis `--apply` — annulable via `_seed_parties_manifest.json` |
+| **Mesurer un compte précis** | `node apps\api\_inspect_compte.js "Ny Angola"` (lecture seule : parties, chaîne d'Elo, compteurs) |
+| **Rejouer la revue UX/UI mesurée** | `node apps\api\_revue_ui.js` (≈ 4 min — base jetable, aucune donnée réelle) |
+| **Contrôler la géométrie (recouvrements, barre haute, cliquables au clavier)** | `node apps\api\_s7_probe.js` (lecture seule, port 8093) |
+| **Contrôler la fin de course (air sous le dernier contenu)** | `node apps\api\_s7_fin.js` (lecture seule, port 8092) |
+| **Vérifier le verrou de zoom mobile (n° 6)** | `node apps\api\_zoom_probe.js` (base jetable, pincement synthétisé CDP + page témoin, port 8093) |
+| **Réinitialiser un mot de passe** | `node apps\api\reset_password.js <pseudo> "<motDePasse>"` |
+| Diagnostic réseau | `node apps\api\diag.js` |
 | Mise à jour manuelle du journal | `maj_journal.bat` (ou `node update_log.js`) |
 | Libérer le port 8080 | `taskkill /F /IM node.exe` |
 | Recharger sans cache (navigateur) | `Ctrl+F5` |
@@ -171,12 +171,12 @@ joueur : **32/32**. Documentation : `docs/ADMIN_API.md` (URL, fiche joueur, troi
 faces, codes `PIECES_INCOMPLETES`/`JOUEUR_INCONNU`, et la section « ce qui n'est
 pas fait » mise à jour).
 
-**Fichiers.** `d-aona-server/migrations/025_kyc_face.sql` ·
-`d-aona-server/kyc.js` (visage, rétention, `PIECES_INCOMPLETES`) ·
-`d-aona-server/admin/index.js` (route fiche, pièces, `faceRequired`) ·
-`d-aona-server/admin/store.v2.js` (réglage, `matchesList`) ·
-`d-aona-server/db/stores.js` · `d-aona-server/server.js` ·
-`D-aona/d-aona-web/admin/admin.core.js` (tri d'en-tête) ·
+**Fichiers.** `apps/api/migrations/025_kyc_face.sql` ·
+`apps/api/kyc.js` (visage, rétention, `PIECES_INCOMPLETES`) ·
+`apps/api/admin/index.js` (route fiche, pièces, `faceRequired`) ·
+`apps/api/admin/store.v2.js` (réglage, `matchesList`) ·
+`apps/api/db/stores.js` · `apps/api/server.js` ·
+`apps/web/admin/admin.core.js` (tri d'en-tête) ·
 `admin/admin.css` (en-tête triable, vignette, zoom) ·
 `admin/admin.views.moderation.js` (fiche, trois pièces, liste) ·
 `admin/admin.views.competition.js` · `admin/admin.views.system.js` ·
@@ -235,7 +235,7 @@ sept `<i>` inline de 17 px — « 7 colonnes, 0 stylée ». Les règles manquant
 de vrai** : abandon du défi → 2 → 1 en cours, 51 → 52 terminées, ligne `games`
 `finished` avec vainqueur. `npm test` : 7 suites vertes, code 0.
 
-**Fichiers.** `d-aona-server/migrations/026_game_sessions_game.sql` (nouveau) ·
+**Fichiers.** `apps/api/migrations/026_game_sessions_game.sql` (nouveau) ·
 `db/stores.js` (cycle de statut, session ↔ historique) · `server.js` (reprise,
 balayage) · `admin/routes.v2.js` (UTC+3, `liveWagers`, `gamesTodaySplit`, activité) ·
 `admin/store.v2.js` (`matchesList`) · `admin/admin.views.system.js` (métrique +
@@ -295,7 +295,7 @@ viennent de `assets/ad/pubs.json` et le serveur refuse tout chemin hors `assets/
 **Fichiers.** `d-aona-web/admin/admin.core.js` (dialogue, toast) ·
 `d-aona-web/admin/admin.css` (croix, toast cliquable, `margin:auto` du dialogue) ·
 `d-aona-web/admin/admin.views.moderation.js` (`critical` sur l'examen KYC) ·
-`d-aona-server/tools/_ui_popups_player.js` (nouveau, ignoré).
+`apps/api/tools/_ui_popups_player.js` (nouveau, ignoré).
 
 
 ## 2026-11-07 — Correction back-office, étape 0 (sonde de mesure) + étape 1.1 (le desktop défile enfin) (entrée MANUELLE)
@@ -306,7 +306,7 @@ imposée : `/loop` — implémenter, vérifier, comparer au `/goal`, corriger l'
 recommencer (5 itérations maximum par étape, preuve exigée).
 
 **Étape 0 — mesurer avant de corriger.** Nouvelle sonde jetable
-`d-aona-server/tools/_ui_admin_probe.js` (dossier `tools/`, gitignoré) : base
+`apps/api/tools/_ui_admin_probe.js` (dossier `tools/`, gitignoré) : base
 **jetable**, `seed_oracle.js`, compte d'ancrage `super_admin`, puis **deux vraies
 parties en cours créées par les flux WebSocket réels** (matchmaking et défi à
 2 000 Ar par camp, pot attendu 4 000 Ar) — des `INSERT` à la main n'auraient pas
@@ -354,7 +354,7 @@ sont exactement les autres étapes. Console : **45/45 sans erreur**. Captures
 jours 01→07 empilés, sans une seule barre : le défaut 3.2 en image). `npm test`
 (7 suites) vert, dont `85/85` pour Dimy.
 
-**Fichiers.** `d-aona-server/tools/_ui_admin_probe.js` (nouveau, ignoré) ·
+**Fichiers.** `apps/api/tools/_ui_admin_probe.js` (nouveau, ignoré) ·
 `d-aona-web/admin/admin.css` (bloc « Défilement ») ·
 `reports/probe-2026-11-07-avant.md` (nouveau).
 
@@ -530,8 +530,8 @@ les écrans portés utilisent le `<table>` de la maquette (`.table-wrap`). Séle
 
 **Fichiers modifiés :** `d-aona-web/admin/admin.uikit.js` (`panel` avec `bare`/`foot`
 frère, `fmtShort`), `d-aona-web/admin/admin.views.system.js` (`overview`, `audit`,
-`modulesView`), `d-aona-server/admin/routes.v2.js` (`gamesToday`, `liveGames`,
-`openRegistrations`), `d-aona-server/test/ui/parts/_p14.js`, `docs/FIDELITE_VISUELLE.md`.
+`modulesView`), `apps/api/admin/routes.v2.js` (`gamesToday`, `liveGames`,
+`openRegistrations`), `apps/api/test/ui/parts/_p14.js`, `docs/FIDELITE_VISUELLE.md`.
 
 
 ## 2026-11-03 — Jalon §11.6 FRANCHI : 861 assertions de permissions, et un 17ᵉ écart corrigé (entrée MANUELLE)
@@ -633,7 +633,7 @@ visuelle), §11.9/§11.10/§11.11 (a11y, budgets, exports) et l'arbitrage E12 (s
 dérivé). `npm run verify` enchaîne désormais les quatre portes d'un coup.
 
 **Fichiers.** `scripts/scenarios.js` · `scripts/invariants.js` ·
-`d-aona-server/seed_oracle.js` (bracket de t5) · `admin/store.v2.js` (Elo) ·
+`apps/api/seed_oracle.js` (bracket de t5) · `admin/store.v2.js` (Elo) ·
 `admin/index.js` (annulation + matchs) · `db/stores.js` + `auth.js` (`Wallet.opening`)
 · `test_scenarios.js` · `package.json` · `SPEC.md` · `reports/compare-2026-11-02.md`.
 
@@ -649,7 +649,7 @@ serveur et 135 vérifications d'interface déjà vertes.
 qu'aucune comparaison de montants n'était possible : la base de développement ne
 contenait pas le jeu de données de l'oracle. C'est corrigé.
 
-**`d-aona-server/seed_oracle.js`** reconstruit l'état de la démo à l'identique, en
+**`apps/api/seed_oracle.js`** reconstruit l'état de la démo à l'identique, en
 suivant **son algorithme**, y compris le bouclage par crédit d'exploitation qui
 garantit que la somme des écritures égale la somme des soldes. Le recalculer
 autrement produirait les bons totaux avec les mauvaises lignes — donc une
@@ -684,7 +684,7 @@ fuzz §11.5, régression visuelle §11.8, solde dérivé (§4 de `SPEC.md`).
 Telo/Dimy 85/85) · campagne d'interface **135/135** · `node migrate.js` 024 appliquée ·
 **630** lignes `admin_grants` = 7 × 15 × 6.
 
-**Fichiers.** `d-aona-server/seed_oracle.js` · `scripts/export-actual.js` ·
+**Fichiers.** `apps/api/seed_oracle.js` · `scripts/export-actual.js` ·
 `scripts/compare.js` · `reference/ACTUAL.json`, `reference/id-map.json` ·
 `reports/compare-seed-2026-11-03.md` · `package.json` (racine : `ref`, `seed:oracle`,
 `actual`, `compare`, `verify`) · `SPEC.md` · `reports/compare-2026-11-02.md`.
@@ -806,7 +806,7 @@ dernier. Une suspension **ferme les sessions ouvertes** (`revokeAllSessions`) et
 ne rien révéler à qui ne le connaît pas). Un super administrateur ne peut pas être
 suspendu.
 
-**Le back-office sort du mono-fichier.** `D-aona/d-aona-web/admin/` : `admin.css`
+**Le back-office sort du mono-fichier.** `apps/web/admin/` : `admin.css`
 (TOUT scopé sous `#admin-root`, jetons propres, jour ET nuit), `admin.core.js`
 (état, client HTTP, coquille, dialogues, toasts, temps réel), quatre familles de vues
 (système, modération, compétition, finances) et `admin.boot.js`. `index.html` perd
@@ -836,7 +836,7 @@ recalcule pas l'Elo, et l'écran le dit · `settings.maintenance` est exposé et
 encore l'accès joueur · les chemins HTTP `ads`/`accounting`/`elo`/`badges` restent servis
 (renommer une URL est un changement de contrat, pas une bascule de vocabulaire).
 
-**Fichiers.** `migrations/017` → `023` · `admin/{permissions,store,store.v2,store.finance,index,routes.v2,routes.finance}.js` · `db/stores.js` · `auth.js` · `server.js` · `D-aona/d-aona-web/admin/*` (7 fichiers neufs) · `D-aona/d-aona-web/index.html` (−1 016 l.) · `test_scenarios.js` · `test/ui/parts/{_p10,_p14}.js` · `test_ui_scenarios.js` · `docs/ADMIN_API.md` · ce journal · `PLAN-REFONTE.md`.
+**Fichiers.** `migrations/017` → `023` · `admin/{permissions,store,store.v2,store.finance,index,routes.v2,routes.finance}.js` · `db/stores.js` · `auth.js` · `server.js` · `apps/web/admin/*` (7 fichiers neufs) · `apps/web/index.html` (−1 016 l.) · `test_scenarios.js` · `test/ui/parts/{_p10,_p14}.js` · `test_ui_scenarios.js` · `docs/ADMIN_API.md` · ce journal · `PLAN-REFONTE.md`.
 
 
 ## 2026-11-02 — Refonte Administration, lots 0 à 2 : une maquette HTML devient un contrat (6 migrations, vocabulaire v2, 15 modules) (entrée MANUELLE)
@@ -893,7 +893,7 @@ permissions » laisserait le back-office sans moyen de se rallumer. Second verro
 **Fichiers.** `migrations/017_withdrawals.sql` → `022_admin_permissions_v2.sql` ·
 `admin/permissions.js` (réécrit : 15 modules, 7 rôles, 6 actions, groupes, `core`) ·
 `admin/index.js` (23 barrières réalignées + garde socle) · `admin/store.js`
-(`core`/`group` exposés, refus des socles) · `D-aona/d-aona-web/index.html` (pont v2→v1)
+(`core`/`group` exposés, refus des socles) · `apps/web/index.html` (pont v2→v1)
 · `test_scenarios.js` (+2 vérifications : socle refusé, socle resté allumé) ·
 `test/ui/parts/_p14.js` (sélecteurs du catalogue v2).
 
@@ -976,8 +976,8 @@ la plaque (302 px) **défile** dans la carte. C'est un choix mesuré — la réd
 rendrait les intersections intouchables (maille de 27 px). Aucune découpe : le corps de carte
 est un conteneur défilant, la plaque entière reste atteignable.
 
-**Fichiers.** *Ajouté :* `D-aona/d-aona-web/assets/board/plateau_square.webp` (plaque carrée
-sans liseré). *Modifiés :* `D-aona/d-aona-web/index.html` (barre haute + référence de partie,
+**Fichiers.** *Ajouté :* `apps/web/assets/board/plateau_square.webp` (plaque carrée
+sans liseré). *Modifiés :* `apps/web/index.html` (barre haute + référence de partie,
 `.pg-skip` insécable, sièges mobiles en grille, `hidden` des boutons, panneau latéral,
 `.vm-force-unit`, bornes de la plaque), `variant-match.js` (rapport de force, référence),
 `games/fanoron-dimy/board.js` et `games/fanoron-telo/board.js` (transmission de `hints` et
@@ -1027,17 +1027,17 @@ jetons sont en px, pour des surfaces d'UI fixes) : rayon effectif mesuré **51 p
 de l'arc pour un rayon de 51 — il n'est jamais mordu, et aucun pion ne l'est non plus.
 
 **Preuves (toutes sur le fichier livré, pas sur l'intention).**
-1) **Asset** — sonde indépendante `python d-aona-server/_chk_coins_plateau.py` :
+1) **Asset** — sonde indépendante `python apps/api/_chk_coins_plateau.py` :
 quatre arcs ajustés (chiffres ci-dessus), PNG et WebP identiques, verdict
 « coins arrondis OUI » ; lancée sur `4d0b621` elle répond « 0/4 coins ont un arc », ce
 qui prouve que la mesure discrimine bien les deux états.
-2) **DOM** — `node d-aona-server/tools/_fp_coins_check.js` (12 cas : 3 plateaux ×
+2) **DOM** — `node apps/api/tools/_fp_coins_check.js` (12 cas : 3 plateaux ×
 2 largeurs × 2 thèmes, DPR 2) : `.fp-plate` → `11.8%`, `overflow: hidden`,
 `has-art` posée, image **864 × 864** réellement chargée ; **`pionsHors.max = 0`** sur
 les 25 pions du Dimy et les 3 du Telo (équerrage des 4 coins de chaque pion contre la
 forme arrondie), **`champHors.max = 0`** ; `.screen-board` → `border-radius: 0px`,
 `plateau_clean.webp` **1647 × 955** chargée.
-3) **Pixels** — `python d-aona-server/_chk_coins_ecran.py` sur les 12 captures : dans un
+3) **Pixels** — `python apps/api/_chk_coins_ecran.py` sur les 12 captures : dans un
 coin arrondi, le premier pixel de bois sur la diagonale tombe à `marge + 0,293 R`, soit
 **3,5 % à 4,4 %** de la largeur ; un coin carré le donnerait à 0-2 %. Mesuré :
 **3,24-3,70 %** (Dimy/Telo) et **4,57-4,93 %** (Tsivy) sur les **12/12** captures, dans
@@ -1058,11 +1058,11 @@ transparent à 39 % — même rendu que le Tsivy, mais nouvel asset à produire.
 (2) Le **champ intérieur** des plaques carrées garde l'arc de la photo (session
 précédente) : c'est le dessin réel, il ne heurte ni la moulure ni le treillis.
 
-**Fichiers.** *Modifiés :* `D-aona/d-aona-web/index.html` (commentaire de
+**Fichiers.** *Modifiés :* `apps/web/index.html` (commentaire de
 `.screen-board` ; `.fp-plate` : `border-radius`/`overflow` et leur justification ;
 table de rangement des rayons ; liste des exceptions) ·
-`D-aona/d-aona-web/assets/board/plateau_clean.png` et `plateau_clean.webp`
-(restaurés de `ce3297c`) · ce journal. *Hors Git :* `d-aona-server/_squarify_board.py`
+`apps/web/assets/board/plateau_clean.png` et `plateau_clean.webp`
+(restaurés de `ce3297c`) · ce journal. *Hors Git :* `apps/api/_squarify_board.py`
 (**bandeau OBSOLÈTE** en tête : le rejouer re-carrerait la plaque en silence) ·
 `tools/_shapes_apply.js` (`.screen-board` retiré de la table `--r-md`, chemin par
 défaut réparé) · `tools/_shape_scan.js` (le chemin se lit désormais dans le premier
@@ -1138,8 +1138,8 @@ rejouer le fondu à chaque rendu, bascule au `load`, retrait au `error`),
 `games/fanoron-dimy/board.js` (+7) et `games/fanoron-telo/board.js` (+6) : l'option et
 son commentaire, rien d'autre ; `index.html` (+30 : `.fp-plate-art` et les règles
 `has-art`, qui laissent les règles vectorielles en place comme repli) ; ce journal.
-*Ajouté :* `D-aona/d-aona-web/assets/board/plateau_square.webp` (81,2 Ko, seul
-fichier nouveau). *Hors Git :* `d-aona-server/tools/_fp_plate_square.py` (construction),
+*Ajouté :* `apps/web/assets/board/plateau_square.webp` (81,2 Ko, seul
+fichier nouveau). *Hors Git :* `apps/api/tools/_fp_plate_square.py` (construction),
 `_fp_plate_qa.py` (audit indépendant), `_fp_plate_load.js` (chargement + captures).
 
 **Écarts assumés.** (1) Les quatre coins du **champ intérieur** gardent l'arc de la
@@ -1203,7 +1203,7 @@ entre les deux pixels encadrants) et exige qu'elle soit constante sur toute la l
 rectangle**. La normalisation par le plateau est ce qui rend la mesure insensible au
 taux de couverture de la ligne — le contrôle mesure la *géométrie*, pas l'alpha.
 
-**Preuves.** Outil de production : `python d-aona-server/_squarify_board.py` (HORS Git :
+**Preuves.** Outil de production : `python apps/api/_squarify_board.py` (HORS Git :
 `_*.py` est ignoré au même titre que les ~110 autres sondes du dossier). Contrôles
 relus après coup par une sonde indépendante, sur le fichier livré :
 1) **plateau intact** : **48 275 px modifiés** au total (comparaison RGBA au bit près avec
@@ -1229,11 +1229,11 @@ déterministe, rejouable sans surprise.
 Rendu relu à la taille réelle de l'app (plaque de 740 px et 823 px de large, soit 42 %
 de la source) : rectangle net, quatre coins pleins, frise continue.
 
-**Fichiers.** *Modifiés :* `D-aona/d-aona-web/assets/board/plateau_clean.png`,
-`plateau_clean.webp`, `.gitignore` (`d-aona-server/_*.out`, `_*.cmd`, `__pycache__/`,
+**Fichiers.** *Modifiés :* `apps/web/assets/board/plateau_clean.png`,
+`plateau_clean.webp`, `.gitignore` (`apps/api/_*.out`, `_*.cmd`, `__pycache__/`,
 `_plateau_source.png` : les sous-produits et l'entrée de l'outil cessent de polluer
 `git status`, dans l'esprit du bloc « scripts jetables de session » déjà présent), ce
-journal. *Hors Git :* `d-aona-server/_squarify_board.py` (production de l'asset),
+journal. *Hors Git :* `apps/api/_squarify_board.py` (production de l'asset),
 `_apercu_plateau.py` (aperçus dans `%TEMP%\daona_board`), `_plateau_source.png` (la
 source 1647 × 955 d'origine, dont l'outil a besoin pour être rejoué).
 
@@ -1293,12 +1293,12 @@ réel, compte de sonde supprimé depuis) : Dimy plaque 432 px, contenu 578 px po
 **inchangé** (700×406, ratio 1,725, 44 pions, zéro `.fp-plate`). `npm test` :
 7 suites vertes, code retour 0 ; `test:telo` 85/85 ; `test:dimy` 85/85.
 
-**Fichiers.** *Modifiés :* `D-aona/d-aona-web/games/fanorona-board.js` (plaque
-parente, `--fp-step-n`, `PAWN_RATIO` 0,57), `D-aona/d-aona-web/index.html`
+**Fichiers.** *Modifiés :* `apps/web/games/fanorona-board.js` (plaque
+parente, `--fp-step-n`, `PAWN_RATIO` 0,57), `apps/web/index.html`
 (`.vm-board` qui épouse la plaque, `.fp-plate`, `.fp-board`, jeton `--fp-pitch`,
 relief `.fp-nodes`), les README de Telo et Dimy, ce journal. *Ajoutés au dépôt :*
-aucun — la sonde `d-aona-server/tools/_fp_alignment_check.js` reste HORS Git
-(`d-aona-server/tools/` est ignoré, convention du dépôt : ce sont des outils de
+aucun — la sonde `apps/api/tools/_fp_alignment_check.js` reste HORS Git
+(`apps/api/tools/` est ignoré, convention du dépôt : ce sont des outils de
 preuve locaux, aux côtés des ~110 autres).
 
 **Écarts assumés.** (1) Sur un téléphone de 390 px, le 5×5 est bridé par la
@@ -1365,7 +1365,7 @@ vectorielle.
 - `_probe_formes` reste périmée (elle cherche `.home-hero`/`.t-card`, disparus de l'accueil) : la re-pointer sur `.season-card`/`.dash-stat` est un travail de sonde, pas d'interface.
 - Une **revue visuelle écran par écran** (anatomie des cartes, densité, hiérarchie fine) reste le prolongement naturel : la fondation et les lots sont posés, la prochaine étape est une lecture des captures `graphify-out/revue-ui/` avec le demandeur.
 
-**Fichiers :** `D-aona/d-aona-web/index.html`, `d-aona-server/_probe_tokens.js` (nouvelle sonde, hors Git), `.agents/skills/apple-design/` + `skills-lock.json` (hors Git), `CONTEXTE_PROJET.md`, `tasks/plan.md`, `tasks/todo.md`.
+**Fichiers :** `apps/web/index.html`, `apps/api/_probe_tokens.js` (nouvelle sonde, hors Git), `.agents/skills/apple-design/` + `skills-lock.json` (hors Git), `CONTEXTE_PROJET.md`, `tasks/plan.md`, `tasks/todo.md`.
 
 
 ## 2026-10-10 — Message d'amitié écrit par le demandeur (« De aona ? Masahy amiko ? ») · « Terminer la prise » réparé pour le joueur n°2 (mobile) · déplacement libre (fin de la capture obligatoire) · anti-triche WS (entrée MANUELLE)
@@ -1384,7 +1384,7 @@ vectorielle.
 
 **Redémarrage du serveur + preuve EN DIRECT.** Le serveur hôte (port 8080) tournait un processus ÉLEVÉ non arrêtable depuis la session de travail (« Accès refusé ») : redémarré via une invite UAC (script jetable auto-supprimé, nouveau PID à 11 h 56) — l'ancien processus gardait le code d'avant. Vérification sur le serveur ACTIF : une acceptation d'amitié réelle (entre les deux comptes de test) produit bien « De aona ? Masahy amiko ? », ÉCRIT par le demandeur et reçu par celui qui accepte (« me » côté demandeur, « them » côté accepteur — constaté sur les deux fils). Les messages d'amitié antérieurs (ancien texte) restent en historique : le correctif ne réécrit pas le passé, il s'applique aux NOUVELLES acceptations. Côté client : `index.html` est servi depuis le disque — bouton « Terminer la prise », coups libres et textes des règles actifs après un simple rechargement (Ctrl+F5).
 
-**Fichiers :** `d-aona-server/server.js`, `d-aona-server/game.js`, `d-aona-server/data.js`, `d-aona-server/test_scenarios.js`, `d-aona-server/_chain_mobile.js` (sonde conservée, hors git), `D-aona/d-aona-web/index.html`, `D-aona/d-aona-web/README.md`, `CONTEXTE_PROJET.md`.
+**Fichiers :** `apps/api/server.js`, `apps/api/game.js`, `apps/api/data.js`, `apps/api/test_scenarios.js`, `apps/api/_chain_mobile.js` (sonde conservée, hors git), `apps/web/index.html`, `apps/web/README.md`, `CONTEXTE_PROJET.md`.
 
 ## 2026-10-07 — Header : la recherche de joueurs passe À DROITE, à côté du badge KYC (entrée MANUELLE)
 
@@ -1394,7 +1394,7 @@ vectorielle.
 
 **Preuves.** Sonde nouvelle `_dbg_hdr_search.js` (conservée, hors git) : **14/14** — pastille à 966 px sur une barre de 1440 (donc à droite) et à 14 px du badge KYC, barre sur une ligne (64 px desktop / 58 px mobile), panneau ancré sous la pastille (`écartDroit 0`) et dans l'écran, clic sur un résultat → profil `#/profile?id=…` + repli, Échap, clic extérieur, mobile 360 : pastille visible + KYC après elle, résultats plein cadre, scrollWidth 360 au repos / ouvert / replié, 0 erreur JS · captures `hdr-search-jour.png` et `hdr-search-mobile.png`. Non-régression : `_check_html.js` OK · `_probe_profil_v3` **41/41** · `_layout_fill` **204/204** · `_dbg_wl_fix.js` OK · `_wallet_shots.js` OK.
 
-**Fichiers :** `D-aona/d-aona-web/index.html` (markup + CSS `#top-search-results` + `placeTopResults`), `CONTEXTE_PROJET.md` · sonde conservée `_dbg_hdr_search.js` (hors dépôt git).
+**Fichiers :** `apps/web/index.html` (markup + CSS `#top-search-results` + `placeTopResults`), `CONTEXTE_PROJET.md` · sonde conservée `_dbg_hdr_search.js` (hors dépôt git).
 
 
 ## 2026-10-07 — Wallet : filtre de dates « à la Airbnb » (calendrier 2 mois, plage à bande, puces ±N) (entrée MANUELLE)
@@ -1409,7 +1409,7 @@ vectorielle.
 
 **Preuves.** Sonde nouvelle `_dbg_wl_cal.js` (conservée, hors git) : **24/24** — ancrage, mois Oct/Nov 2026, L M M J V S D, « Dates exactes » seule active sans plage, navigation ±2 mois (Déc 2026 / Janv 2027) puis retour, 1ᵉʳ clic → pastille + bande d'aperçu au survol (8 cases), 2ᵉ clic → bornes appliquées + fermeture + champ « Du 1 oct. au 8 oct. » + select « Période personnalisée », réouverture → plage reprise en pastilles, ± 7 jours → bornes élargies sans fermer le panneau, « Dates exactes » → bornes restaurées, mois passé 10→15 (clic antérieur inversé) → 0 résultat + état vide, ✕ → tout rendu au select, Échap / clic extérieur, thème nuit, mobile 360 : UN mois affiché, docW = 360 (panneau ouvert ET fermé), 0 erreur JS. Captures relues : `wl-cal-jour/plage-desktop/nuit/mobile.png`. Non-régression : `_probe_profil_v3` **41/41** · `_dbg_wl_fix` (fantôme scrollWidth) tout OK 360/1440 · `_wallet_shots` OK (mobile 360, détail, filtre, nuit, 0 erreur) · `_layout_fill` **204/204** · `_check_html` OK (7 360 lignes).
 
-**Fichiers :** `D-aona/d-aona-web/index.html`, `CONTEXTE_PROJET.md` · sonde conservée `_dbg_wl_cal.js` ; mini-sonde jetable `_dbg_wl_cal_geo.js` supprimée après usage (hors dépôt git).
+**Fichiers :** `apps/web/index.html`, `CONTEXTE_PROJET.md` · sonde conservée `_dbg_wl_cal.js` ; mini-sonde jetable `_dbg_wl_cal_geo.js` supprimée après usage (hors dépôt git).
 
 ## 2026-10-07 — Wallet : fin du « cercle glow » du statut (collision de classe `.dot` → `.wl-dot`) + libellés accentués (`Dépôt`, `Crédit`, `défi`, `entrée`) (entrée MANUELLE)
 
@@ -1423,7 +1423,7 @@ vectorielle.
 
 **Preuves.** Styles calculés après correctif : `boxShadow: none`, pastille **63×23 px**, `border-radius: 999px` (sonde conservée `_dbg_wl_statut.js`, captures ×3 jour/nuit `%TEMP%\daona_shots\wl-statut-*-x3.png` — pastilles propres, libellés accentués lus sur la capture). Migration validée SUR COPIE de la vraie base avant application (2 `Depot %`, 16 `Mise defi vs %`, 2 `Gain defi vs %`, 10 `Defi expire…`, 2 `Mise entree - %` → 0 restant sur 57 transactions), puis appliquée (tracking `schema_migrations` complet). `_check_html.js` OK · `test_scenarios` **257/257** (assertion « Dépôt MVola » mise à jour) · `_probe_profil_v3` **41/41** · `_dbg_wl_fix.js` (fantôme scrollWidth, conservée) tout OK 360 px + 1440 px · `_wallet_shots.js` OK (fiche détail, filtre, mobile 360, 0 erreur JS).
 
-**Fichiers :** `D-aona/d-aona-web/index.html`, `d-aona-server/server.js`, `d-aona-server/demo_seed.js`, `d-aona-server/data.js`, `d-aona-server/db/stores.js`, `d-aona-server/test_scenarios.js`, `d-aona-server/migrations/013_wallet_labels_accents.sql`, `CONTEXTE_PROJET.md` · sondes conservées `_dbg_wl_statut.js` et `_dbg_wl_fix.js` (hors dépôt git).
+**Fichiers :** `apps/web/index.html`, `apps/api/server.js`, `apps/api/demo_seed.js`, `apps/api/data.js`, `apps/api/db/stores.js`, `apps/api/test_scenarios.js`, `apps/api/migrations/013_wallet_labels_accents.sql`, `CONTEXTE_PROJET.md` · sondes conservées `_dbg_wl_statut.js` et `_dbg_wl_fix.js` (hors dépôt git).
 
 ## 2026-10-07 — Wallet mobile : le « fantôme » scrollWidth du moteur corrigé (`contain: layout paint`) (entrée MANUELLE)
 
@@ -1435,7 +1435,7 @@ vectorielle.
 
 **Preuves.** Sonde `_dbg_wl_ghost.js` : chargement frais 360/0 (avant : 570/210). Matrice `_dbg_wl_fix.js` (conservée comme régression) : 4 variantes × 360 px (repos + survie) + 1440 px — tout OK, colonnes desktop inchangées 801,7/576,2 px, 0 erreur JS. `_wallet_shots.js` : mobile `docW = 360` ET `docWBrut = 360` (avant : 584 brut), tableau toujours défilant dans son cadre, captures relues (aucune régression visuelle). `_probe_profil_v3` **41/41** · `_layout_fill` **204/204** (dont `mobile/wallet`) · `_check_html` OK (7 117 lignes) · `test_scenarios` **257/257** · `test_ui_scenarios.js s7` **10/10** · `_wallet_size_probe` TOUT VERT. Sondes jetables `_dbg_wl_ghost/_trigger/_owner.js` supprimées après usage.
 
-**Fichiers :** `D-aona/d-aona-web/index.html`, `CONTEXTE_PROJET.md` · sonde conservée `_dbg_wl_fix.js` (hors dépôt git).
+**Fichiers :** `apps/web/index.html`, `CONTEXTE_PROJET.md` · sonde conservée `_dbg_wl_fix.js` (hors dépôt git).
 
 
 ## 2026-10-07 — Wallet : la paire solde/frais reprend LA TAILLE de la maquette (correctif desktop) (entrée MANUELLE)
@@ -1448,7 +1448,7 @@ vectorielle.
 
 **Preuves.** Sonde nouvelle `_wallet_size_probe.js` (hors git) : les deux pages mesurées dans la MÊME fenêtre 1510×900 — largeurs 841/605 px côté app contre 812/584 px côté maquette ; à contenus comparables (grilles 1462/1412 px), largeurs attendues calculées 841/605 px, écart ≤ 1 px ; ratio solde/(solde+frais) 0,5816 contre 0,5817 ; historique = largeur de grille ; hauteurs « nues » (lignes métier bonus/KYC masquées) 245 px contre 228 — écart de 17 px = densité typographique de l'app (libellés 12,5 px contre 10 px dans la maquette), assumée — **TOUT VERT** · `_layout_fill.js` **204/204** (le défilement interne du wallet reste prouvé : « 40 lignes de plus → le bloc défile, la page non », mobile et 1366×768 inclus) · `_check_html.js` OK (7 117 lignes) · `test_scenarios` **257/257** · `_probe_profil_v3` **41/41** · `test_ui_scenarios.js s7` **10/10** · `_wallet_shots.js` : captures jour/nuit/fiche détail/filtre/mobile 360 rafraîchies. Mobile : le « fantôme » `scrollWidth` de Chrome a été re-tracé par sonde exhaustive (`_dbg_wl_ovf.js` : aucun élément hors cadre, les 25 plus larges sont tous DANS le tableau à défilement) ; la mesure de `_wallet_shots.js` est alignée sur le protocole éprouvé de la sonde v3 (mise en page reconstruite avant mesure) — 584 brut, puis `docW = 360 = innerW`, `scrollX = 0` après tentative, tableau défilant dans son cadre.
 
-**Fichiers :** `D-aona/d-aona-web/index.html`, `CONTEXTE_PROJET.md` · sondes `_wallet_size_probe.js` et `_dbg_wl_ovf.js` hors dépôt git.
+**Fichiers :** `apps/web/index.html`, `CONTEXTE_PROJET.md` · sondes `_wallet_size_probe.js` et `_dbg_wl_ovf.js` hors dépôt git.
 
 ## 2026-10-07 — Wallet v3 : fidélité STRICTE à la maquette « wallet-desktop » (entrée MANUELLE)
 
@@ -1611,7 +1611,7 @@ blanc-dominant là où celui des clairs est noir-dominant, vu en captures sur le
 dessin strictement identique décliné en deux coloris était un jour voulu, le LISEZ-MOI indique la
 voie (déclinaison colorimétrique depuis une seule source) — non demandé ici.
 
-**Où vivent les fichiers.** Huit PNG dans `D-aona/d-aona-web/assets/pions/` : les quatre du lot
+**Où vivent les fichiers.** Huit PNG dans `apps/web/assets/pions/` : les quatre du lot
 clair, plus `zebu-sombre.png`, `ravinala-sombre.png`, `lemurien-sombre.png` et
 `crocodile-sombre.png` (les **256 px** du lot sombre, copiés **sans ré-encodage**, SHA-256 égaux,
 cf. le README du dossier). ⚠ Le lot sombre nomme ses fichiers `<motif>-noir-*.png` **sauf le
@@ -1629,10 +1629,10 @@ onglet sombre → `<motif>-sombre.png`, aperçu ET vignette), les 20 règles de 
 (6 571 lignes, balises équilibrées). Captures : `%TEMP%\daona_shots\pions-*.png` (par motif en
 clair et en sombre, boutique des deux camps, plateau).
 
-**Fichiers :** `D-aona/d-aona-web/index.html` (commentaires, `PION_PATTERNS` → `imgDark`,
-`mountPionStyles`), `D-aona/d-aona-web/assets/pions/` (4 PNG sombres + README réécrit),
-`d-aona-server/_pions_verif.js`, `_p10.js`, `_s8_verif.js`, `_probe_boutique_v1.js`,
-`test_ui_scenarios.js` (régénéré par `_build.js`), `D-aona/d-aona-web/README.md`,
+**Fichiers :** `apps/web/index.html` (commentaires, `PION_PATTERNS` → `imgDark`,
+`mountPionStyles`), `apps/web/assets/pions/` (4 PNG sombres + README réécrit),
+`apps/api/_pions_verif.js`, `_p10.js`, `_s8_verif.js`, `_probe_boutique_v1.js`,
+`test_ui_scenarios.js` (régénéré par `_build.js`), `apps/web/README.md`,
 `CONTEXTE_PROJET.md`.
 
 ## 2026-10-03 — Motifs de pion : le lémurien, le zébu, le crocodile et le ravinala passent aux illustrations PNG (entrée MANUELLE)
@@ -1652,7 +1652,7 @@ PRA, pangalatra, lefona, `aucun`) gardent leur rendu à l'identique — masque S
 couleur choisie. Les quatre jeux de variables (moi | adversaire × clair | sombre) reçoivent la variable
 jumelle : aperçu, vignettes de la boutique ET plateau consomment toujours les mêmes règles.
 
-**Où vivent les fichiers.** `D-aona/d-aona-web/assets/pions/`, selon la convention des autres assets
+**Où vivent les fichiers.** `apps/web/assets/pions/`, selon la convention des autres assets
 (`board/`, `coins/`, `ad/`) : les **256 px** du lot — la taille qui reste nette jusqu'à l'aperçu de
 104 px sur un écran à 2,4× de densité — copiés **sans ré-encodage** (SHA-256 identiques, cf. le README
 du dossier), renommés sur les `id` du catalogue (`lemur-256.png` → `lemurien.png`), et chargés
@@ -1675,11 +1675,11 @@ partie d'entraînement — mon camp ET celui de l'adversaire (attribut `-opp` co
 la couche de la famille du motif) · `_check_html.js` OK (6 557 lignes, balises équilibrées).
 Captures : `%TEMP%\daona_shots\pions-*.png`.
 
-**Fichiers :** `D-aona/d-aona-web/index.html` (CSS `.pion-view::before` et `.board .piece.*`,
-commentaires, `PION_PATTERNS`, `motifImgUri`, `mountPionStyles`), `D-aona/d-aona-web/assets/pions/`
-(4 PNG + README), `d-aona-server/_pions_verif.js` (sonde), `d-aona-server/_p10.js`, `_s8_verif.js`,
+**Fichiers :** `apps/web/index.html` (CSS `.pion-view::before` et `.board .piece.*`,
+commentaires, `PION_PATTERNS`, `motifImgUri`, `mountPionStyles`), `apps/web/assets/pions/`
+(4 PNG + README), `apps/api/_pions_verif.js` (sonde), `apps/api/_p10.js`, `_s8_verif.js`,
 `_probe_boutique_v1.js`, `test_ui_scenarios.js` (régénéré par `_build.js`),
-`D-aona/d-aona-web/README.md`, `CONTEXTE_PROJET.md`.
+`apps/web/README.md`, `CONTEXTE_PROJET.md`.
 
 ## 2026-10-03 — Arbitrage S8 INVERSÉ : le tirage au sort redevient un voile plein écran, joué AVANT la partie (entrée MANUELLE)
 
@@ -1710,11 +1710,11 @@ cliquable** · fermeture automatique 12 s en mobile · **aucun rejeu après rech
 déterministe : ma face tirée → « commence » sur ma ligne ; face de l'IA → sur la sienne) ·
 `_check_html.js` OK · `_verif_jeux_mobile.js` OK (6 appareils) · `_coin_apercu.js` OK.
 
-**Fichiers :** `D-aona/d-aona-web/index.html` (CSS `.coin-toss` / `.coin-air` / `.landed`, HTML
+**Fichiers :** `apps/web/index.html` (CSS `.coin-toss` / `.coin-air` / `.landed`, HTML
 `#coin-toss`, JS `showTossResult` réécrit, `hideCoinToss`, `tossSideOf`, appelants `animate:true/false`),
-`d-aona-server/_coin_verif.js` (P1–P9), `d-aona-server/_s8_verif.js` (V1–V6 inversés),
-`d-aona-server/_coin_3d.js` (sonde), `d-aona-server/_revue_ui.js` et `_shapes_apply.js` (références
-`.toss-banner` retirées), `D-aona/d-aona-web/README.md`, `D-aona/d-aona-web/assets/coins/README.md`.
+`apps/api/_coin_verif.js` (P1–P9), `apps/api/_s8_verif.js` (V1–V6 inversés),
+`apps/api/_coin_3d.js` (sonde), `apps/api/_revue_ui.js` et `_shapes_apply.js` (références
+`.toss-banner` retirées), `apps/web/README.md`, `apps/web/assets/coins/README.md`.
 
 
 ## 2026-10-03 — Les SKINS appartiennent au JOUEUR, pas à la couleur des pions (fin de la fuite sur les pions de l'adversaire) (entrée MANUELLE)
@@ -1780,13 +1780,13 @@ C'est ce qui a permis de trancher un échec intermittent : le `ERR_CONNECTION_CL
 `fonts.gstatic.com`, pas du serveur — la page y survit par repli de police, et l'humeur du réseau ne doit pas
 décider du verdict d'une vérification du code.
 
-**Fichiers :** `D-aona/d-aona-web/index.html` (CSS `.board .piece.opp.clair` / `.opp.sombre` ; `PION_VAR_SETS`
+**Fichiers :** `apps/web/index.html` (CSS `.board .piece.opp.clair` / `.opp.sombre` ; `PION_VAR_SETS`
 et `mountPionStyles` ; `applyPionStyles` ; moteur : `pionStyleDefaults`, `normStyles`, `paintPionStyles`,
 `setPionStyles`, `applyStatePionStyles`, `localStyles`, `serverStyles`, `quit`, `applyServerState`,
-`renderPieces` (commentaire) et l'export `setPionStyles`), `d-aona-server/game.js` (`getState`),
-`d-aona-server/server.js` (`createGameSession`), `d-aona-server/_s8_verif.js` (V8, `poserSkinClair`, ressources
-nommées), `d-aona-server/test_scenarios.js` (9.3bis + spectateur), `REVUE_UI_UX.md` (§18, addendum),
-`D-aona/d-aona-web/README.md`.
+`renderPieces` (commentaire) et l'export `setPionStyles`), `apps/api/game.js` (`getState`),
+`apps/api/server.js` (`createGameSession`), `apps/api/_s8_verif.js` (V8, `poserSkinClair`, ressources
+nommées), `apps/api/test_scenarios.js` (9.3bis + spectateur), `REVUE_UI_UX.md` (§18, addendum),
+`apps/web/README.md`.
 
 
 ## 2026-10-03 — Le gagnant du tirage prend les PIONS CLAIRS : la couleur suit le camp du tirage, plus le point de vue (entrée MANUELLE)
@@ -1839,11 +1839,11 @@ débordement ; la pastille n'entre pas dans les cibles tactiles) · `_coin_3d.js
 Captures : `graphify-out/revue-ui/S8-apres/couleurs-camp-je-gagne.png` et
 `couleurs-camp-ia-gagne.png` (les deux issues, plateau et barres visibles).
 
-**Fichiers :** `D-aona/d-aona-web/index.html` (CSS `.piece.clair` / `.piece.sombre` / `.pb-camp` /
+**Fichiers :** `apps/web/index.html` (CSS `.piece.clair` / `.piece.sombre` / `.pb-camp` /
 `.ow-camp`, HTML des deux barres, JS `campOf`, `campLabel`, `renderPieces`, `chooseSide`, `updateCamps`,
 `showTossResult`, textes des règles et de la modale de choix, `PION_CAMPS.who`),
-`d-aona-server/data.js` (`PION_CAMPS.who` + commentaires), `d-aona-server/_s8_verif.js` (V7 + captures),
-`d-aona-server/_coin_verif.js` (P2bis), `REVUE_UI_UX.md` (§18, addendum), `D-aona/d-aona-web/README.md`.
+`apps/api/data.js` (`PION_CAMPS.who` + commentaires), `apps/api/_s8_verif.js` (V7 + captures),
+`apps/api/_coin_verif.js` (P2bis), `REVUE_UI_UX.md` (§18, addendum), `apps/web/README.md`.
 
 **Aucune modification serveur :** `toss.starter` était déjà exposé par `getState()` — la couleur se
 déduit de l'état existant.
@@ -1888,9 +1888,9 @@ pions** + tour immédiat ; face de l'IA → « IA — Antso (Blanc) » + **42 pi
 entier) — **54 captures** ; `capturerPlateau()` ne ferme plus une modale mais la bande. Indicateurs :
 417 segments, **0 non-conformité AA**, 0 débordement, 0 bouton anonyme, 0 erreur JS.
 
-**Fichiers :** `D-aona/d-aona-web/index.html` (CSS `.toss-banner`, HTML `#toss-banner`, JS
+**Fichiers :** `apps/web/index.html` (CSS `.toss-banner`, HTML `#toss-banner`, JS
 `showTossResult`/`hideTossBanner`, `toss.starter`), `REVUE_UI_UX.md` (§18, §5 rectifié, conclusion),
-`d-aona-server/_s8_verif.js` (outil jetable), `d-aona-server/_revue_ui.js` (campagne), preuves
+`apps/api/_s8_verif.js` (outil jetable), `apps/api/_revue_ui.js` (campagne), preuves
 `graphify-out/revue-ui/S8-avant` et `S8-apres`.
 
 
@@ -2186,7 +2186,7 @@ des lignes masquées réapparaissent, si bien qu'une famille peut **monter** alo
 (`--muted` jour 26 → 30, `.chip.on` 2 → 4 — familles S3 intactes). Le tableau par famille est un
 **plancher** ; la preuve d'un lot est le **total** + les familles **tombées à zéro**.
 
-**Fichiers.** *Modifié :* `D-aona/d-aona-web/index.html` — bloc « encres dédiées » du mode clair
+**Fichiers.** *Modifié :* `apps/web/index.html` — bloc « encres dédiées » du mode clair
 (l. 101-110), règle d'encre du badge (l. 1724-1730), catalogue `BADGES` (+`ink`) et les 3 sites de
 rendu (variables CSS au lieu de la couleur en ligne). *Ajouté (jetable, hors git) :* `_s2_scope.js`
 (périmètre d'un lot : liste les éléments fautifs par encre). *Généralisé :* `_s1_compare.js` prend
@@ -2237,9 +2237,9 @@ Classement 8→0, Wallet 3→0, Profil 10→0, Messagerie 7→0, Amis 4→0, Tou
 3→1 (reste une ligne d'encre `--brand`, lot S2). Toujours **0 erreur JavaScript, 0 débordement,
 0 bouton sans nom accessible**.
 
-**Fichiers.** *Modifié :* `D-aona/d-aona-web/index.html` — **un jeton + son commentaire de
+**Fichiers.** *Modifié :* `apps/web/index.html` — **un jeton + son commentaire de
 justification** (l. 126-131, le fichier documente déjà ses choix AA de cette façon). *Ajoutés
-(outils jetables, hors git) :* `d-aona-server/_s1_analyse.js` (ratios candidats × échelle des
+(outils jetables, hors git) :* `apps/api/_s1_analyse.js` (ratios candidats × échelle des
 surfaces), `_s1_compare.js` (diff avant/après **classé par encre**), `_revue_ui.js` enrichi (encre
 + fond par ligne fautive). *Documentation :* `REVUE_UI_UX.md` **§11** (suivi du lot : tables
 avant/après, preuves, nuance de hiérarchie, décision esthétique laissée ouverte) + notes de renvoi
@@ -2266,14 +2266,14 @@ texte / texte secondaire du thème jour.
 profondes, onglets, compte neuf), puis hiérarchiser les correctifs — **sans modifier le code
 applicatif**.
 
-**Méthode (rejouable).** Outil jetable `d-aona-server/_revue_ui.js` (motif `_*.js`, hors git) :
+**Méthode (rejouable).** Outil jetable `apps/api/_revue_ui.js` (motif `_*.js`, hors git) :
 **instance jetable** — copie de la base réelle par `VACUUM INTO` (la source n'est ouverte qu'en
 lecture seule), serveur de travail sur le port **8095**, deux comptes de revue créés **sur la copie**
 (`ZzRevueUI` KYC vérifié, `ZzRevueVide` compte neuf), jeu de démonstration appliqué à la copie,
 captures et mesures prises sur les états réels (jeton posé avant le démarrage de la SPA, clics
 réels), copie supprimée à la fin. **Aucun compte réel n'est ouvert, modifié ni photographié.**
 Rapport : `REVUE_UI_UX.md` ; preuves : `graphify-out/revue-ui/` (53 PNG, `mesures.txt`,
-`mesures.json`, `captures.md`). Rejouer : `cd d-aona-server && node _revue_ui.js` (≈ 4 min).
+`mesures.json`, `captures.md`). Rejouer : `cd apps/api && node _revue_ui.js` (≈ 4 min).
 
 **Chiffres.** 53 captures · **36 mesures d'écran** · 411 segments de texte · **0 erreur JavaScript** ·
 **0 débordement horizontal** (1440/390/360) · 0 bouton ni lien sans nom accessible · 0 image sans
@@ -2316,7 +2316,7 @@ ignore : la mesure ne porte sur rien) · nœuds cachés du DOM (`#avatar-input`,
 **Fichiers.** *Ajoutés :* `REVUE_UI_UX.md` (rapport complet, 303 lignes : méthode, 12 causes racines,
 10 points majeurs, 10 points mineurs, propositions retenues et écartées, lots correctifs),
 `graphify-out/revue-ui/` (53 PNG + `mesures.txt` + `mesures.json` + `captures.md`),
-`d-aona-server/_revue_ui.js` (outil jetable, hors git). *Modifiés :* `CONTEXTE_PROJET.md` (cette
+`apps/api/_revue_ui.js` (outil jetable, hors git). *Modifiés :* `CONTEXTE_PROJET.md` (cette
 entrée, arborescence, commandes). **Aucun code applicatif modifié** : tout s'est fait sur une copie
 jetable de la base et de l'instance.
 
@@ -2348,7 +2348,7 @@ contraste du projet **jour et nuit**, **0 erreur JavaScript**, re-capture ciblé
 
 **Ajustement (même jour) — un skin = un pion, une couleur.** L'aperçu des cartes héritait de l'ancien skin unique et montrait la paire clair + sombre : il n'affiche plus qu'**UNE** pièce (34 px), à la couleur du skin, la catégorie restant portée par la pastille de type. Contrôlé par capture réelle (boutique « Tous », boutique filtrée « Sombres », inventaire) et par un contrôle supplémentaire du scénario S8 : un seul `.demo-piece` par carte de pions, dégradés clair ≠ sombre, aucun débordement du panneau Inventaire.
 
-**Fichiers.** *Ajouté :* `d-aona-server/migrations/008_skins_pions_type.sql`. *Modifiés :* `data.js` (catalogue typé + `skinSlot` / `skinSlotMatches`), `db.js` (schéma à deux colonnes, `Skins.ensureDefaults`, `Skins.equip` à liste blanche de slots), `server.js` (catalogue typé, équipement à slot déduit + refus 400), `auth.js` (inscription via `Skins.ensureDefaults` — le SQL dupliqué disparaît), `D-aona/d-aona-web/index.html`, `test_scenarios.js` (phase 7 : 21 contrôles), `_p10.js` + `_p12.js` (+ `test_ui_scenarios.js` régénéré par `_build.js`), `d-aona/d-aona-web/README.md`, `CONTEXTE_PROJET.md`.
+**Fichiers.** *Ajouté :* `apps/api/migrations/008_skins_pions_type.sql`. *Modifiés :* `data.js` (catalogue typé + `skinSlot` / `skinSlotMatches`), `db.js` (schéma à deux colonnes, `Skins.ensureDefaults`, `Skins.equip` à liste blanche de slots), `server.js` (catalogue typé, équipement à slot déduit + refus 400), `auth.js` (inscription via `Skins.ensureDefaults` — le SQL dupliqué disparaît), `apps/web/index.html`, `test_scenarios.js` (phase 7 : 21 contrôles), `_p10.js` + `_p12.js` (+ `test_ui_scenarios.js` régénéré par `_build.js`), `d-aona/d-aona-web/README.md`, `CONTEXTE_PROJET.md`.
 
 **Vérifications.** `node test_scenarios.js` **226/226** — dont refus croisé `LIGHT` → `pions_dark` en 400, achat clair qui n'accorde pas la version sombre, deux emplacements qui coexistent, plateau et effet intacts ; `node test_ui_scenarios.js` **110/110** (S8 : 12 contrôles — sections séparées, filtres qui isolent réellement, catalogue d'interface **confronté** à celui du serveur, débit exact, refus d'interface **et** refus serveur en appel direct, classes `skin-*` posées sur le plateau avec la règle claire visant `.piece.me` et la règle sombre visant `.piece.opp`) ; `node test_auth.js` **tous les tests passent** (chemin d'inscription modifié) ; `node _check_html.js` (script en ligne : 5 077 lignes) ; `node check_db.js`. **Aucune donnée client touchée par les tests** : serveurs et copies de base jetables (ports 8098 / 8099).
 
@@ -2533,10 +2533,10 @@ chemin réel (données serveur + diffusion WebSocket).
   capture `graphify-out/revue-fill/desktop-1440x900-match-tournois.png` : la barre
   affiche « Je participe · Ouvert 2 · En cours 3 · Terminé 1 ».
 
-**Fichiers :** `D-aona/d-aona-web/index.html` (`tnIsMine`, `tournoisPanel()`,
-gestionnaire `tournament_update`), `d-aona-server/_p11.js`,
-`d-aona-server/test_ui_scenarios.js` (généré), `d-aona-server/test_scenarios.js`,
-`d-aona-server/_layout_fill.js` (capture), `CONTEXTE_PROJET.md`.
+**Fichiers :** `apps/web/index.html` (`tnIsMine`, `tournoisPanel()`,
+gestionnaire `tournament_update`), `apps/api/_p11.js`,
+`apps/api/test_ui_scenarios.js` (généré), `apps/api/test_scenarios.js`,
+`apps/api/_layout_fill.js` (capture), `CONTEXTE_PROJET.md`.
 
 
 ## 2026-09-20 — Retrait du système de rang (les badges de place restent)
@@ -2595,10 +2595,10 @@ console.error ») · mesure de mise en page `_layout_fill.js` → **194/194**. C
 Classement revue (`graphify-out/revue-fill/desktop-1440x900-ranks.png`) : aucun palier
 nulle part, podium, médailles et badges intacts.
 
-**Fichiers :** `D-aona/d-aona-web/index.html`, `D-aona/d-aona-web/README.md`,
-`d-aona-server/data.js`, `d-aona-server/server.js`,
-`d-aona-server/test_scenarios.js`, `d-aona-server/_p1.js`,
-`d-aona-server/test_ui_scenarios.js` (généré), `CONTEXTE_PROJET.md`.
+**Fichiers :** `apps/web/index.html`, `apps/web/README.md`,
+`apps/api/data.js`, `apps/api/server.js`,
+`apps/api/test_scenarios.js`, `apps/api/_p1.js`,
+`apps/api/test_ui_scenarios.js` (généré), `CONTEXTE_PROJET.md`.
 
 
 ## 2026-09-20 — Mise en page « plein écran » : plus de vide latéral sur les vues de consultation
@@ -2642,7 +2642,7 @@ les rangées `1fr` n'existaient pas. C'est le contrôle « les colonnes sont rem
 jusqu'en bas » qui l'a révélé ; il est resté dans le script.
 
 **Vérifications.**
-- Nouveau script de mesure `d-aona-server/_layout_fill.js` (serveur + base **jetables**
+- Nouveau script de mesure `apps/api/_layout_fill.js` (serveur + base **jetables**
   sur 8098 : copie `VACUUM INTO`, compte créé par l'API, jeton injecté dans
   `localStorage`) : **194/194**. Il ne se contente pas d'affirmer :
   - desktop : hauteur de page dans la fenêtre **et** `window.scrollTo()` sans effet ;
@@ -2663,10 +2663,10 @@ jusqu'en bas » qui l'a révélé ; il est resté dans le script.
 - Captures dans `graphify-out/revue-fill/` : Accueil / Match / Classement / Wallet en
   1440×900, Accueil et Match en 360×760 et 390×844.
 
-**Fichiers :** `D-aona/d-aona-web/index.html` (bloc CSS « Coquille plein écran »,
+**Fichiers :** `apps/web/index.html` (bloc CSS « Coquille plein écran »,
 `.hg-col` / `.hg-block` / `.hg-scroll`, classes ajoutées à `renderHome()` et
 `myTournamentsHtml()`, `FILL_ROUTES` + `body.is-fill` dans `route()`),
-`d-aona-server/_layout_fill.js` (outil de mesure local, ignoré par git),
+`apps/api/_layout_fill.js` (outil de mesure local, ignoré par git),
 `CONTEXTE_PROJET.md`.
 
 
@@ -2676,7 +2676,7 @@ jusqu'en bas » qui l'a révélé ; il est resté dans le script.
 (mêmes tables, mêmes modules que le serveur — rien n'est inventé côté client) pour
 que l'interface se juge sur du contenu et non sur des écrans vides :
 
-- [demo_seed.js](d-aona-server/demo_seed.js) — 8 joueurs `Demo…` (mots de passe
+- [demo_seed.js](apps/api/demo_seed.js) — 8 joueurs `Demo…` (mots de passe
   Argon2id réels, Elo / victoires / soldes / provinces variés) ; le compte visé
   devient ami avec 5 d'entre eux, reçoit **2 demandes d'ami** et en a envoyé 1 ;
   **2 défis reçus** en attente (la carte de défi et sa jauge existent vraiment) +
@@ -2685,7 +2685,7 @@ que l'interface se juge sur du contenu et non sur des écrans vides :
   historique de wallet cohérent (solde = somme des mouvements) ; conversations de
   chat ; les 5 tournois officiels garnis d'inscrits, « Blitz Cup » à 3/8 et un
   tournoi **en cours** au bracket à moitié joué.
-- [demo_live.js](d-aona-server/demo_live.js) — deux **parties en direct** (bêtes
+- [demo_live.js](apps/api/demo_live.js) — deux **parties en direct** (bêtes
   qui jouent coup par coup) : le fil « En direct », le mode spectateur et le
   passage en lecture seule ont du contenu sans second joueur humain.
 
@@ -2723,8 +2723,8 @@ et la campagne repasse **85/85** après le durcissement du script de parties en
 direct. Captures jour / nuit / mobile dans `graphify-out/revue-demo/` (héro, défi
 reçu et sa jauge, tournois, parties en direct).
 
-**Fichiers :** `d-aona-server/demo_seed.js`, `d-aona-server/demo_live.js`,
-`D-aona/d-aona-web/index.html`, `d-aona-server/_p3.js`, `_p9.js`, `_p11.js`,
+**Fichiers :** `apps/api/demo_seed.js`, `apps/api/demo_live.js`,
+`apps/web/index.html`, `apps/api/_p3.js`, `_p9.js`, `_p11.js`,
 `_p12.js`, `test_ui_scenarios.js` (assemblé), `CONTEXTE_PROJET.md`.
 
 
@@ -2796,8 +2796,8 @@ badges, filtres, états vides). Captures jour/nuit/mobile dans
 `test_ui_scenarios.js` est **régénéré par `node _build.js`** (morceaux
 `_p1.js` … `_p13.js`) : le fichier livré est un assemblage, il ne s'édite pas à la
 main. **Aucun changement serveur** : l'écran reste une vue de consultation.
-**Fichiers :** `D-aona/d-aona-web/index.html`, `CONTEXTE_PROJET.md`
-(+ `d-aona-server/_contraste.js`, script de mesure de contraste réutilisable, **hors
+**Fichiers :** `apps/web/index.html`, `CONTEXTE_PROJET.md`
+(+ `apps/api/_contraste.js`, script de mesure de contraste réutilisable, **hors
 dépôt** : le motif `_*.js` est ignoré, seul le harnais `_p1…_p13` + `_build.js` est
 versionné).
 
@@ -2874,15 +2874,15 @@ le destinataire en temps réel » visait `.cp-msgs[data-pop]` alors que
 l'application marque ses fenêtres `data-pop-msgs` (déjà dans HEAD) — le sélecteur
 du test était simplement périmé ; la campagne est verte de bout en bout depuis.
 **Aucune donnée client touchée** : tous les tests tournent sur copie jetable.
-**Fichiers :** `D-aona/d-aona-web/index.html`, `d-aona-server/server.js`,
-`d-aona-server/test_scenarios.js`, `d-aona-server/_p3.js`, `_p12.js`, `_p13.js`,
+**Fichiers :** `apps/web/index.html`, `apps/api/server.js`,
+`apps/api/test_scenarios.js`, `apps/api/_p3.js`, `_p12.js`, `_p13.js`,
 `test_ui_scenarios.js` (régénéré), `CONTEXTE_PROJET.md`.
 
 
 ### 2026-09-14 — 🔐 Refonte de l'authentification (entrée MANUELLE)
 
 > Saisie à la main : l'auto-génération liste des fichiers, elle ne peut pas
-> décrire un changement de sécurité. Détail complet : `d-aona-server/SECURITE_AUTH.md`.
+> décrire un changement de sécurité. Détail complet : `apps/api/SECURITE_AUTH.md`.
 
 **Défaut corrigé.** `POST /api/auth` ne prenait que le **pseudo** et créait ou
 ouvrait le compte sans aucune preuve d'identité : connaître un pseudo suffisait
@@ -2892,7 +2892,7 @@ les jetons vivaient dans une `Map` en mémoire (perdus au redémarrage, jamais
 expirants, non révocables). L'interface affichait déjà un champ mot de passe…
 que le backend ignorait.
 
-**Ajoutés :** `d-aona-server/auth.js` (Argon2id `m=19456,t=2,p=1`, sessions
+**Ajoutés :** `apps/api/auth.js` (Argon2id `m=19456,t=2,p=1`, sessions
 opaques stockées hachées, expiration 30 j, révocation individuelle, verrouillage
 progressif 5 échecs → 1 min doublé jusqu'à 60 min, limitation de débit 12/IP/5 min,
 anti-énumération, journal d'audit en ajout seul) ·
@@ -2902,15 +2902,15 @@ SHA-256 anti-réécriture) · `backup_db.js` (sauvegarde vérifiée `VACUUM INTO
 `integrity_check` + manifeste SHA-256) · `test_auth.js` (34 vérifications) ·
 `reset_password.js` · `.env.example` · `SECURITE_AUTH.md`.
 
-**Modifiés :** `d-aona-server/db.js` (clés étrangères activées, migrations au
-démarrage) · `d-aona-server/server.js` (routes `/api/auth/{login,register,claim,
+**Modifiés :** `apps/api/db.js` (clés étrangères activées, migrations au
+démarrage) · `apps/api/server.js` (routes `/api/auth/{login,register,claim,
 logout,password}`, session validée **en base** pour REST et WebSocket, lecture du
 corps bornée à 64 Ko — corrige un déni de service mémoire, port configurable) ·
-`D-aona/d-aona-web/index.html` (le mot de passe est enfin transmis : `authSequence`
+`apps/web/index.html` (le mot de passe est enfin transmis : `authSequence`
 cible les bonnes routes ; parcours « Définir mon mot de passe » pour les comptes
 anciens ; déconnexion révoquée côté serveur) · `.gitignore` (`backups/`, `uploads/`).
 
-**Retirés du suivi Git :** `d-aona-server/uploads/avatars/*` — photos personnelles
+**Retirés du suivi Git :** `apps/api/uploads/avatars/*` — photos personnelles
 (12 fichiers, dont des portraits). Fichiers conservés sur disque ; aucun remote
 n'étant configuré, rien n'a été publié. Ils restent présents dans l'historique.
 
@@ -2995,8 +2995,8 @@ flottante). Contrastes mesurés dans la page : onglet actif
 réel » du harnais livré échoue **aussi sur la version committée** (vérifié par
 comparaison) — défaut préexistant, hors périmètre de cette livraison.
 **Aucune donnée client touchée** : tous les tests tournent sur copie jetable.
-**Fichiers :** `D-aona/d-aona-web/index.html`, `d-aona-server/server.js`,
-`d-aona-server/test_scenarios.js`, `d-aona-server/_p3.js`, `_p9.js`, `_p11.js`,
+**Fichiers :** `apps/web/index.html`, `apps/api/server.js`,
+`apps/api/test_scenarios.js`, `apps/api/_p3.js`, `_p9.js`, `_p11.js`,
 `_p12.js`, `_p13.js` (nouveau), `_build.js`, `test_ui_scenarios.js` (régénéré),
 `CONTEXTE_PROJET.md`.
 
@@ -3062,7 +3062,7 @@ titre **18,3:1**, contexte **5,0:1**, **jour** pilule creuse 5,5:1 et pilule ple
 aux tokens du thème résolus dans le navigateur (`--brand`, `--brand-2`), et tout bleu
 de maquette dans `#modal` fait échouer la suite.
 **Aucune donnée client touchée** : tests sur copie jetable de la base.
-**Fichiers :** `D-aona/d-aona-web/index.html` (seul code modifié), `CONTEXTE_PROJET.md`.
+**Fichiers :** `apps/web/index.html` (seul code modifié), `CONTEXTE_PROJET.md`.
 
 
 ## 2026-09-16 — « Reprendre » : split-screen « Mon match / Regarder » (entrée MANUELLE)
@@ -3075,7 +3075,7 @@ de maquette dans `#modal` fait échouer la suite.
 2. `hasActiveGame()` ne consultait que `S.currentSession` — **votre** partie. Le
    bandeau disparaissait dès qu'on regardait le match de quelqu'un d'autre.
 
-**Corrigé (`D-aona/d-aona-web/index.html`).** Le visionnage **survit** au
+**Corrigé (`apps/web/index.html`).** Le visionnage **survit** au
 changement d'onglet ; il ne se termine plus que de deux façons : la fin du match
 ou une action explicite. `updateResumeBanner()` affiche le bouton si une partie
 est en cours **ou** si un match est suivi, dès qu'on n'est pas sur le plateau.
@@ -3118,8 +3118,8 @@ passées — bandeau visible hors plateau, split 2 colonnes, « Mon match » gri
 spectateur, « Arrêter de regarder » ramène à l'onglet Match et éteint le bandeau,
 mobile empilé 1 colonne avec descriptions lisibles. **Aucune donnée client
 touchée** : tests sur copie jetable de la base.
-**Fichiers :** `D-aona/d-aona-web/index.html` (seul code modifié),
-`d-aona-server/test_scenarios.js`, `CONTEXTE_PROJET.md`.
+**Fichiers :** `apps/web/index.html` (seul code modifié),
+`apps/api/test_scenarios.js`, `CONTEXTE_PROJET.md`.
 
 > **Rendu revu le 2026-09-17** — la description ci-dessus (split 2 colonnes, tuiles
 > `.pg-opt`, tags, en-tête sur surface sombre, `.rp-split` / `.rp-shell`) est
@@ -3190,11 +3190,11 @@ nettoyage.
   de débit (12 requêtes / 5 min) est partagé avec `register` et `login`, une
   requête par frappe aurait recréé un « Trop de tentatives ».
 
-**Modifiés :** `d-aona-server/server.js` (seed conditionnel, route `available`,
+**Modifiés :** `apps/api/server.js` (seed conditionnel, route `available`,
 `email` transmis), `auth.js` (`register` : email, unicité email/téléphone, refus
 journalisés ; suppression de `claim`), `test_auth.js`, `.env.example`,
-`SECURITE_AUTH.md`, `D-aona/d-aona-web/index.html`, `skills-lock.json`.
-**Ajouté :** `d-aona-server/wipe_db.js`, `migrations/004_unique_contact.sql`,
+`SECURITE_AUTH.md`, `apps/web/index.html`, `skills-lock.json`.
+**Ajouté :** `apps/api/wipe_db.js`, `migrations/004_unique_contact.sql`,
 `migrations/005_skins_foreign_keys.sql`.
 
 **Simplifications volontairement NON faites (assumées) :** suppression des colonnes
@@ -3216,7 +3216,7 @@ bout en bout sur **copie jetable** de la base (200 + jeton, `GET /api/user` 200,
 tout le profil pour le trouver, aux deux gabarits (la maquette v3a, elle, n'en prévoyait
 aucun — vérifié : aucune occurrence de « connexion » dans son HTML).
 
-**Correctif (`D-aona/d-aona-web/index.html`).** Le bouton **remonte sur la carte
+**Correctif (`apps/web/index.html`).** Le bouton **remonte sur la carte
 d'identité** — première carte de la colonne gauche, visible **sans défilement** aux deux
 gabarits — dans un pied `.pstats-account` (filet de séparation `.5px --line`, même rythme
 que la rangée secondaire des statistiques). Mêmes recettes que le reste de l'app : classe
@@ -3234,7 +3234,7 @@ S/M/L, photo, badge, Déconnexion » et « 360 px : le profil passe en une colon
 débordement » · `test_ui_scenarios.js` **110/110**, y compris l'étape S1 « déconnexion par
 le bouton « Déconnexion » de l'écran Profil » · captures jour / nuit / mobile relues :
 bouton lisible dans les deux thèmes, cible ≥ 44 px. **Aucune donnée client touchée.**
-**Fichiers :** `D-aona/d-aona-web/index.html` (seul code modifié), `CONTEXTE_PROJET.md`.
+**Fichiers :** `apps/web/index.html` (seul code modifié), `CONTEXTE_PROJET.md`.
 
 
 ## 2026-09-26 — Correctif visuel profil v3a : la bannière « Sample » et le CTA boutique étaient écrasés en mode plein écran
@@ -3253,7 +3253,7 @@ l'algorithme flex les réduisait jusqu'à leurs paddings. Notifications et Walle
 **pas absentes** : la colonne gauche fait ~1056 px pour ~658 px visibles — elles étaient
 sous la ligne de flottaison (la colonne défile, motif des autres écrans plein écran).
 
-**Correctif (2 lignes CSS, `D-aona/d-aona-web/index.html`).** `flex: 0 0 auto` sur
+**Correctif (2 lignes CSS, `apps/web/index.html`).** `flex: 0 0 auto` sur
 `.pf3-ad` et `.pf3-skin-cta` : la hauteur de contenu est garantie quelle que soit la
 contrainte de la colonne ; commentaires CSS expliquant la garde. Aucune retouche de la
 carte d'identité (motif partagé avec d'autres écrans).
@@ -3346,7 +3346,7 @@ est **antérieur** : l'Accueil n'a pas été touché, et là où le HEAD porte
 « plein écran » précédent) · captures jour/nuit/bureau/mobile dans
 `%TEMP%\daona_shots`.
 
-**Fichiers.** *Modifié :* `D-aona/d-aona-web/index.html` (CSS Accueil/Profil/
+**Fichiers.** *Modifié :* `apps/web/index.html` (CSS Accueil/Profil/
 Wallet/barre haute ; `renderProfile`, `renderPublicProfile`, `renderWallet`,
 `bindGlobal` ; nouveaux helpers `profileStatsHtml`, `profileWalletCardHtml`,
 `profileNotifCardHtml`, `eloCurveCardHtml`, `txKind`/`txList`/`txListRender`,
@@ -3404,8 +3404,8 @@ d'ailleurs été corrigé à cette occasion : il jugeait le remplissage des **de
 alors que l'interface juge celui du joueur — un adversaire sans instantané faisait
 disparaître à tort les parties de la courbe.
 
-**Fichiers.** *Ajoutés :* `d-aona-server/_seed_parties_elo.js`, `d-aona-server/_inspect_compte.js`
-(mesure d'un compte précis, lecture seule) et `d-aona-server/_seed_parties_manifest.json`
+**Fichiers.** *Ajoutés :* `apps/api/_seed_parties_elo.js`, `apps/api/_inspect_compte.js`
+(mesure d'un compte précis, lecture seule) et `apps/api/_seed_parties_manifest.json`
 (généré à l'écriture).
 
 
@@ -3478,9 +3478,9 @@ front à jour servi sans redémarrage) · **7/7** sur les **données réelles**
 (`_check_elo_reel.js`, nouveau : compte `DemoFara`, 49 points tracés, 1 576 → 1 657,
 écart point ↔ tracé ≤ 0,75 px, mot de passe redéfini **sur la copie seulement**).
 
-**Fichiers.** *Modifiés :* `d-aona-server/db.js` (tri stable de l'historique),
-`d-aona/d-aona-web/index.html` (`eloSeries` : tri chronologique explicite),
-`d-aona-server/_dbg_elo.js` (mesure sur le chemin rendu). *Ajoutés :*
+**Fichiers.** *Modifiés :* `apps/api/db.js` (tri stable de l'historique),
+`apps/web/index.html` (`eloSeries` : tri chronologique explicite),
+`apps/api/_dbg_elo.js` (mesure sur le chemin rendu). *Ajoutés :*
 `_inspect_stats.js`, `_backfill_elo.js`, `_sync_compteurs.js`, `_probe_elo_stats.js`,
 `_check_elo_reel.js`.
 Rien n'est fabriqué : la reconstitution ne s'appuie que sur `users.elo` et sur les écarts
@@ -3676,7 +3676,7 @@ positif** de la mesure (les cercles décoratifs de la carte boutique, rognés à
 dessein par `overflow: hidden`) : le relevé ignore désormais tout élément rogné
 par un ancêtre, qui ne peut pas élargir la page.
 
-**Fichiers.** *Client :* `D-aona/d-aona-web/index.html` (catalogues, `#screen-skins`,
+**Fichiers.** *Client :* `apps/web/index.html` (catalogues, `#screen-skins`,
 CSS de la boutique et des pions, `pionGradient` / `motifUri` / `mountPionStyles` /
 `applyPionStyles` / `applyPionStyle`, `renderSkins`, `refreshPionPreview`,
 `refreshSkinsViews`, route `skins`, Profil nettoyé). *Serveur :* `data.js`,
@@ -3785,7 +3785,7 @@ pas la casse) : **le dossier `D-aona/` a été supprimé**. Reprise :
    27/09 21:06:19), `README.md` (11 647 o) **et les visuels `assets/ad/`** — tout
    a été restauré de là ;
 3. le **script de l'application** (le plus gros bloc `<script>`) a été réinjecté
-   depuis `d-aona-server/_inline.js`, extrait par `_check_html.js` juste avant
+   depuis `apps/api/_inline.js`, extrait par `_check_html.js` juste avant
    l'incident : il contient le travail du lot ET celui de la fin de session
    précédente (6 154 lignes) ;
 4. toutes les modifications CSS du lot ont été réappliquées puis **re-mesurées**.
@@ -3808,11 +3808,11 @@ débordement : seul le faux positif connu des cercles décoratifs rognés) ·
 
 ### 5. Fichiers
 
-`D-aona/d-aona-web/index.html` (jetons, §9 « échelle des formes », CSS de la
+`apps/web/index.html` (jetons, §9 « échelle des formes », CSS de la
 carte Elo et du filtre, fenêtres calendaires, `setEloPeriod` /
 `mountEloCurveAnimation` / `applyAvatarSize` / `refreshMatchCard` /
-`bindMatchStrip`) · `D-aona/d-aona-web/README.md` (échelle des formes) ·
-`d-aona-server/_shape_scan.js` (**nouveau** — inventaire des rayons + contrôle
+`bindMatchStrip`) · `apps/web/README.md` (échelle des formes) ·
+`apps/api/_shape_scan.js` (**nouveau** — inventaire des rayons + contrôle
 grammatical) · `_shapes_apply.js` (**nouveau** — table de rangement, lecture seule
 par défaut) · `_probe_formes.js` (**nouveau** — rayon effectif, captures) ·
 `_probe_elo_stats.js` (6 contrôles neufs : fenêtre calendaire, comptes annoncés,
@@ -3892,13 +3892,13 @@ de pions sur le plateau, 360 px sans débordement ni cible sous 44 px) · **sond
 **authentification** (`test_auth.js` : l'inscription écrit bien les deux apparences) · **contrôle HTML**
 (`_check_html.js` : balises équilibrées, script compilé).
 
-**Fichiers.** *Client :* `D-aona/d-aona-web/index.html` (catalogues `PION_CAMPS` / `PION_DEFAULTS` /
+**Fichiers.** *Client :* `apps/web/index.html` (catalogues `PION_CAMPS` / `PION_DEFAULTS` /
 `pionColorOf` / `pionColorsOfCamp`, CSS des deux camps et des onglets, `pionView`, `mountPionStyles`,
 `applyPionStyles`, `applyPionStyle`, `renderSkins`, `refreshPionPreview`, `applySkins` allégé).
 *Serveur :* `data.js`, `db.js`, `server.js`, **nouvelles** `migrations/010_pion_style_camps.sql` et
 `011_pion_style_coherence.sql`. *Vérification :* `test_scenarios.js` (phase 7bis), `_p10.js` (S8) et
 `test_ui_scenarios.js` reconstruit par `_build.js`, `_probe_boutique_v1.js`, `_chk_fresh.js`.
-*Documentation :* ce journal, `D-aona/d-aona-web/README.md`.
+*Documentation :* ce journal, `apps/web/README.md`.
 
 **Limite assumée.** Les quatre skins clairs **et** les quatre skins sombres de pions restent au catalogue
 et l'API les vend et les équipe (compatibilité et historique — la phase 6 des scénarios les exerce), mais
@@ -3954,13 +3954,13 @@ affiche `face.webp` et l'annonce dit FACE · un seul `<img>` visible sur les deu
 `assets/coins/`. Captures : `%TEMP%\daona_shots\pieces-*.png` ; contrôle statique `_check_html.js`
 (balises équilibrées, script compilé).
 
-**Fichiers.** *Ajoutés :* `D-aona/d-aona-web/assets/coins/pile.webp`, `assets/coins/face.webp`,
-`d-aona-server/_coin_prep.js` (jetable : détourage + aperçu jour / nuit / rouge vif, journal
+**Fichiers.** *Ajoutés :* `apps/web/assets/coins/pile.webp`, `assets/coins/face.webp`,
+`apps/api/_coin_prep.js` (jetable : détourage + aperçu jour / nuit / rouge vif, journal
 `%TEMP%\daona_coin_prep.log`). *Supprimés :* `assets/coins/pile.svg`, `assets/coins/face.svg`.
-*Modifiés :* `D-aona/d-aona-web/index.html` (les 4 `src`, un commentaire CSS),
-`D-aona/d-aona-web/assets/coins/README.md` (réécrit), `D-aona/d-aona-web/README.md` (section « Pièce
-du tirage au sort » : provenance, format, tailles, 9 contrôles), `d-aona-server/_coin_verif.js`
-(`P1b`), `d-aona-server/_coin_apercu.js` (nouveaux fichiers, 4 tailles d'usage, aplat rouge vif), ce
+*Modifiés :* `apps/web/index.html` (les 4 `src`, un commentaire CSS),
+`apps/web/assets/coins/README.md` (réécrit), `apps/web/README.md` (section « Pièce
+du tirage au sort » : provenance, format, tailles, 9 contrôles), `apps/api/_coin_verif.js`
+(`P1b`), `apps/api/_coin_apercu.js` (nouveaux fichiers, 4 tailles d'usage, aplat rouge vif), ce
 journal (table des fichiers).
 
 **Limite assumée.** Le détourage est **automatique** — le contour suit le seuil d'Otsu et n'est pas
@@ -4009,13 +4009,13 @@ coupe) · cohérence à **390 px** · **aucun 404** ni requête échouée sur `a
 `pieces-tirage-desktop-nuit.png`, `pieces-choix-mobile.png`, `pieces-tirage-mobile.png` ; contrôle
 statique `_check_html.js` (balises équilibrées, script compilé).
 
-**Fichiers.** *Ajoutés :* `D-aona/d-aona-web/assets/coins/pile.svg`, `assets/coins/face.svg`,
-`assets/coins/README.md`, `d-aona-server/_coin_verif.js` (outil jetable, + relevé `_coin_verif.txt`),
-`d-aona-server/_coin_apercu.js` (aperçu des deux faces hors application : 160 et 44 px, thèmes jour et
+**Fichiers.** *Ajoutés :* `apps/web/assets/coins/pile.svg`, `assets/coins/face.svg`,
+`assets/coins/README.md`, `apps/api/_coin_verif.js` (outil jetable, + relevé `_coin_verif.txt`),
+`apps/api/_coin_apercu.js` (aperçu des deux faces hors application : 160 et 44 px, thèmes jour et
 nuit — c'est lui qui a fait corriger le feuillage rogné et la légende trop proche de la couronne).
-*Modifiés :* `D-aona/d-aona-web/index.html` (CSS `.coin` / `.coin-side` / `.coin-opt .coin-thumb` /
+*Modifiés :* `apps/web/index.html` (CSS `.coin` / `.coin-side` / `.coin-opt .coin-thumb` /
 `.toss-banner .coin.mini`, bannière `#toss-banner`, modale `renderChooseModal`, règle du tirage),
-`D-aona/d-aona-web/README.md` (section « Pièce du tirage au sort », arborescence), ce journal
+`apps/web/README.md` (section « Pièce du tirage au sort », arborescence), ce journal
 (table des fichiers et commande de contrôle).
 
 **Nettoyage.** La règle CSS `.toss-wrap` — dernier reste de l'ancienne modale du tirage, supprimée au lot
@@ -4036,7 +4036,7 @@ téléphone.
 **Aucune extension de navigateur n'a été installée.** La demande citait `webmobilefirst.com`. Un agent ne
 dispose pas d'un navigateur à instrumenter, et cet outil est une simulation **manuelle**, faite pour un
 humain qui choisit le modèle à la main. Le projet a déjà mieux, et sans téléchargement : **Playwright
-1.63.0** + Chromium déjà présents (`d-aona-server/node_modules`, `%LOCALAPPDATA%\ms-playwright`) —
+1.63.0** + Chromium déjà présents (`apps/api/node_modules`, `%LOCALAPPDATA%\ms-playwright`) —
 **207 profils d'appareils** (iPhone 12→17, Galaxy S24, Pixel 9/10, iPhone SE, repliés/paysage). Automatisé,
 reproductible, chiffré, avec captures. Le test « au doigt » se fait sur le serveur déjà à l'écoute
 (`http://<IP>:8080`).
@@ -4050,7 +4050,7 @@ reproductible, chiffré, avec captures. Le test « au doigt » se fait sur le se
    `style="cursor:default"`, aucun `data-*`, donc aucun lien. Taper la carte ne faisait rien. Aux étapes 2
    et 3, taper un choix **sélectionnait sans avancer** : il fallait viser ensuite « Suivant ».
 
-**Correctif (`D-aona/d-aona-web/index.html`).**
+**Correctif (`apps/web/index.html`).**
 - **Un choix vaut « suivant »** : le clic sur la tuile du jeu, sur le mode et sur le format fait avancer
   l'assistant. Les tuiles deviennent `role="button"` + `tabindex="0"`, avec anneau de focus et relais
   **Entrée / Espace** ; les tuiles « Bientôt » restent inertes (`aria-disabled="true"`).
@@ -4072,7 +4072,7 @@ exactement le geste décrit par l'utilisateur. Plancher abaissé à **320 px** :
 scène tient désormais dans la fenêtre ; sur un écran plus court (paysage de téléphone), la page défile et
 `#screens` réserve 110 px en bas, ce qui dégage la barre d'onglets.
 
-**Vérification — `node d-aona-server\_verif_jeux_mobile.js` (nouvel outil de mesure, base jetable).**
+**Vérification — `node apps\api\_verif_jeux_mobile.js` (nouvel outil de mesure, base jetable).**
 6 appareils, **clics réels**, 25 contrôles par appareil : iPhone SE 1re gen (320×568), iPhone SE 3e gen
 (375×667), iPhone 12 (390×664), Galaxy S24 (360×780), Pixel 9 (360×732), iPhone SE **paysage** (568×320).
 Contrôlé : `#pg-next` absent · « Retour » 50×52 px, visible et cliquable · parcours jeu → mode → format →
@@ -4092,13 +4092,13 @@ bouton. Les deux sont réalignés sur le geste réel (tuile → mode → format 
 l'assertion `#pg-cta` de l'étape 1 (qui n'existe plus) est remplacée par le contrôle de la tuile du jeu.
 
 **Fichiers.**
-*Modifiés :* `D-aona/d-aona-web/index.html` (CSS : barre basse mobile, plancher de la scène, focus des
+*Modifiés :* `apps/web/index.html` (CSS : barre basse mobile, plancher de la scène, focus des
 tuiles ; rendu des étapes 1 à 3 ; bandeau bas sans « Suivant » ; bindings `advance()` / `bindTile()`),
-`d-aona-server/_p6.js` et `d-aona-server/_p13.js` (morceaux **sources** du harnais),
-`d-aona-server/test_ui_scenarios.js` (régénéré à l'identique par `node _build.js`), outils jetables
-`d-aona-server/_revue_ui.js`, `_coin_verif.js`, `_s6_verif.js`, `_s8_verif.js`, ce journal (table des
+`apps/api/_p6.js` et `apps/api/_p13.js` (morceaux **sources** du harnais),
+`apps/api/test_ui_scenarios.js` (régénéré à l'identique par `node _build.js`), outils jetables
+`apps/api/_revue_ui.js`, `_coin_verif.js`, `_s6_verif.js`, `_s8_verif.js`, ce journal (table des
 commandes).
-*Ajouté :* `d-aona-server/_verif_jeux_mobile.js` (outil de mesure jetable, motif `_*.js` donc hors Git).
+*Ajouté :* `apps/api/_verif_jeux_mobile.js` (outil de mesure jetable, motif `_*.js` donc hors Git).
 
 ## 04/10/2026 — Boutique « vitrine » : le prototype NEON devient la vraie page `#/skins`
 
@@ -4154,12 +4154,12 @@ Boutique **11/11 AA** jour (min 5,28) et nuit (min 4,99), **0 non-conformité**
 au relevé complet, 0 débordement, 0 erreur JS · `test_ui_scenarios.js`
 **115/115** (S8 adapté) · `test_scenarios.js` (API) **251/251**.
 
-**Fichiers.** *Modifiés :* `D-aona/d-aona-web/index.html` (CSS vitrine scopé ;
+**Fichiers.** *Modifiés :* `apps/web/index.html` (CSS vitrine scopé ;
 état et gestes `pionHover`/`stageEnv`/`heroView` ; `pionColorCardHtml` /
 `pionPatternCardHtml` / `refreshPionPreview` / `renderSkins` / `skinCardHtml` /
-`applyPionStyle`), `d-aona-server/test_ui_scenarios.js` (S8, nouveau contrat
-monture blanche), `d-aona-server/_probe_boutique_v1.js` (résumé 3 valeurs).
-*Ajoutés :* `d-aona-server/_probe_skins_neon.js` (sonde, motif `_*.js` → hors
+`applyPionStyle`), `apps/api/test_ui_scenarios.js` (S8, nouveau contrat
+monture blanche), `apps/api/_probe_boutique_v1.js` (résumé 3 valeurs).
+*Ajoutés :* `apps/api/_probe_skins_neon.js` (sonde, motif `_*.js` → hors
 Git), `tasks/plan.md` + `tasks/todo.md` (suivi de l'intégration). Le prototype
 du Bureau reste inchangé (référence de style).
 
@@ -4251,7 +4251,7 @@ en `auto`).
 
 ### Preuves (mesurées, pas affirmées)
 
-* **`d-aona-server/_zoom_probe.js` (NOUVELLE sonde) : 9/9.** Base jetable + serveur
+* **`apps/api/_zoom_probe.js` (NOUVELLE sonde) : 9/9.** Base jetable + serveur
   sur copie. Contrôle **comparatif** : un pincement synthétisé (CDP
   `Input.synthesizePinchGesture`) **zoome** une page témoin et **ne zoome pas**
   l'application — sans ce témoin, un « scale = 1 » ne prouverait rien. Mesurés
@@ -4302,30 +4302,30 @@ en `auto`).
   corrigés et **revérifiés** (plus aucune ligne d'écart pour l'accueil). Les deux
   nouveaux panneaux passent : notifications **9/9** et amis **10/10** conformes.
 
-**Fichiers.** *Modifiés :* `D-aona/d-aona-web/index.html` (déclaration de vue ;
+**Fichiers.** *Modifiés :* `apps/web/index.html` (déclaration de vue ;
 verrous anti-zoom ; `.pop-panel` et ses éléments ; `openPanel`/`closePanel`/
 `renderNotifPanel`/`renderFriendsPanel`/`panelEnCours` ; croix et brouillon du chat ;
 `controleMisePerso` + champ de mise personnalisée et son CSS ; faces de la pièce en
 opacité `steps()` ; angles droits du plateau ; **carrousel publicitaire** `#ad-car`
 avec `binderCarrousel`/`pubsActives` et des flèches aux dimensions mesurées ;
 **carte de saison** avec son fil d'Ariane cliquable) ·
-`d-aona-server/_p5.js` (S2 : carrousel, carte de saison, fil d'Ariane et le contrôle
-mesuré des flèches) · `d-aona-server/_p11.js` (S10 au contrat panneau) · `d-aona-server/_p12.js`
-(S11 : clic extérieur + brouillon ; garde-fous SX) · `d-aona-server/_p13.js` (S12 :
-mise personnalisée) · `d-aona-server/_p14.js` (S13 : badge Amis par le panneau) ·
-`d-aona-server/_check_html.js` (nomme la ligne de l'échec de syntaxe) ·
-`d-aona-server/_shots_panneaux.js` (photographie aussi les flèches AU SURVOL et
-relève leur rectangle) · `d-aona-server/test_ui_scenarios.js` (régénéré par
-`node _build.js`) · `d-aona-server/_inline.js` (extrait par `_check_html.js`) · ce
+`apps/api/_p5.js` (S2 : carrousel, carte de saison, fil d'Ariane et le contrôle
+mesuré des flèches) · `apps/api/_p11.js` (S10 au contrat panneau) · `apps/api/_p12.js`
+(S11 : clic extérieur + brouillon ; garde-fous SX) · `apps/api/_p13.js` (S12 :
+mise personnalisée) · `apps/api/_p14.js` (S13 : badge Amis par le panneau) ·
+`apps/api/_check_html.js` (nomme la ligne de l'échec de syntaxe) ·
+`apps/api/_shots_panneaux.js` (photographie aussi les flèches AU SURVOL et
+relève leur rectangle) · `apps/api/test_ui_scenarios.js` (régénéré par
+`node _build.js`) · `apps/api/_inline.js` (extrait par `_check_html.js`) · ce
 journal (table des commandes) · `.gitignore` (la règle « outils jetables de session »
-couvre désormais aussi `d-aona-server/_*.py`, comme les `_*.js`) ·
-`D-aona/d-aona-web/README.md` et `D-aona/d-aona-web/assets/ad/README.md` (le carrousel
+couvre désormais aussi `apps/api/_*.py`, comme les `_*.js`) ·
+`apps/web/README.md` et `apps/web/assets/ad/README.md` (le carrousel
 et la carte de saison documentés : décisions, mesure anti-recouvrement, manutention
-des campagnes). *Ajoutés :* `d-aona-server/_zoom_probe.js` (sonde de
-preuve du n° 6, motif `_*.js` donc hors Git) · `d-aona-server/_drag_probe.js` (sonde
+des campagnes). *Ajoutés :* `apps/api/_zoom_probe.js` (sonde de
+preuve du n° 6, motif `_*.js` donc hors Git) · `apps/api/_drag_probe.js` (sonde
 du geste de glissement du carrousel, même motif) ·
-`D-aona/d-aona-web/assets/ad/pubs.json` (les bannières, configurables) ·
-`D-aona/d-aona-web/assets/ad/d-aona-maison.svg` (bannière maison).
+`apps/web/assets/ad/pubs.json` (les bannières, configurables) ·
+`apps/web/assets/ad/d-aona-maison.svg` (bannière maison).
 
 * **Captures** (nouvelle sonde `_shots_panneaux.js`, base jetable) :
   `graphify-out/revue-ui/panneau-notifications-jour.png`, `panneau-amis-jour.png`,
@@ -4495,12 +4495,12 @@ indépendants, et **la preuve du plateau : une partie d'entraînement IA réelle
 0 erreur JS ; captures boutique (jour, choix, appliqué, deux camps, mobile 390) et
 plateau réel.
 
-**Fichiers.** *Modifiés :* `D-aona/d-aona-web/index.html`, `d-aona-server/data.js`,
-`d-aona-server/db/stores.js`, `d-aona-server/server.js`,
-`d-aona-server/test_scenarios.js`, `d-aona-server/_p5.js` + `_p14.js` (scénarios),
-`d-aona-server/test_ui_scenarios.js` (régénéré par `_build.js`),
-`D-aona/d-aona-web/README.md`, `CONTEXTE_PROJET.md`. *Ajouté :*
-`d-aona-server/migrations/014_pion_style_shape.sql`. Les sondes jetables
+**Fichiers.** *Modifiés :* `apps/web/index.html`, `apps/api/data.js`,
+`apps/api/db/stores.js`, `apps/api/server.js`,
+`apps/api/test_scenarios.js`, `apps/api/_p5.js` + `_p14.js` (scénarios),
+`apps/api/test_ui_scenarios.js` (régénéré par `_build.js`),
+`apps/web/README.md`, `CONTEXTE_PROJET.md`. *Ajouté :*
+`apps/api/migrations/014_pion_style_shape.sql`. Les sondes jetables
 (`_tmp_ranks_shots.js`, `_tmp_formes_probe.js`) et leurs journaux ont été supprimés
 après usage ; la maquette de référence n'est pas versionnée (elle reste chez son
 auteur — l'organisation retenue est décrite ici et dans le `README`).
@@ -4545,13 +4545,13 @@ intersections + 24 pions + prise appliquée (11 sombres), règles affichées,
 deux joueurs, **Tsivy inchangé** (3 modes d'origine, plateau 9×5 ouvert), aucune
 erreur JS. Captures : `%TEMP%\daona_shots\var-*.png`.
 
-**Fichiers.** *Ajoutés :* `D-aona/d-aona-web/games/fanoron-dimy/{manifest.json,
+**Fichiers.** *Ajoutés :* `apps/web/games/fanoron-dimy/{manifest.json,
 engine.js, board.js, ui.js, ai.js, README.md, test.js}`,
-`D-aona/d-aona-web/variant-match.js`. *Modifiés :* `D-aona/d-aona-web/index.html`
+`apps/web/variant-match.js`. *Modifiés :* `apps/web/index.html`
 (balises `script` des modules, `FANORON_VARIANTS`, dialogue des variantes,
 modes filtrés, récapitulatif, aiguillage `launchGame`, CSS des plateaux),
-`D-aona/d-aona-web/games/fanoron-telo/ui.js` (`mySide: 0`),
-`d-aona-server/package.json` (`test:dimy` + harnais Dimy dans `npm test`),
+`apps/web/games/fanoron-telo/ui.js` (`mySide: 0`),
+`apps/api/package.json` (`test:dimy` + harnais Dimy dans `npm test`),
 `ARCHITECTURE.md` (arborescence, section « Choix d'une variante », état réel),
 `PLAN-REFONTE.md` (T7 VERT, nouveau lot T9, écarts assumés), ce journal.
 
@@ -4582,22 +4582,22 @@ est sombre dans les deux thèmes ; `--panel`, `--panel-2`, `--line`, `--text`,
 modules de jeu (`board.js`, `ui.js`) n'ont rien à savoir de leur hôte : ils
 continuent d'écrire avec les jetons du projet.
 
-**Preuves.** `node d-aona-server/tools/_check_html.js D-aona/d-aona-web/index.html` :
+**Preuves.** `node apps/api/tools/_check_html.js apps/web/index.html` :
 balises équilibrées, script en ligne compilé. Sonde
-`d-aona-server/tools/_variantes_verif.js` réécrite sur le nouveau parcours :
+`apps/api/tools/_variantes_verif.js` réécrite sur le nouveau parcours :
 26/26 — aucun overlay, en-tête 04/04 et bouton « Règles » conservés, Telo
 9 cases + réponse de l'IA, sortie vers le récapitulatif avec plateau démonté,
 Dimy 25 intersections / 24 pions / prise appliquée, règles en modale sans
 quitter la partie, deux joueurs, « Nouvelle partie » à zéro dans la même carte,
 Tsivy inchangé, aucune erreur JS. Captures : `%TEMP%\daona_shots\var-*.png`.
-Sonde mobile jetable `d-aona-server/tools/_mobile_live.js` (390 × 844) : 5/5 —
+Sonde mobile jetable `apps/api/tools/_mobile_live.js` (390 × 844) : 5/5 —
 carte 362 px, plateau 332 px, aucun débordement horizontal, sortie vers le
 récapitulatif, aucune erreur JS. Captures : `var-7-mobile-*.png`.
 
-**Fichiers.** `D-aona/d-aona-web/variant-match.js` (option `host`, coquille
-embarquée, `close()` par référence d'élément), `D-aona/d-aona-web/index.html`
+**Fichiers.** `apps/web/variant-match.js` (option `host`, coquille
+embarquée, `close()` par référence d'élément), `apps/web/index.html`
 (`playLive`, `renderLive()`, `quitterLive()`, `launchGame`, `go()`, CSS
-d'embarquement), `d-aona-server/tools/_variantes_verif.js` (parcours),
+d'embarquement), `apps/api/tools/_variantes_verif.js` (parcours),
 `ARCHITECTURE.md`, `PLAN-REFONTE.md` (T9), ce journal.
 
 ## 2026-10-31 — Identité vérifiée par un ADMINISTRATEUR : dossiers recto + verso, back-office modulaire
@@ -4651,9 +4651,9 @@ deux PNG réels et l'attribution du rôle sur la **copie jetable** uniquement.
 (campagne complète, S1 → S13 + SX), exit 0 · campagne isolée `S5,S6` 17/17 et `S12,S13` 40/40 · nettoyage :
 fichiers de diagnostic `_s*.txt` / `_ui.pid` supprimés.
 
-**Fichiers.** `d-aona-server/kyc.js`, `image.js`, `admin/index.js`, `admin/permissions.js`, `admin/store.js`,
+**Fichiers.** `apps/api/kyc.js`, `image.js`, `admin/index.js`, `admin/permissions.js`, `admin/store.js`,
 `admin_grant.js`, `migrations/016_admin.sql`, `server.js`, `test/kyc_fixtures.js`, `test_scenarios.js`,
-`D-aona/d-aona-web/index.html`, `.gitignore`, ce journal — et, côté campagne d'interface, les **morceaux
+`apps/web/index.html`, `.gitignore`, ce journal — et, côté campagne d'interface, les **morceaux
 sources** `test/ui/parts/_p1.js` (fixtures), `_p2.js` (`stateOf` + `ensureAdmin` / `verifyKycViaApi`), `_p6.js`
 (`wizard()`), `_p10.js` (S7), `_p11.js` (S9), `_p13.js` (S12) : `test_ui_scenarios.js` est GÉNÉRÉ par
 `node test/ui/build.js`, une correction faite seulement dans le fichier assemblé disparaît à la reconstruction.
@@ -4716,7 +4716,7 @@ bannières de l'API), vérifie un **contrôle par droit** et le rôle protégé 
 `index.html` : OK · `test_ui_scenarios.js` reconstruit par `node test/ui/build.js` (3 608 lignes), jamais édité
 à la main.
 
-**Fichiers.** `D-aona/d-aona-web/index.html` (CSS `.adm*`, section `#/admin`, état `S.admin`, `adminRefresh`
+**Fichiers.** `apps/web/index.html` (CSS `.adm*`, section `#/admin`, état `S.admin`, `adminRefresh`
 appelé depuis `refreshUser()`, dix vues, `App.adminShow`) · `test/ui/parts/_p2.js` (refus attendus),
 `_p12.js` (liste des scénarios), `_p14.js` (S14) · `test_ui_scenarios.js` (généré) · ce journal.
 

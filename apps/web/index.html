@@ -5542,6 +5542,9 @@ html.kb-open .modal { padding-bottom: calc(var(--sp-4) + var(--kb-inset) * .1 + 
   } catch (e) {}
 })();
 </script>
+<!-- Adresse du backend : même origine par défaut (mode hôte), surchargeable
+     au déploiement. Doit précéder tout script qui parle au réseau. -->
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -6849,7 +6852,10 @@ Object.assign(window, { countdownParts, eloDelta });
 "use strict";
 
 const API = (() => {
-  const base = location.origin;
+  /* Adresse du backend : config.js (déploiement séparé) ou même origine.
+     Aucun autre endroit du fichier ne doit décider de l'adresse de l'API. */
+  const CFG = window.DAONA_CONFIG || {};
+  const base = String(CFG.apiUrl || location.origin).replace(/\/+$/, "");
   let token = localStorage.getItem("daona_token") || null;
   let ws = null;
   let wsReady = false;
@@ -6894,8 +6900,8 @@ const API = (() => {
     const previous = ws;
     if (previous) { try { previous.close(); } catch (e) {} }
     wsReady = false;
-    const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    const socket = new WebSocket(proto + "//" + location.host + "/ws");
+    const wsBase = String(CFG.wsUrl || base.replace(/^http/, "ws")).replace(/\/+$/, "");
+    const socket = new WebSocket(wsBase + "/ws");
     ws = socket;
     /* Chaque gestionnaire vérifie qu'il parle BIEN de la socket courante. Sans
        cette garde, la fermeture tardive d'une socket REMPLACÉE remettait
@@ -6983,6 +6989,10 @@ const API = (() => {
 
   return {
     request, connect, send, on, off, setToken, getToken,
+    /* URL absolue d'une route : les rares appels qui ne passent pas par
+       `request` (téléchargements, flux binaires) gardent la même origine
+       que le reste de l'API. */
+    url: (path) => base + path,
     isConnected: () => wsReady,
   };
 })();
@@ -8494,7 +8504,7 @@ const App = (() => {
   async function wlExport() {
     try {
       const token = API.getToken();
-      const res = await fetch(location.origin + "/api/transactions/export?" + wlFilterParams().toString(), {
+      const res = await fetch(API.url("/api/transactions/export?" + wlFilterParams().toString()), {
         headers: token ? { Authorization: "Bearer " + token } : {},
       });
       if (!res.ok) throw new Error("Export impossible (code " + res.status + ")");

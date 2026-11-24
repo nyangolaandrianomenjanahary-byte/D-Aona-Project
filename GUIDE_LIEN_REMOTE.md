@@ -9,7 +9,7 @@ Ce PC est l'**hôte** : il héberge le serveur de jeu (HTTP + WebSocket + base S
 Double-cliquez sur :
 
 ```
-d-aona-server\LIEN_REMOTE.bat
+apps\api\LIEN_REMOTE.bat
 ```
 
 Ce script fait tout automatiquement :
@@ -41,7 +41,7 @@ Les amis se connectent au WiFi **D-aona-Game**, puis ouvrent :
 http://192.168.137.1:8080
 ```
 
-> Pour réactiver le hotspot plus tard : `d-aona-server\HOTSPOT.bat`
+> Pour réactiver le hotspot plus tard : `apps\api\HOTSPOT.bat`
 > (ou Paramètres → Réseau et Internet → Point d'accès mobile → Activer)
 
 ### 3️⃣ Internet (depuis n'importe où dans le monde)
@@ -80,7 +80,7 @@ Le Bluetooth PAN est possible mais le **hotspot WiFi est bien plus simple** :
 
 ## 🗄️ Base de données du jeu
 
-Fichier : `d-aona-server\d-aona.db` (SQLite, embarquée — rien à installer)
+Fichier : `apps\api\d-aona.db` (SQLite, embarquée — rien à installer)
 
 | Table | Rôle | État |
 |---|---|---|
@@ -96,7 +96,7 @@ Fichier : `d-aona-server\d-aona.db` (SQLite, embarquée — rien à installer)
 
 Vérifier la base à tout moment :
 ```
-node d-aona-server\check_db.js
+node apps\api\check_db.js
 ```
 
 ---
@@ -105,8 +105,8 @@ node d-aona-server\check_db.js
 
 | Action | Commande |
 |---|---|
-| Vérifier l'état de la base | `node d-aona-server\check_db.js` |
-| Diagnostic réseau | `node d-aona-server\diag.js` |
+| Vérifier l'état de la base | `node apps\api\check_db.js` |
+| Diagnostic réseau | `node apps\api\diag.js` |
 
 ---
 
