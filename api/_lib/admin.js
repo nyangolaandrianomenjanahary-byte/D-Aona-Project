@@ -72,20 +72,37 @@ async function authorise(userId, perm) {
   return { ok: false, status: 403, code: "PERMISSION_MANQUANTE", error: `Permission requise : ${perm}` };
 }
 
+async function listModulesPayload() {
+  const rows = await all("SELECT id, enabled, updated_at FROM admin_modules");
+  const state = new Map(rows.map((r) => [r.id, !!r.enabled]));
+  const updated = new Map(rows.map((r) => [r.id, r.updated_at || null]));
+  return Perms.ALL_MODULES.map((id) => ({
+    id,
+    label: Perms.MODULES[id].label,
+    desc: Perms.MODULES[id].desc || null,
+    group: Perms.MODULES[id].group || null,
+    core: !!Perms.MODULES[id].core,
+    actions: Perms.MODULES[id].actions,
+    enabled: state.get(id) !== false,
+    updated_at: updated.get(id) || null,
+  }));
+}
+
 async function mePayload(userId) {
   const roles = await rolesOf(userId);
   const rights = await rightsOf(userId);
-  const mods = await all("SELECT id, enabled, core FROM admin_modules ORDER BY id");
-  const modMap = {};
-  for (const m of mods) modMap[m.id] = !!m.enabled;
+  const permissions = [];
+  for (const [mod, acts] of Object.entries(rights)) {
+    for (const a of acts) permissions.push(`${mod}.${a}`);
+  }
   return {
     roles,
-    isSuper: roles.includes("super_admin"),
+    permissions,
     rights,
-    modules: modMap,
-    catalog: Perms.MODULES,
-    groups: Perms.GROUPS,
-    actions: Perms.ACTIONS,
+    modules: await listModulesPayload(),
+    catalogue: Object.fromEntries(Object.entries(Perms.MODULES).map(([id, m]) => [id, m.actions])),
+    all: Perms.allPermissions(),
+    superAdmin: roles.includes("super_admin"),
   };
 }
 
@@ -184,8 +201,7 @@ async function handleAdmin(req, res, pathname, url, ctx) {
   if (parts[0] === "modules") {
     if (method === "GET" && parts.length === 1) {
       if (!(await guard("modules.read"))) return;
-      const rows = await all("SELECT id, enabled, core, updated_at FROM admin_modules ORDER BY id");
-      return respond(res, { modules: rows.map((r) => ({ ...r, enabled: !!r.enabled, core: !!r.core, meta: Perms.MODULES[r.id] || null })) });
+      return respond(res, { modules: await listModulesPayload() });
     }
     if (method === "POST" && parts.length === 2) {
       if (!(await guard("modules.edit"))) return;
@@ -194,8 +210,7 @@ async function handleAdmin(req, res, pathname, url, ctx) {
       const r = await query("UPDATE admin_modules SET enabled = $1, updated_at = $2 WHERE id = $3", [b.enabled ? 1 : 0, nowSqlUtc(), parts[1]]);
       if (!r.rowCount) return refuse(res, { status: 404, code: "MODULE_INCONNU", error: "Module inconnu" });
       await audit({ actorId: actor.id, actorPseudo: actor.pseudo, action: "modules.toggle", target: `module:${parts[1]}`, detail: { enabled: !!b.enabled }, ip });
-      const rows = await all("SELECT id, enabled, core, updated_at FROM admin_modules ORDER BY id");
-      return respond(res, { ok: true, modules: rows.map((x) => ({ ...x, enabled: !!x.enabled, core: !!x.core })) });
+      return respond(res, { ok: true, modules: await listModulesPayload() });
     }
   }
 
@@ -205,21 +220,30 @@ async function handleAdmin(req, res, pathname, url, ctx) {
       if (!(await guard("roles.read"))) return;
       const roles = await all("SELECT * FROM admin_roles ORDER BY protected DESC, id ASC");
       const grants = await all("SELECT role_id, module, action, allowed FROM admin_grants");
-      const out = roles.map((role) => {
-        const rights = {};
-        if (role.id === "super_admin") {
-          Object.assign(rights, Perms.fullRights());
-        } else {
-          for (const g of grants) {
-            if (g.role_id === role.id && g.allowed) {
-              if (!rights[g.module]) rights[g.module] = [];
-              rights[g.module].push(g.action);
-            }
-          }
+      const counts = await all("SELECT role_id, COUNT(*)::int AS c FROM admin_assignments GROUP BY role_id");
+      const countBy = new Map(counts.map((c) => [c.role_id, c.c]));
+      const byRole = new Map();
+      for (const g of grants) {
+        if (!byRole.has(g.role_id)) byRole.set(g.role_id, {});
+        const map = byRole.get(g.role_id);
+        if (!map[g.module]) map[g.module] = {};
+        map[g.module][g.action] = !!g.allowed;
+      }
+      const fullRightsMap = () => {
+        const out = {};
+        for (const m of Perms.ALL_MODULES) {
+          out[m] = {};
+          for (const a of Perms.MODULES[m].actions) out[m][a] = true;
         }
-        return { ...role, protected: !!role.protected, rights };
-      });
-      return respond(res, { roles: out, modules: Perms.MODULES, actions: Perms.ACTIONS });
+        return out;
+      };
+      const out = roles.map((role) => ({
+        ...role,
+        protected: !!role.protected,
+        members: countBy.get(role.id) || 0,
+        rights: role.protected ? fullRightsMap() : (byRole.get(role.id) || {}),
+      }));
+      return respond(res, { roles: out, modules: await listModulesPayload(), actions: Perms.ACTIONS });
     }
     if (method === "POST" && parts.length === 2) {
       if (!(await guard("roles.edit"))) return;
@@ -275,7 +299,17 @@ async function handleAdmin(req, res, pathname, url, ctx) {
   if (method === "GET" && parts[0] === "audit" && parts.length === 1) {
     if (!(await guard("audit.read"))) return;
     const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit"), 10) || 100, 1), 500);
-    const entries = await all("SELECT * FROM admin_audit ORDER BY id DESC LIMIT $1", [limit]);
+    const rows = await all("SELECT * FROM admin_audit ORDER BY id DESC LIMIT $1", [limit]);
+    const entries = rows.map((r) => ({
+      id: r.id,
+      at: r.at,
+      actor_id: r.actor_id,
+      actor_pseudo: r.actor_pseudo,
+      action: r.action,
+      target: r.target,
+      detail: r.detail_json ? (() => { try { return JSON.parse(r.detail_json); } catch (_) { return null; } })() : null,
+      ip: r.ip,
+    }));
     return respond(res, { entries });
   }
 
@@ -286,26 +320,99 @@ async function handleAdmin(req, res, pathname, url, ctx) {
       const q = (url.searchParams.get("q") || "").trim();
       const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit"), 10) || 200, 1), 500);
       const users = q
-        ? await all("SELECT id, pseudo, email, phone, elo, wins, losses, balance, bonus_lock, kyc, province, created_at, last_seen FROM users WHERE pseudo ILIKE $1 ORDER BY id DESC LIMIT $2", [`%${q}%`, limit])
-        : await all("SELECT id, pseudo, email, phone, elo, wins, losses, balance, bonus_lock, kyc, province, created_at, last_seen FROM users ORDER BY id DESC LIMIT $1", [limit]);
-      return respond(res, { users: users.map((u) => ({ ...u, kyc: !!u.kyc })) });
+        ? await all("SELECT id, pseudo, email, phone, elo, wins, losses, balance, bonus_lock, kyc, province, avatar, created_at, last_seen FROM users WHERE pseudo ILIKE $1 ORDER BY elo DESC LIMIT $2", [`%${q}%`, limit])
+        : await all("SELECT id, pseudo, email, phone, elo, wins, losses, balance, bonus_lock, kyc, province, avatar, created_at, last_seen FROM users ORDER BY elo DESC LIMIT $1", [limit]);
+      const kycRows = await all("SELECT user_id, status FROM kyc_cases ORDER BY id ASC");
+      const kycMap = new Map(kycRows.map((r) => [r.user_id, r.status]));
+      const blkRows = await all("SELECT user_id, reason FROM user_sanctions WHERE kind = 'block' AND lifted_at IS NULL");
+      const blkMap = new Map(blkRows.map((r) => [r.user_id, r.reason]));
+      const roleRows = await all("SELECT user_id, role_id FROM admin_assignments ORDER BY role_id");
+      const roleMap = new Map();
+      for (const r of roleRows) {
+        if (!roleMap.has(r.user_id)) roleMap.set(r.user_id, []);
+        roleMap.get(r.user_id).push(r.role_id);
+      }
+      const lgRows = await all(
+        `SELECT player_id, MAX(t) AS t FROM (
+           SELECT player1_id AS player_id, updated_at AS t FROM game_sessions
+           UNION ALL SELECT player2_id, updated_at FROM game_sessions
+           UNION ALL SELECT player1_id, created_at FROM games
+           UNION ALL SELECT player2_id, created_at FROM games
+         ) s GROUP BY player_id`
+      );
+      const lgMap = new Map(lgRows.map((r) => [r.player_id, r.t]));
+      return respond(res, {
+        users: users.map((u) => ({
+          ...u,
+          kyc: !!u.kyc,
+          kyc_status: u.kyc ? "verified" : (kycMap.get(u.id) || "none"),
+          roles: roleMap.get(u.id) || [],
+          blocked: blkMap.has(u.id),
+          sanction_reason: blkMap.get(u.id) || null,
+          last_game_at: lgMap.get(u.id) || null,
+        })),
+      });
     }
     if (method === "GET" && parts.length === 2) {
       if (!(await guard("users.read"))) return;
       const id = parseInt(parts[1], 10);
       const u = await User.getById(id);
       if (!u) return refuse(res, { status: 404, code: "JOUEUR_INCONNU", error: "Joueur introuvable" });
+      const jeu = await one(
+        `SELECT MAX(t) AS t FROM (
+           SELECT MAX(updated_at) AS t FROM game_sessions WHERE player1_id = $1 OR player2_id = $1
+           UNION ALL SELECT MAX(created_at) AS t FROM games WHERE player1_id = $1 OR player2_id = $1
+         ) s`,
+        [id]
+      );
+      const c = await one(
+        `SELECT id, status, reason, submitted_at, reviewed_at,
+                recto_path, verso_path, bytes_recto, bytes_verso, recto_sha, verso_sha,
+                face_path, face_bytes, face_captured_at, retention_until
+         FROM kyc_cases WHERE user_id = $1 ORDER BY id DESC LIMIT 1`,
+        [id]
+      );
+      const blk = await one(
+        "SELECT reason FROM user_sanctions WHERE user_id = $1 AND kind = 'block' AND lifted_at IS NULL ORDER BY id DESC LIMIT 1",
+        [id]
+      );
       return respond(res, {
-        user: u,
-        balance: await Finance.balanceOf(id),
-        sanctions: await Sanction.history(id),
-        blocked: await Sanction.isBlocked(id),
+        id: u.id,
+        pseudo: u.pseudo,
+        phone: u.phone || null,
+        email: u.email || null,
+        province: u.province || null,
+        avatar: u.avatar || null,
+        elo: u.elo,
+        wins: u.wins,
+        losses: u.losses,
+        balance: u.balance,
+        bonus_lock: u.bonus_lock,
+        created_at: u.created_at,
+        last_seen: u.last_seen,
+        last_game_at: (jeu && jeu.t) || null,
+        kyc_status: u.kyc ? "verified" : (c ? c.status : "none"),
+        kyc_case: c ? {
+          id: c.id,
+          status: c.status,
+          reason: c.reason || null,
+          submitted_at: c.submitted_at,
+          reviewed_at: c.reviewed_at,
+          faces: { recto: !!c.recto_path, verso: !!c.verso_path },
+          bytes: { recto: c.bytes_recto, verso: c.bytes_verso },
+          sha8: { recto: String(c.recto_sha || "").slice(0, 8), verso: String(c.verso_sha || "").slice(0, 8) },
+          face: { present: !!c.face_path, captured_at: c.face_captured_at || null },
+          retention_until: c.retention_until || null,
+        } : null,
+        roles: await rolesOf(id),
+        blocked: !!blk,
+        sanction_reason: blk ? blk.reason : null,
       });
     }
     if (method === "POST" && parts.length === 2) {
       const id = parseInt(parts[1], 10);
       const b = await ctx.body();
-      const act = b.action;
+      const act = b.action === "revoke-kyc" ? "kyc_revoke" : b.action;
       if (!(await guard(act === "block" || act === "unblock" || act === "warning" || act === "kyc_revoke" ? "users.review" : "users.edit"))) return;
       const target = await User.getById(id);
       if (!target) return refuse(res, { status: 404, code: "JOUEUR_INCONNU", error: "Joueur introuvable" });
@@ -328,9 +435,15 @@ async function handleAdmin(req, res, pathname, url, ctx) {
       const status = url.searchParams.get("status") || "pending";
       const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit"), 10) || 100, 1), 300);
       const rows = status === "all"
-        ? await all("SELECT k.id, k.user_id, k.status, k.reason, k.submitted_at, k.reviewed_at, k.face_path, k.face_required, u.pseudo, u.email, u.phone, u.first_name, u.last_name, u.birth_date FROM kyc_cases k LEFT JOIN users u ON u.id = k.user_id ORDER BY k.id DESC LIMIT $1", [limit])
-        : await all("SELECT k.id, k.user_id, k.status, k.reason, k.submitted_at, k.reviewed_at, k.face_path, k.face_required, u.pseudo, u.email, u.phone, u.first_name, u.last_name, u.birth_date FROM kyc_cases k LEFT JOIN users u ON u.id = k.user_id WHERE k.status = $1 ORDER BY k.id ASC LIMIT $2", [status, limit]);
-      return respond(res, { cases: rows.map((c) => ({ ...c, hasFace: !!c.face_path, faceRequired: !!c.face_required })) });
+        ? await all("SELECT k.id, k.user_id, k.status, k.reason, k.submitted_at, k.reviewed_at, k.bytes_recto, k.bytes_verso, k.face_path, k.face_required, u.pseudo, u.email, u.phone, u.first_name, u.last_name, u.birth_date FROM kyc_cases k LEFT JOIN users u ON u.id = k.user_id ORDER BY k.id DESC LIMIT $1", [limit])
+        : await all("SELECT k.id, k.user_id, k.status, k.reason, k.submitted_at, k.reviewed_at, k.bytes_recto, k.bytes_verso, k.face_path, k.face_required, u.pseudo, u.email, u.phone, u.first_name, u.last_name, u.birth_date FROM kyc_cases k LEFT JOIN users u ON u.id = k.user_id WHERE k.status = $1 ORDER BY k.id ASC LIMIT $2", [status, limit]);
+      const countRows = await all("SELECT status, COUNT(*)::int AS c FROM kyc_cases GROUP BY status");
+      const counts = { pending: 0, verified: 0, rejected: 0 };
+      for (const r of countRows) counts[r.status] = r.c;
+      return respond(res, {
+        counts,
+        cases: rows.map((c) => ({ ...c, has_face: !!c.face_path, hasFace: !!c.face_path, faceRequired: !!c.face_required })),
+      });
     }
     if (method === "GET" && parts.length === 4 && parts[2] === "doc") {
       if (!(await guard("kyc.read"))) return;
@@ -389,12 +502,25 @@ async function handleAdmin(req, res, pathname, url, ctx) {
   /* ---------- Finance & Withdrawals ---------- */
   if (parts[0] === "finance" && method === "GET" && parts.length === 1) {
     if (!(await guard("finance.read"))) return;
-    const sum = await one("SELECT COALESCE(SUM(balance),0)::bigint AS bal, COALESCE(SUM(bonus_lock),0)::bigint AS lock FROM users");
-    const wd = await one("SELECT COALESCE(SUM(amount),0)::bigint AS pending FROM withdrawals WHERE status IN ('pending','approved')");
+    const sum = await one("SELECT COALESCE(SUM(balance),0)::bigint AS bal, COALESCE(SUM(bonus_lock),0)::bigint AS lock, COUNT(*)::int AS players FROM users");
+    const wd = await one(
+      `SELECT
+         COALESCE(SUM(CASE WHEN status IN ('pending','approved') THEN amount ELSE 0 END), 0)::bigint AS engaged,
+         COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0)::bigint AS paid,
+         COALESCE(SUM(CASE WHEN status = 'rejected' THEN amount ELSE 0 END), 0)::bigint AS refused
+       FROM withdrawals`
+    );
+    const flows = await all("SELECT dir, COALESCE(SUM(amount),0)::bigint AS total, COUNT(*)::int AS count FROM transactions GROUP BY dir");
+    const byDir = Object.fromEntries(flows.map((f) => [f.dir, { total: Number(f.total || 0), count: f.count }]));
     return respond(res, {
-      totalBalance: Number(sum ? sum.bal : 0),
-      totalBonusLock: Number(sum ? sum.lock : 0),
-      totalPendingWithdrawals: Number(wd ? wd.pending : 0),
+      players: sum ? sum.players : 0,
+      balance: Number(sum ? sum.bal : 0),
+      bonus: Number(sum ? sum.lock : 0),
+      engaged: Number(wd ? wd.engaged : 0),
+      paid: Number(wd ? wd.paid : 0),
+      refused: Number(wd ? wd.refused : 0),
+      inflow: byDir.in || { total: 0, count: 0 },
+      outflow: byDir.out || { total: 0, count: 0 },
     });
   }
 
@@ -409,7 +535,12 @@ async function handleAdmin(req, res, pathname, url, ctx) {
       res.setHeader("Content-Disposition", 'attachment; filename="d-aona-accounting.csv"');
       return res.end(DATA.txCsv(rows));
     }
-    return respond(res, { transactions: rows, ledger: rows });
+    const byActivity = {};
+    for (const r of rows) {
+      const k = DATA.txKind ? DATA.txKind(r) : (r.dir || "autre");
+      byActivity[k] = (byActivity[k] || 0) + Number(r.amount || 0);
+    }
+    return respond(res, { transactions: rows, ledger: rows, byActivity });
   }
 
   if (parts[0] === "withdrawals") {
@@ -639,28 +770,57 @@ async function handleAdmin(req, res, pathname, url, ctx) {
   }
 
   if (parts[0] === "settings") {
+    const DEFAULTS = {
+      platform_name: { type: "text", value: "D-aôna", label: "Nom de la plateforme" },
+      contact: { type: "text", value: "admin@daona.mg", label: "Contact de support" },
+      timezone: { type: "text", value: "Indian/Antananarivo", label: "Fuseau horaire" },
+      registrations_open: { type: "bool", value: "true", label: "Inscriptions ouvertes" },
+      maintenance: { type: "bool", value: "false", label: "Mode maintenance" },
+      kyc_face_required: { type: "bool", value: "false", label: "Exiger le scan facial (KYC)" },
+    };
+    const buildSettings = async () => {
+      const rows = await all("SELECT key, value, updated_at FROM platform_settings");
+      const byKey = new Map(rows.map((r) => [r.key, r]));
+      const out = {};
+      for (const [key, def] of Object.entries(DEFAULTS)) {
+        const dbKey = key === "maintenance" ? "maintenance_mode" : key;
+        const row = byKey.get(key) || byKey.get(dbKey);
+        const raw = row ? row.value : def.value;
+        out[key] = {
+          key,
+          label: def.label,
+          type: def.type,
+          value: def.type === "bool" ? (raw === "1" || raw === "true") : raw,
+          updatedAt: row ? row.updated_at : null,
+        };
+      }
+      return out;
+    };
     if (method === "GET" && parts.length === 1) {
       if (!(await guard("settings.read"))) return;
-      return respond(res, { settings: await Settings.all() });
+      return respond(res, { settings: await buildSettings() });
     }
     if (method === "POST" && parts.length === 1) {
       if (!(await guard("settings.edit"))) return;
       const b = await ctx.body();
       const map = {
         platform_name: b.platformName ?? b.platform_name,
+        contact: b.contact,
+        timezone: b.timezone,
         registrations_open: b.registrationsOpen ?? b.registrations_open,
-        maintenance_mode: b.maintenanceMode ?? b.maintenance_mode,
+        maintenance_mode: b.maintenanceMode ?? b.maintenance_mode ?? b.maintenance,
         kyc_face_required: b.kycFaceRequired ?? b.kyc_face_required,
       };
       for (const [k, v] of Object.entries(map)) {
         if (v === undefined) continue;
         await query(
           "INSERT INTO platform_settings (key, value, updated_at) VALUES ($1,$2,$3) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=EXCLUDED.updated_at",
-          [k, String(v), nowSqlUtc()]
+          [k, typeof v === "boolean" ? (v ? "true" : "false") : String(v), nowSqlUtc()]
         );
       }
       await query("UPDATE platform_settings SET value = (COALESCE(NULLIF(value,'')::int,0)+1)::text, updated_at = $1 WHERE key = 'revision'", [nowSqlUtc()]);
-      return respond(res, { ok: true, settings: await Settings.all() });
+      await audit({ actorId: actor.id, actorPseudo: actor.pseudo, action: "settings.edit", target: "platform_settings", detail: map, ip });
+      return respond(res, { ok: true, settings: await buildSettings() });
     }
   }
 

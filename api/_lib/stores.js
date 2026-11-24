@@ -43,8 +43,8 @@ const Settings = {
       if (key === "maintenance_mode" || key === "kyc_face_required") return false;
       return null;
     }
-    if (r.value === "true") return true;
-    if (r.value === "false") return false;
+    if (r.value === "true" || r.value === "1") return true;
+    if (r.value === "false" || r.value === "0") return false;
     return r.value;
   },
 };
