@@ -315,6 +315,25 @@ function handleRest(req, res, url, userId) {
       return respond(res, { pubs: Admin.Store.adsActive(position) });
     }
 
+    /* GET /api/config — référentiels de l'interface (formats, plateaux,
+       provinces, opérateurs) ET mode de fonctionnement du temps réel.
+       PUBLIQUE, et volontairement : le client interroge cette route AVANT
+       toute session pour savoir comment ouvrir son temps réel — WebSocket
+       « /ws » (ce serveur, mode A) ou Supabase Realtime (mode B, serverless).
+       La placer derrière la session produisait un 401 systématique dans la
+       console du navigateur, et le client se rabattait sur un mode par défaut. */
+    if (method === "GET" && pathname === "/api/config") {
+      return respond(res, {
+        serverless: false,        /* ce serveur tient de vraies WebSockets */
+        realtimeEnabled: false,   /* mode A : /ws, jamais Supabase Realtime */
+        version: CONFIG.version,
+        formats: DATA.FORMATS,
+        games: DATA.GAMES_CATALOG,
+        provinces: DATA.PROVINCES,
+        operators: DATA.OPERATORS,
+      });
+    }
+
     if (!userId) return respond(res, { error: "Non authentifié" }, 401);
     if (!user) return respond(res, { error: "Utilisateur introuvable" }, 404);
 
@@ -772,9 +791,6 @@ function handleRest(req, res, url, userId) {
     }
 
     // GET /api/config
-    if (method === "GET" && pathname === "/api/config")
-      return respond(res, { formats: DATA.FORMATS, games: DATA.GAMES_CATALOG, provinces: DATA.PROVINCES, operators: DATA.OPERATORS });
-
     // GET /api/games/history
     if (method === "GET" && pathname === "/api/games/history")
       return respond(res, { games: GameRecord.listForUser(user.id) });
